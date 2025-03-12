@@ -24,11 +24,11 @@ def methane_oxidation(C, t, g_s, Vmax, Km, Pi, J_ETC, n_MMO, T, k_L):
     P_CH4 = g_s * (C_atm / P_atm)  # Partial pressure of CH4
     C_cyt_eq = H_CH4 * P_CH4  # Equilibrium dissolved CH4 concentration
     
-    # Methane solubility-based transfer into cytosol
-    J_CH4 = k_L * (C_cyt_eq - C_cyt)
+    # Methane solubility-based transfer into cytosol with buffering effect
+    J_CH4 = (k_L * (C_cyt_eq - C_cyt)) / (1 + k_L)
     
-    # sMMO enzymatic oxidation in cytosol, scaled by number of MMO molecules
-    V_MMO = n_MMO * Vmax * (C_cyt / (Km + C_cyt)) * (1 - Pi / 100)  # Osmolarity effect
+    # sMMO enzymatic oxidation in cytosol, constrained by methane availability
+    V_MMO = min(n_MMO * Vmax * (C_cyt / (Km + C_cyt)) * (1 - Pi / 100), J_CH4)
     
     # Electron supply constraint
     V_MMO = min(V_MMO, J_ETC * Y_NADH)
@@ -66,7 +66,7 @@ ax.plot(time, sol[:, 2], label="Methanol (CH3OH)")
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Concentration (ppm or relative)")
 ax.legend()
-ax.set_title("Methane Oxidation in Cytosol - Aram Mikaelyan")
+ax.set_title("Aram Mikaelyan, NCSU")
 st.pyplot(fig)
 
 # Display equations
@@ -74,7 +74,7 @@ st.sidebar.markdown("### Model Equations")
 st.sidebar.latex(r"H_{CH_4} = H_0 \cdot e^{-\alpha (T - 25)} \cdot (1 - \beta \Pi)")
 st.sidebar.latex(r"P_{CH_4} = g_s \cdot \frac{C_{atm}}{P_{atm}}")
 st.sidebar.latex(r"C_{cyt, eq} = H_{CH_4} \cdot P_{CH_4}")
-st.sidebar.latex(r"J_{CH_4} = k_L \cdot (C_{cyt, eq} - C_{cyt})")
-st.sidebar.latex(r"V_{MMO} = n_{MMO} \cdot V_{max} \cdot \frac{C_{cyt}}{K_M + C_{cyt}} \cdot (1 - \frac{\Pi}{100})")
+st.sidebar.latex(r"J_{CH_4} = \frac{k_L \cdot (C_{cyt, eq} - C_{cyt})}{1 + k_L}")
+st.sidebar.latex(r"V_{MMO} = \min\left(n_{MMO} \cdot V_{max} \cdot \frac{C_{cyt}}{K_M + C_{cyt}} \cdot (1 - \frac{\Pi}{100}), J_{CH_4}\right)")
 st.sidebar.latex(r"V_{MMO} = \min(V_{MMO}, J_{ETC} \cdot Y_{NADH})")
 st.sidebar.latex(r"\frac{d[CH_3OH]}{dt} = V_{MMO} - k_{MeOH} [CH_3OH]")
