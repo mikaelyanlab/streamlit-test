@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 
 # Define the model parameters
-def methane_oxidation(C, t, C_atm, g_s, Vmax, Km, Pi, J_ETC, n_MMO, T, k_L):
+def methane_oxidation(C, t, C_atm, g_s, Vmax, Km, Pi, J_ETC, n_MMO, T, k_L, V_cell):
     C_cyt, CH3OH = C  # Unpacking state variables
     
     P_atm = 1.0  # Atmospheric pressure (atm)
@@ -27,8 +27,11 @@ def methane_oxidation(C, t, C_atm, g_s, Vmax, Km, Pi, J_ETC, n_MMO, T, k_L):
     # Methane solubility-based transfer into cytosol
     J_CH4 = k_L * (C_cyt_eq - C_cyt)  # Removed buffering denominator
     
-    # sMMO enzymatic oxidation in cytosol, now independent of J_CH4
-    V_MMO = n_MMO * Vmax * (C_cyt / (Km + C_cyt)) * (1 - Pi / 100)
+    # Convert number of MMO molecules to concentration in mmol/L
+    E_MMO = n_MMO / (6.022e23 * V_cell)  # Convert molecules to molarity using Avogadro’s number
+    
+    # sMMO enzymatic oxidation in cytosol, now using concentration of MMO
+    V_MMO = E_MMO * Vmax * (C_cyt / (Km + C_cyt)) * (1 - Pi / 100)
     
     # Electron supply constraint
     V_MMO = min(V_MMO, J_ETC * Y_NADH)
@@ -55,10 +58,17 @@ n_MMO = st.sidebar.slider("Number of sMMO Molecules per Cell", 1, 10000, 1000)
 T = st.sidebar.slider("Temperature (°C)", 5, 45, 25)
 k_L = st.sidebar.slider("Mass Transfer Coefficient (k_L, m/s)", 0.001, 0.1, 0.01)
 
+# Assume a bacterial cell volume
+V_cell = 1e-15  # L (for a typical bacterial cell)
+
+# Display equivalent molarity of MMO
+E_MMO = n_MMO / (6.022e23 * V_cell)
+st.sidebar.write(f"Equivalent MMO Concentration: {E_MMO:.4e} mmol/L")
+
 # Solve ODEs
 time = np.linspace(0, 100, 500)
 C0 = [0.2, 0.1]  # Initial concentrations [C_cyt, CH3OH]
-sol = odeint(methane_oxidation, C0, time, args=(C_atm, g_s, Vmax, Km, Pi, J_ETC, n_MMO, T, k_L))
+sol = odeint(methane_oxidation, C0, time, args=(C_atm, g_s, Vmax, Km, Pi, J_ETC, n_MMO, T, k_L, V_cell))
 
 # Plot results
 fig, ax = plt.subplots()
@@ -67,7 +77,7 @@ ax.plot(time, sol[:, 1], label="Methanol (CH3OH)")
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Concentration (mmol/L)")
 ax.legend()
-ax.set_title("Aram Mikaelyan")
+ax.set_title("Methane Oxidation in Cytosol - Aram Mikaelyan")
 st.pyplot(fig)
 
 # Display equations
@@ -76,6 +86,7 @@ st.sidebar.latex(r"H_{CH_4} = H_0 \cdot e^{-\alpha (T - 25)} \cdot (1 - \beta \P
 st.sidebar.latex(r"P_{CH_4} = g_s \cdot \frac{C_{atm}}{P_{atm}}")
 st.sidebar.latex(r"C_{cyt, eq} = H_{CH_4} \cdot P_{CH_4}")
 st.sidebar.latex(r"J_{CH_4} = k_L \cdot (C_{cyt, eq} - C_{cyt})")
-st.sidebar.latex(r"V_{MMO} = n_{MMO} \cdot V_{max} \cdot \frac{C_{cyt}}{K_M + C_{cyt}} \cdot (1 - \frac{\Pi}{100})")
+st.sidebar.latex(r"E_{MMO} = \frac{n_{MMO}}{N_A \cdot V_{cell}}")
+st.sidebar.latex(r"V_{MMO} = E_{MMO} \cdot V_{max} \cdot \frac{C_{cyt}}{K_M + C_{cyt}} \cdot (1 - \frac{\Pi}{100})")
 st.sidebar.latex(r"V_{MMO} = \min(V_{MMO}, J_{ETC} \cdot Y_{NADH})")
 st.sidebar.latex(r"\frac{d[CH_3OH]}{dt} = V_{MMO} - k_{MeOH} [CH_3OH]")
