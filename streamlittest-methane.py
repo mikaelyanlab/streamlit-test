@@ -83,4 +83,10 @@ st.pyplot(fig)
 # Display equations
 st.sidebar.markdown("### Model Equations")
 st.sidebar.latex(r"H_{CH_4} = H_0 \cdot e^{-\alpha (T - 25)} \cdot (1 - \beta \Pi)")
-st.sidebar.latex(r"P_{CH_4} = g_s \
+st.sidebar.latex(r"P_{CH_4} = g_s \cdot \frac{C_{atm}}{P_{atm}}")
+st.sidebar.latex(r"C_{cyt, eq} = H_{CH_4} \cdot P_{CH_4}")
+st.sidebar.latex(r"J_{CH_4} = k_L \cdot (C_{cyt, eq} - C_{cyt})")
+st.sidebar.latex(r"E_{MMO} = \frac{n_{MMO}}{N_A \cdot V_{cell}}")
+st.sidebar.latex(r"V_{MMO} = E_{MMO} \cdot V_{max} \cdot \frac{C_{cyt}}{K_M + C_{cyt}} \cdot (1 - \frac{\Pi}{100})")
+st.sidebar.latex(r"\frac{d[CH_3OH]}{dt} = V_{MMO} - k_{MeOH} [CH_3OH]")
+st.sidebar.latex(r"\frac{dO_2}{dt} = -V_{MMO}")
