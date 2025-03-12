@@ -5,17 +5,15 @@ from scipy.integrate import odeint
 
 # Define the model parameters
 def methane_oxidation(C, t, g_s, Vmax, Km, Pi, J_ETC, n_MMO, T, k_L):
+    C_cyt, CH3OH = C  # Unpacking state variables
+    
     C_atm = 1.8  # Atmospheric methane concentration (ppm)
-    D_CH4 = 0.02  # Diffusion coefficient of methane
-    d = 10e-6  # Distance in meters
-    Y_NADH = 2  # NADH yield per electron
-    k_MeOH = 0.05  # Methanol oxidation rate
     P_atm = 1.0  # Atmospheric pressure (atm)
     H_0 = 1.4  # Henry's Law constant at reference temperature (25C)
     alpha = 0.02  # Temperature sensitivity coefficient
     beta = 0.01  # Osmotic effect coefficient
-    
-    C_int, C_cyt, CH3OH = C  # Unpacking state variables
+    Y_NADH = 2  # NADH yield per electron
+    k_MeOH = 0.05  # Methanol oxidation rate
     
     # Adjust Henry's Law constant based on temperature and osmolarity
     H_CH4 = H_0 * np.exp(-alpha * (T - 25)) * (1 - beta * Pi)
@@ -34,11 +32,10 @@ def methane_oxidation(C, t, g_s, Vmax, Km, Pi, J_ETC, n_MMO, T, k_L):
     V_MMO = min(V_MMO, J_ETC * Y_NADH)
     
     # Methanol formation and oxidation
-    dC_int_dt = J_CH4  # CH4 moves into cytosol
     dC_cyt_dt = J_CH4 - V_MMO  # Cytosolic CH4 consumption
     dCH3OH_dt = V_MMO - k_MeOH * CH3OH  # Methanol dynamics
     
-    return [dC_int_dt, dC_cyt_dt, dCH3OH_dt]
+    return [dC_cyt_dt, dCH3OH_dt]
 
 # Streamlit UI
 st.title("Methane Oxidation in Cytosol (sMMO) with Solubility")
@@ -55,14 +52,13 @@ k_L = st.sidebar.slider("Mass Transfer Coefficient (k_L, m/s)", 0.001, 0.1, 0.01
 
 # Solve ODEs
 time = np.linspace(0, 100, 500)
-C0 = [0.5, 0.2, 0.1]  # Initial concentrations
+C0 = [0.2, 0.1]  # Initial concentrations [C_cyt, CH3OH]
 sol = odeint(methane_oxidation, C0, time, args=(g_s, Vmax, Km, Pi, J_ETC, n_MMO, T, k_L))
 
 # Plot results
 fig, ax = plt.subplots()
-ax.plot(time, sol[:, 0], label="C_int (Intercellular CH4)")
-ax.plot(time, sol[:, 1], label="C_cyt (Cytosolic CH4)")
-ax.plot(time, sol[:, 2], label="Methanol (CH3OH)")
+ax.plot(time, sol[:, 0], label="C_cyt (Cytosolic CH4)")
+ax.plot(time, sol[:, 1], label="Methanol (CH3OH)")
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Concentration (mmol/L)")
 ax.legend()
