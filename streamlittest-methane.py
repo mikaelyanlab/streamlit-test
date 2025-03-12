@@ -4,16 +4,18 @@ import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 
 # Define the model parameters
-def methane_oxidation(C, t, g_s, Vmax, Km, Pi, J_ETC, n_MMO, T, k_L):
+def methane_oxidation(C, t, C_atm, g_s, Vmax, Km, Pi, J_ETC, n_MMO, T, k_L):
     C_cyt, CH3OH = C  # Unpacking state variables
     
-    C_atm = 1.8  # Atmospheric methane concentration (ppm)
     P_atm = 1.0  # Atmospheric pressure (atm)
     H_0 = 1.4  # Henry's Law constant at reference temperature (25C)
     alpha = 0.02  # Temperature sensitivity coefficient
     beta = 0.01  # Osmotic effect coefficient
     Y_NADH = 2  # NADH yield per electron
     k_MeOH = 0.05  # Methanol oxidation rate
+    
+    # Convert atmospheric methane from ppm to mmol/L
+    C_atm_mmolL = C_atm * 0.0409  # 1 ppm CH4 = 0.0409 mmol/L at 1 atm
     
     # Adjust Henry's Law constant based on temperature and osmolarity
     H_CH4 = H_0 * np.exp(-alpha * (T - 25)) * (1 - beta * Pi)
@@ -41,6 +43,9 @@ def methane_oxidation(C, t, g_s, Vmax, Km, Pi, J_ETC, n_MMO, T, k_L):
 st.title("Methane Oxidation in Cytosol (sMMO) with Solubility")
 st.sidebar.header("Adjust Model Parameters")
 
+C_atm = st.sidebar.slider("Atmospheric CH4 (ppm)", 0.1, 10.0, 1.8)
+st.sidebar.write(f"Equivalent CH4 in mmol/L: {C_atm * 0.0409:.4f} mmol/L")
+
 g_s = st.sidebar.slider("Stomatal Conductance (g_s)", 0.01, 0.2, 0.05)
 Vmax = st.sidebar.slider("Max sMMO Activity (Vmax)", 0.1, 2.0, 1.0)
 Km = st.sidebar.slider("Methane Affinity (Km)", 0.1, 2.0, 0.5)
@@ -53,7 +58,7 @@ k_L = st.sidebar.slider("Mass Transfer Coefficient (k_L, m/s)", 0.001, 0.1, 0.01
 # Solve ODEs
 time = np.linspace(0, 100, 500)
 C0 = [0.2, 0.1]  # Initial concentrations [C_cyt, CH3OH]
-sol = odeint(methane_oxidation, C0, time, args=(g_s, Vmax, Km, Pi, J_ETC, n_MMO, T, k_L))
+sol = odeint(methane_oxidation, C0, time, args=(C_atm, g_s, Vmax, Km, Pi, J_ETC, n_MMO, T, k_L))
 
 # Plot results
 fig, ax = plt.subplots()
