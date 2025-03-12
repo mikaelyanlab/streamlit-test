@@ -64,9 +64,9 @@ ax.plot(time, sol[:, 0], label="C_int (Intercellular CH4)")
 ax.plot(time, sol[:, 1], label="C_cyt (Cytosolic CH4)")
 ax.plot(time, sol[:, 2], label="Methanol (CH3OH)")
 ax.set_xlabel("Time (s)")
-ax.set_ylabel("Concentration (ppm or relative)")
+ax.set_ylabel("Concentration (mmol/L)")
 ax.legend()
-ax.set_title("Aram Mikaelyan, NCSU")
+ax.set_title("Methane Oxidation in Cytosol - Aram Mikaelyan")
 st.pyplot(fig)
 
 # Display equations
