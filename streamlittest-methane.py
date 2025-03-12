@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 
 # Define the model parameters
-def methane_oxidation(C, t, C_atm, g_s, Vmax, Km, Pi, J_ETC, n_MMO, T, k_L, V_cell):
+def methane_oxidation(C, t, C_atm, g_s, Vmax, Km, Pi, J_ETC, n_MMO, O2, T, k_L, V_cell):
     C_cyt, CH3OH = C  # Unpacking state variables
     
     P_atm = 1.0  # Atmospheric pressure (atm)
@@ -36,7 +36,7 @@ def methane_oxidation(C, t, C_atm, g_s, Vmax, Km, Pi, J_ETC, n_MMO, T, k_L, V_ce
     V_MMO = E_MMO * Vmax * (C_cyt / (Km + C_cyt)) * (1 - Pi / 100)
     
     # Apply constraints based on oxygen and electron availability
-    V_MMO = min(V_MMO, J_ETC * Y_NADH / e_ratio)
+    V_MMO = min(V_MMO, J_ETC * Y_NADH / e_ratio, O2 / O2_ratio)
     
     # Methanol formation and oxidation
     dC_cyt_dt = J_CH4 - V_MMO  # Cytosolic CH4 consumption
@@ -57,6 +57,7 @@ Km = st.sidebar.slider("Methane Affinity (Km)", 0.1, 2.0, 0.5)
 Pi = st.sidebar.slider("Cytosolic Osmolarity (%)", 0, 100, 50)
 J_ETC = st.sidebar.slider("Electron Transport (J_ETC)", 0.1, 3.0, 1.5)
 n_MMO = st.sidebar.slider("Number of sMMO Molecules per Cell", 1, 10000, 1000)
+O2 = st.sidebar.slider("Cytosolic Oxygen (mmol/L)", 0.01, 2.0, 0.5)
 T = st.sidebar.slider("Temperature (°C)", 5, 45, 25)
 k_L = st.sidebar.slider("Mass Transfer Coefficient (k_L, m/s)", 0.001, 0.1, 0.01)
 
@@ -70,7 +71,7 @@ st.sidebar.write(f"Equivalent MMO Concentration: {E_MMO:.4e} mmol/L")
 # Solve ODEs
 time = np.linspace(0, 100, 500)
 C0 = [0.2, 0.1]  # Initial concentrations [C_cyt, CH3OH]
-sol = odeint(methane_oxidation, C0, time, args=(C_atm, g_s, Vmax, Km, Pi, J_ETC, n_MMO, T, k_L, V_cell))
+sol = odeint(methane_oxidation, C0, time, args=(C_atm, g_s, Vmax, Km, Pi, J_ETC, n_MMO, O2, T, k_L, V_cell))
 
 # Plot results
 fig, ax = plt.subplots()
@@ -79,7 +80,7 @@ ax.plot(time, sol[:, 1], label="Methanol (CH3OH)")
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Concentration (mmol/L)")
 ax.legend()
-ax.set_title("Aram Mikaelyan, NCSU")
+ax.set_title("Methane Oxidation in Cytosol - Aram Mikaelyan")
 st.pyplot(fig)
 
 # Display equations
@@ -90,5 +91,5 @@ st.sidebar.latex(r"C_{cyt, eq} = H_{CH_4} \cdot P_{CH_4}")
 st.sidebar.latex(r"J_{CH_4} = k_L \cdot (C_{cyt, eq} - C_{cyt})")
 st.sidebar.latex(r"E_{MMO} = \frac{n_{MMO}}{N_A \cdot V_{cell}}")
 st.sidebar.latex(r"V_{MMO} = E_{MMO} \cdot V_{max} \cdot \frac{C_{cyt}}{K_M + C_{cyt}} \cdot (1 - \frac{\Pi}{100})")
-st.sidebar.latex(r"V_{MMO} = \min(V_{MMO}, \frac{J_{ETC} \cdot Y_{NADH}}{e_{ratio}})")
+st.sidebar.latex(r"V_{MMO} = \min(V_{MMO}, \frac{J_{ETC} \cdot Y_{NADH}}{e_{ratio}}, \frac{O_2}{O_2_{ratio}})")
 st.sidebar.latex(r"\frac{d[CH_3OH]}{dt} = V_{MMO} - k_{MeOH} [CH_3OH]")
