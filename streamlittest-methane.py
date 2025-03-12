@@ -39,30 +39,28 @@ def methane_oxidation(C, t, C_atm, g_s, Vmax, Km, Pi, n_MMO, O2, T, k_L, V_cell)
     dC_cyt_dt = J_CH4 - V_MMO  # Cytosolic CH4 consumption
     dCH3OH_dt = V_MMO - k_MeOH * CH3OH  # Methanol dynamics
     
+    # Debugging: Print important values
+    if t == 0:  # Only print at t=0 for debugging
+        print(f"J_CH4: {J_CH4:.6f}, V_MMO: {V_MMO:.6f}, C_cyt: {C_cyt:.6f}, E_MMO: {E_MMO:.6e}")
+
     return [dC_cyt_dt, dCH3OH_dt, dO2_dt]
 
 # Streamlit UI
-st.title("Methane Oxidation in Cytosol (sMMO) with Solubility")
+st.title("Methane Oxidation Model - sMMO Sensitivity")
 st.sidebar.header("Adjust Model Parameters")
 
 C_atm = st.sidebar.slider("Atmospheric CH4 (ppm)", 0.1, 10.0, 1.8)
-st.sidebar.write(f"Equivalent CH4 in mmol/L: {C_atm * 0.0409:.4f} mmol/L")
-
 g_s = st.sidebar.slider("Stomatal Conductance (g_s)", 0.01, 0.2, 0.05)
-Vmax = st.sidebar.slider("Max sMMO Activity (Vmax)", 0.1, 2.0, 1.0)
-Km = st.sidebar.slider("Methane Affinity (Km)", 0.1, 2.0, 0.5)
+Vmax = st.sidebar.slider("Max sMMO Activity (Vmax)", 0.1, 10.0, 1.0)  # Increased upper bound
+Km = st.sidebar.slider("Methane Affinity (Km)", 0.001, 5.0, 0.5)  # Lowered minimum value
 Pi = st.sidebar.slider("Cytosolic Osmolarity (%)", 0, 100, 50)
-n_MMO = st.sidebar.slider("Number of sMMO Molecules per Cell", 1, 10000, 1000)
-O2 = st.sidebar.slider("Cytosolic Oxygen (mmol/L)", 0.01, 2.0, 0.5)
+n_MMO = st.sidebar.slider("Number of sMMO Molecules per Cell", 1, 100000, 1000)  # Increased upper bound
+O2 = st.sidebar.slider("Cytosolic Oxygen (mmol/L)", 0.01, 10.0, 0.5)  # Increased upper bound
 T = st.sidebar.slider("Temperature (°C)", 5, 45, 25)
-k_L = st.sidebar.slider("Mass Transfer Coefficient (k_L, m/s)", 0.001, 0.1, 0.01)
+k_L = st.sidebar.slider("Mass Transfer Coefficient (k_L, m/s)", 0.0001, 0.1, 0.01)  # Lowered min value for mass transfer
 
 # Assume a bacterial cell volume
 V_cell = 1e-15  # L (for a typical bacterial cell)
-
-# Display equivalent molarity of MMO
-E_MMO = n_MMO / (6.022e23 * V_cell)
-st.sidebar.write(f"Equivalent MMO Concentration: {E_MMO:.4e} mmol/L")
 
 # Solve ODEs
 time = np.linspace(0, 100, 500)
@@ -77,8 +75,12 @@ ax.plot(time, sol[:, 2], label="O2 Consumption")
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Concentration (mmol/L)")
 ax.legend()
-ax.set_title("Aram Mikaelyan")
+ax.set_title("Methane Oxidation Model")
 st.pyplot(fig)
+
+# Debugging Output
+st.sidebar.text(f"Initial CH4 Transport (J_CH4): {sol[0, 0]:.6f}")
+st.sidebar.text(f"Initial MMO Activity (V_MMO): {sol[0, 1]:.6f}")
 
 # Display equations
 st.sidebar.markdown("### Model Equations")
@@ -86,7 +88,6 @@ st.sidebar.latex(r"H_{CH_4} = H_0 \cdot e^{-\alpha (T - 25)} \cdot (1 - \beta \P
 st.sidebar.latex(r"P_{CH_4} = g_s \cdot \frac{C_{atm}}{P_{atm}}")
 st.sidebar.latex(r"C_{cyt, eq} = H_{CH_4} \cdot P_{CH_4}")
 st.sidebar.latex(r"J_{CH_4} = k_L \cdot (C_{cyt, eq} - C_{cyt})")
-st.sidebar.latex(r"E_{MMO} = \frac{n_{MMO}}{N_A \cdot V_{cell}}")
 st.sidebar.latex(r"V_{MMO} = E_{MMO} \cdot V_{max} \cdot \frac{C_{cyt}}{K_M + C_{cyt}} \cdot (1 - \frac{\Pi}{100})")
 st.sidebar.latex(r"\frac{d[CH_3OH]}{dt} = V_{MMO} - k_{MeOH} [CH_3OH]")
 st.sidebar.latex(r"\frac{dO_2}{dt} = -V_{MMO}")
