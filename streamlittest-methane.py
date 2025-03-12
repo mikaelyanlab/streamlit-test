@@ -48,7 +48,7 @@ def methane_oxidation(C, t, C_atm, g_s, Vmax, Km, Pi, J_ETC, n_MMO, O2, T, k_L, 
 st.title("Methane Oxidation in Cytosol (sMMO) with Solubility")
 st.sidebar.header("Adjust Model Parameters")
 
-C_atm = st.sidebar.slider("Atmospheric CH4 (ppm)", 0.1, 10.0, 1.8)
+C_atm = st.sidebar.slider("Atmospheric CH4 (ppm)", 0.1, 1000.0, 1.8)
 st.sidebar.write(f"Equivalent CH4 in mmol/L: {C_atm * 0.0409:.4f} mmol/L")
 
 g_s = st.sidebar.slider("Stomatal Conductance (g_s)", 0.01, 0.2, 0.05)
