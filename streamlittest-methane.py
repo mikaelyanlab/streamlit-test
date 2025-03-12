@@ -58,7 +58,7 @@ ax.plot(time, sol[:, 2], label="Methanol (CH3OH)")
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Concentration (ppm or relative)")
 ax.legend()
-ax.set_title("Methane Oxidation in Cytosol - Aram Mikaelyan")
+ax.set_title("Aram Mikaelyan, NCSU")
 st.pyplot(fig)
 
 # Display equations
