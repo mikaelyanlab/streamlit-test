@@ -13,6 +13,8 @@ def methane_oxidation(C, t, C_atm, g_s, Vmax, Km, Pi, J_ETC, n_MMO, T, k_L, V_ce
     beta = 0.01  # Osmotic effect coefficient
     Y_NADH = 2  # NADH yield per electron
     k_MeOH = 0.05  # Methanol oxidation rate
+    O2_ratio = 0.5  # Oxygen required per CH4 molecule
+    e_ratio = 2  # Electrons required per CH4 molecule
     
     # Convert atmospheric methane from ppm to mmol/L
     C_atm_mmolL = C_atm * 0.0409  # 1 ppm CH4 = 0.0409 mmol/L at 1 atm
@@ -30,11 +32,11 @@ def methane_oxidation(C, t, C_atm, g_s, Vmax, Km, Pi, J_ETC, n_MMO, T, k_L, V_ce
     # Convert number of MMO molecules to concentration in mmol/L
     E_MMO = n_MMO / (6.022e23 * V_cell)  # Convert molecules to molarity using Avogadro’s number
     
-    # sMMO enzymatic oxidation in cytosol, now using concentration of MMO
+    # sMMO enzymatic oxidation in cytosol, accounting for methane, oxygen, and electron constraints
     V_MMO = E_MMO * Vmax * (C_cyt / (Km + C_cyt)) * (1 - Pi / 100)
     
-    # Electron supply constraint
-    V_MMO = min(V_MMO, J_ETC * Y_NADH)
+    # Apply constraints based on oxygen and electron availability
+    V_MMO = min(V_MMO, J_ETC * Y_NADH / e_ratio)
     
     # Methanol formation and oxidation
     dC_cyt_dt = J_CH4 - V_MMO  # Cytosolic CH4 consumption
@@ -77,7 +79,7 @@ ax.plot(time, sol[:, 1], label="Methanol (CH3OH)")
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Concentration (mmol/L)")
 ax.legend()
-ax.set_title("Methane Oxidation in Cytosol - Aram Mikaelyan")
+ax.set_title("Aram Mikaelyan, NCSU")
 st.pyplot(fig)
 
 # Display equations
@@ -88,5 +90,5 @@ st.sidebar.latex(r"C_{cyt, eq} = H_{CH_4} \cdot P_{CH_4}")
 st.sidebar.latex(r"J_{CH_4} = k_L \cdot (C_{cyt, eq} - C_{cyt})")
 st.sidebar.latex(r"E_{MMO} = \frac{n_{MMO}}{N_A \cdot V_{cell}}")
 st.sidebar.latex(r"V_{MMO} = E_{MMO} \cdot V_{max} \cdot \frac{C_{cyt}}{K_M + C_{cyt}} \cdot (1 - \frac{\Pi}{100})")
-st.sidebar.latex(r"V_{MMO} = \min(V_{MMO}, J_{ETC} \cdot Y_{NADH})")
+st.sidebar.latex(r"V_{MMO} = \min(V_{MMO}, \frac{J_{ETC} \cdot Y_{NADH}}{e_{ratio}})")
 st.sidebar.latex(r"\frac{d[CH_3OH]}{dt} = V_{MMO} - k_{MeOH} [CH_3OH]")
