@@ -62,8 +62,11 @@ C_Net = net_carbon(C_Intake, C_Fecal, CH4, C_Urinary, C_CO2)
 BW_gain_carbon = weight_gain_carbon(C_Net, C_Maintenance, k_g)
 Milk_Yield_carbon = milk_production_carbon(C_Net, C_Lactation, C_milk)
 
-# Ensure Sankey diagram values update dynamically
-en_values = [GE, FE, UE, HI_adjusted, CH4, NE, BW_gain_energy, Milk_Yield_energy]
+# Ensure no negative values in Sankey diagrams
+en_values = [GE, FE, UE, HI_adjusted, CH4, max(NE, 0), max(BW_gain_energy, 0), max(Milk_Yield_energy, 0)]
+carbon_values = [C_Intake, C_Fecal, C_Urinary, C_CO2, CH4, max(C_Net, 0), max(BW_gain_carbon, 0), max(Milk_Yield_carbon, 0)]
+
+# Energy Sankey diagram
 en_source = [0, 0, 0, 0, 0, 0, 5, 5]
 en_target = [1, 2, 3, 4, 5, 6, 7, 8]
 
@@ -82,8 +85,7 @@ fig_energy = go.Figure(go.Sankey(
 ))
 fig_energy.update_layout(title_text="Energy Partitioning in Livestock", font_size=10)
 
-# Carbon Sankey values
-carbon_values = [C_Intake, C_Fecal, C_Urinary, C_CO2, CH4, C_Net, BW_gain_carbon, Milk_Yield_carbon]
+# Carbon Sankey diagram
 carbon_source = [0, 0, 0, 0, 0, 0, 5, 5]
 carbon_target = [1, 2, 3, 4, 5, 6, 7, 8]
 
