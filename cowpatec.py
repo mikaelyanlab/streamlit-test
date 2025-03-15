@@ -36,6 +36,7 @@ def net_energy(GE, FE, CH4, UE, HI):
     return GE - (FE + UE + CH4 + HI)
 
 def weight_gain_energy(NE, MEm, k_g):
+# max (NE - MEm, 0) ensures that a value does not drop below 0.
     return k_g * max(NE - MEm, 0)
 
 def milk_production_energy(NE, NEl, NE_milk):
