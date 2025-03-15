@@ -36,8 +36,7 @@ def net_energy(GE, FE, CH4, UE, HI):
     return GE - (FE + UE + CH4 + HI)
 
 def weight_gain_energy(NE, MEm, k_g):
-    NEg = max(NE - MEm, 0)
-    return k_g * NEg
+    return k_g * max(NE - MEm, 0)
 
 def milk_production_energy(NE, NEl, NE_milk):
     return max((NE - NEl) / NE_milk, 0)
@@ -47,8 +46,7 @@ def net_carbon(C_Intake, C_Fecal, CH4, C_Urinary, C_CO2):
     return C_Intake - (C_Fecal + CH4 + C_Urinary + C_CO2)
 
 def weight_gain_carbon(C_Net, C_Maintenance, k_g):
-    C_Gain = max(C_Net - C_Maintenance, 0)
-    return k_g * C_Gain
+    return k_g * max(C_Net - C_Maintenance, 0)
 
 def milk_production_carbon(C_Net, C_Lactation, C_milk):
     return max((C_Net - C_Lactation) / C_milk, 0)
@@ -62,49 +60,32 @@ C_Net = net_carbon(C_Intake, C_Fecal, CH4, C_Urinary, C_CO2)
 BW_gain_carbon = weight_gain_carbon(C_Net, C_Maintenance, k_g)
 Milk_Yield_carbon = milk_production_carbon(C_Net, C_Lactation, C_milk)
 
-# Ensure no negative values in Sankey diagrams
-en_values = [GE, FE, UE, HI_adjusted, CH4, max(NE, 0), max(BW_gain_energy, 0), max(Milk_Yield_energy, 0)]
-carbon_values = [C_Intake, C_Fecal, C_Urinary, C_CO2, CH4, max(C_Net, 0), max(BW_gain_carbon, 0), max(Milk_Yield_carbon, 0)]
+# Prepare data for stacked bar chart
+energy_labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Loss", "Net Energy"]
+energy_values = [GE, -FE, -UE, -HI_adjusted, -CH4, NE]
 
-# Energy Sankey diagram
-en_source = [0, 0, 0, 0, 0, 0, 5, 5]
-en_target = [1, 2, 3, 4, 5, 6, 7, 8]
+carbon_labels = ["Carbon Intake", "Fecal Loss", "Urinary Loss", "Respired CO2", "Methane Loss", "Net Carbon"]
+carbon_values = [C_Intake, -C_Fecal, -C_Urinary, -C_CO2, -CH4, C_Net]
 
-fig_energy = go.Figure(go.Sankey(
-    node=dict(
-        pad=20,
-        thickness=20,
-        line=dict(color="black", width=0.5),
-        label=["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Loss", "Net Energy", "Body Biomass", "Milk Production"],
-    ),
-    link=dict(
-        source=en_source,
-        target=en_target,
-        value=en_values,
-    )
+fig_energy = go.Figure()
+fig_energy.add_trace(go.Bar(
+    x=energy_labels,
+    y=energy_values,
+    marker_color=["blue", "red", "red", "red", "red", "green"],
+    name="Energy Partitioning"
 ))
-fig_energy.update_layout(title_text="Energy Partitioning in Livestock", font_size=10)
+fig_energy.update_layout(title="Energy Partitioning (MJ/day)", yaxis_title="MJ/day", barmode="relative")
 
-# Carbon Sankey diagram
-carbon_source = [0, 0, 0, 0, 0, 0, 5, 5]
-carbon_target = [1, 2, 3, 4, 5, 6, 7, 8]
-
-fig_carbon = go.Figure(go.Sankey(
-    node=dict(
-        pad=20,
-        thickness=20,
-        line=dict(color="black", width=0.5),
-        label=["Carbon Intake", "Fecal Loss", "Urinary Loss", "Respired CO2", "Methane Loss", "Net Carbon", "Body Biomass", "Milk Production"],
-    ),
-    link=dict(
-        source=carbon_source,
-        target=carbon_target,
-        value=carbon_values,
-    )
+fig_carbon = go.Figure()
+fig_carbon.add_trace(go.Bar(
+    x=carbon_labels,
+    y=carbon_values,
+    marker_color=["blue", "red", "red", "red", "red", "green"],
+    name="Carbon Partitioning"
 ))
-fig_carbon.update_layout(title_text="Carbon Partitioning in Livestock", font_size=10)
+fig_carbon.update_layout(title="Carbon Partitioning (g/day)", yaxis_title="g/day", barmode="relative")
 
-# Display both Sankey diagrams side by side
+# Display both bar charts side by side
 col1, col2 = st.columns(2)
 with col1:
     st.plotly_chart(fig_energy)
