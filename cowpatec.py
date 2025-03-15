@@ -6,13 +6,13 @@ st.title("Methane Emission & Livestock Growth - Carbon Sankey Model")
 st.sidebar.header("Adjust Methane Production")
 
 # Single slider for Methane Production
-CH4 = st.sidebar.slider("Methane Production (g/day)", 50, 500, 250)
+CH4 = float(st.sidebar.slider("Methane Production (g/day)", 50, 500, 250))  # Ensure CH4 is a float
 
-# Carbon partitioning (values adjusted for debugging)
+# Carbon partitioning
 C_intake = 1000  # Total dietary carbon intake
 C_feces = 400    # Carbon lost in feces
 C_urine = 50     # Carbon lost in urine
-C_methane = CH4  # Carbon lost as methane
+C_methane = CH4  # Carbon lost as methane (converted to float)
 C_biomass = 300  # Carbon retained in body mass
 C_milk = 150     # Carbon in milk
 
