@@ -47,9 +47,9 @@ Milk_Yield = milk_production(NE, NEl, NE_milk)
 
 # Energy Sankey Diagram
 energy_labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Emission", "Net Energy", "Body Biomass", "Milk Production"]
-energy_values = [GE, FE, UE, HI, CH4, NE, BW_gain, Milk_Yield]
-energy_source = [0, 0, 0, 0, 0, 5, 5]  # From Gross Energy & Net Energy
-energy_target = [1, 2, 3, 4, 5, 6, 7]  # To losses & productivity
+energy_source = [0, 0, 0, 0, 0, 0, 5, 5]  # Added Net Energy split
+energy_target = [1, 2, 3, 4, 5, 6, 6, 7]  # Ensured Net Energy distributes properly
+energy_values = [FE, UE, HI, CH4, NE, BW_gain, BW_gain, Milk_Yield]  # Balanced sources and targets
 
 energy_sankey = go.Figure(go.Sankey(
     node=dict(
@@ -70,9 +70,9 @@ energy_sankey.update_layout(title_text="Energy Partitioning in Livestock", font_
 
 # Carbon Sankey Diagram
 carbon_labels = ["Dietary Carbon", "Fecal Carbon Loss", "Urinary Carbon Loss", "Methane Emission", "Carbon Retained in Biomass", "Carbon in Milk"]
-carbon_values = [C_intake, C_feces, C_urine, C_methane, C_biomass, C_milk]
-carbon_source = [0, 0, 0, 0, 0]  # From Dietary Carbon
-carbon_target = [1, 2, 3, 4, 5]  # To losses & productivity
+carbon_source = [0, 0, 0, 0, 0, 0]  # Ensure all sources are balanced
+carbon_target = [1, 2, 3, 4, 4, 5]  # Ensure carbon distributes properly
+carbon_values = [C_feces, C_urine, C_methane, C_biomass, C_biomass, C_milk]  # Adjusted carbon flow
 
 carbon_sankey = go.Figure(go.Sankey(
     node=dict(
