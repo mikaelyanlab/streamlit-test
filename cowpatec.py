@@ -1,57 +1,75 @@
 import streamlit as st
+import numpy as np
+import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
 # Streamlit UI
-st.title("Methane Emission & Livestock Growth - Carbon Sankey Model")
-st.sidebar.header("Adjust Methane Production")
+st.title("Carbon Partitioning in Livestock")
+st.sidebar.header("Adjust Methane Carbon Loss")
 
-# Single slider for Methane Production
-CH4 = float(st.sidebar.slider("Methane Production (g/day)", 50, 500, 250))  # Ensure CH4 is a float
+# Single slider for Methane Carbon Loss
+CH4_C = st.sidebar.slider("Methane Carbon Loss (g/day)", 10, 100, 50)
 
-# Carbon partitioning
-C_intake = 1000  # Total dietary carbon intake
-C_feces = 400    # Carbon lost in feces
-C_urine = 50     # Carbon lost in urine
-C_methane = CH4  # Carbon lost as methane (converted to float)
-C_biomass = 300  # Carbon retained in body mass
-C_milk = 150     # Carbon in milk
+# Constants for carbon partitioning (g/day)
+C_Intake = 2500  # Fixed Carbon Intake (g/day)
+C_Fecal = 600  # Fixed Fecal Carbon Loss (g/day)
+C_Urinary = 50  # Fixed Urinary Carbon Loss (g/day)
+C_CO2 = 1200  # Fixed Respired Carbon as CO2 (g/day)
+C_Maintenance = 300  # Carbon used for Maintenance (g/day)
+k_g = 0.4  # Efficiency of Carbon into Growth
+C_Lactation = 200  # Carbon allocated to Milk (g/day)
+C_milk = 5  # Carbon per kg of Milk (g/kg)
 
-# Carbon Sankey Diagram
-carbon_labels = ["Dietary Carbon", "Fecal Carbon Loss", "Urinary Carbon Loss", "Methane Emission", "Carbon Retained in Biomass", "Carbon in Milk"]
-carbon_source = [0, 0, 0, 0, 0]  # Source indices
-carbon_target = [1, 2, 3, 4, 5]  # Target indices
-carbon_values = [C_feces, C_urine, C_methane, C_biomass, C_milk]
+# Function for Net Carbon calculation
+def net_carbon(C_Intake, C_Fecal, CH4_C, C_Urinary, C_CO2):
+    return C_Intake - (C_Fecal + CH4_C + C_Urinary + C_CO2)
 
-# Debugging: Validate Data Types Before Passing to Plotly
-assert isinstance(carbon_labels, list), "carbon_labels must be a list"
-assert all(isinstance(label, str) for label in carbon_labels), "All carbon_labels must be strings"
-assert len(carbon_source) == len(carbon_target) == len(carbon_values), "Mismatch in source, target, and values list lengths."
-assert max(carbon_source + carbon_target) < len(carbon_labels), "Index in source/target exceeds label list."
-assert all(isinstance(v, (int, float)) for v in carbon_values), "All carbon_values must be numbers"
-assert all(v >= 0 for v in carbon_values), "All carbon_values must be non-negative"
+# Function for weight gain
+def weight_gain(C_Net, C_Maintenance, k_g):
+    C_Gain = max(C_Net - C_Maintenance, 0)
+    return k_g * C_Gain
 
-# Ensure values are positive
-carbon_values = [max(v, 0.01) for v in carbon_values]
+# Function for milk production
+def milk_production(C_Net, C_Lactation, C_milk):
+    return max((C_Net - C_Lactation) / C_milk, 0)
 
-carbon_sankey = go.Figure(go.Sankey(
+# Calculations
+C_Net = net_carbon(C_Intake, C_Fecal, CH4_C, C_Urinary, C_CO2)
+BW_gain = weight_gain(C_Net, C_Maintenance, k_g)
+Milk_Yield = milk_production(C_Net, C_Lactation, C_milk)
+
+# Define nodes and links for Sankey diagram
+labels = [
+    "Carbon Intake", "Fecal Loss", "Urinary Loss", "Respired CO2", "Methane Loss", "Net Carbon",
+    "Body Biomass", "Milk Production"
+]
+values = [C_Intake, C_Fecal, C_Urinary, C_CO2, CH4_C, C_Net, BW_gain, Milk_Yield]
+
+# Define the connections between nodes
+source = [0, 0, 0, 0, 0, 5, 5]  # From Carbon Intake & Net Carbon
+
+target = [1, 2, 3, 4, 5, 6, 7]  # To losses & productivity
+
+# Create Sankey diagram
+fig = go.Figure(go.Sankey(
     node=dict(
         pad=20,
         thickness=20,
         line=dict(color="black", width=0.5),
-        label=carbon_labels,
-        color="lightgray",
-        font=dict(color="black", size=14)
+        label=labels,
     ),
     link=dict(
-        source=carbon_source,
-        target=carbon_target,
-        value=carbon_values,
+        source=source,
+        target=target,
+        value=values,
     )
 ))
-carbon_sankey.update_layout(title_text="Carbon Partitioning in Livestock", font_size=10)
 
-# Display Carbon Sankey diagram
-st.plotly_chart(carbon_sankey)
+fig.update_layout(title_text="Carbon Partitioning in Livestock", font_size=10)
 
-# Display Key Metrics
-st.write(f"### Methane Production: {CH4:.2f} g/day")
+# Display results
+st.plotly_chart(fig)
+st.write(f"### Methane Carbon Loss: {CH4_C:.2f} g/day")
+st.write(f"### Net Carbon Available: {C_Net:.2f} g/day")
+st.write(f"### Weight Gain: {BW_gain:.2f} g/day")
+st.write(f"### Milk Yield: {Milk_Yield:.2f} kg/day")
