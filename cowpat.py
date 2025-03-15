@@ -1,5 +1,6 @@
 import streamlit as st
 import numpy as np
+import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
 # Streamlit UI
@@ -39,11 +40,12 @@ Milk_Yield = milk_production(NE, NEl, NE_milk)
 
 # Define nodes and links for Sankey diagram
 labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Emission", "Net Energy", "Body Biomass", "Milk Production"]
+values = [GE, FE, UE, HI, CH4, NE, BW_gain, Milk_Yield]
 
 # Define the connections between nodes
 source = [0, 0, 0, 0, 0, 5, 5]  # From Gross Energy & Net Energy
+
 target = [1, 2, 3, 4, 5, 6, 7]  # To losses & productivity
-values = [FE, UE, HI, CH4, NE, BW_gain, Milk_Yield]  # Ensure values align with links
 
 # Create Sankey diagram
 fig = go.Figure(go.Sankey(
@@ -52,8 +54,6 @@ fig = go.Figure(go.Sankey(
         thickness=20,
         line=dict(color="black", width=0.5),
         label=labels,
-        color="lightgray",
-        font=dict(color="black")  # Ensure labels are black
     ),
     link=dict(
         source=source,
