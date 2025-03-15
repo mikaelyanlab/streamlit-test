@@ -28,6 +28,9 @@ C_Maintenance = 300  # Carbon for Maintenance
 C_Lactation = 200  # Carbon for Milk
 C_milk = 5  # Carbon per kg of Milk
 
+# Adjust heat increment dynamically to balance losses
+HI_adjusted = HI + (CH4 * 0.1)  # Increased heat loss with more methane
+
 # Energy functions
 def net_energy(GE, FE, CH4, UE, HI):
     return GE - (FE + UE + CH4 + HI)
@@ -51,7 +54,7 @@ def milk_production_carbon(C_Net, C_Lactation, C_milk):
     return max((C_Net - C_Lactation) / C_milk, 0)
 
 # Compute energy and carbon values
-NE = net_energy(GE, FE, CH4, UE, HI)
+NE = net_energy(GE, FE, CH4, UE, HI_adjusted)
 BW_gain_energy = weight_gain_energy(NE, MEm, k_g)
 Milk_Yield_energy = milk_production_energy(NE, NEl, NE_milk)
 
@@ -59,10 +62,9 @@ C_Net = net_carbon(C_Intake, C_Fecal, CH4, C_Urinary, C_CO2)
 BW_gain_carbon = weight_gain_carbon(C_Net, C_Maintenance, k_g)
 Milk_Yield_carbon = milk_production_carbon(C_Net, C_Lactation, C_milk)
 
-# Define nodes and links for Energy Sankey
-en_labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Loss", "Net Energy", "Body Biomass", "Milk Production"]
-en_values = [GE, FE, UE, HI, CH4, NE, BW_gain_energy, Milk_Yield_energy]
-en_source = [0, 0, 0, 0, 0, 0, 5, 5]  # Ensure Gross Energy always connects to Net Energy
+# Ensure Sankey diagram values update dynamically
+en_values = [GE, FE, UE, HI_adjusted, CH4, NE, BW_gain_energy, Milk_Yield_energy]
+en_source = [0, 0, 0, 0, 0, 0, 5, 5]
 en_target = [1, 2, 3, 4, 5, 6, 7, 8]
 
 fig_energy = go.Figure(go.Sankey(
@@ -70,7 +72,7 @@ fig_energy = go.Figure(go.Sankey(
         pad=20,
         thickness=20,
         line=dict(color="black", width=0.5),
-        label=en_labels,
+        label=["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Loss", "Net Energy", "Body Biomass", "Milk Production"],
     ),
     link=dict(
         source=en_source,
@@ -80,10 +82,9 @@ fig_energy = go.Figure(go.Sankey(
 ))
 fig_energy.update_layout(title_text="Energy Partitioning in Livestock", font_size=10)
 
-# Define nodes and links for Carbon Sankey
-carbon_labels = ["Carbon Intake", "Fecal Loss", "Urinary Loss", "Respired CO2", "Methane Loss", "Net Carbon", "Body Biomass", "Milk Production"]
+# Carbon Sankey values
 carbon_values = [C_Intake, C_Fecal, C_Urinary, C_CO2, CH4, C_Net, BW_gain_carbon, Milk_Yield_carbon]
-carbon_source = [0, 0, 0, 0, 0, 0, 5, 5]  # Ensure Carbon Intake always connects to Net Carbon
+carbon_source = [0, 0, 0, 0, 0, 0, 5, 5]
 carbon_target = [1, 2, 3, 4, 5, 6, 7, 8]
 
 fig_carbon = go.Figure(go.Sankey(
@@ -91,7 +92,7 @@ fig_carbon = go.Figure(go.Sankey(
         pad=20,
         thickness=20,
         line=dict(color="black", width=0.5),
-        label=carbon_labels,
+        label=["Carbon Intake", "Fecal Loss", "Urinary Loss", "Respired CO2", "Methane Loss", "Net Carbon", "Body Biomass", "Milk Production"],
     ),
     link=dict(
         source=carbon_source,
