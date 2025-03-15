@@ -33,7 +33,7 @@ def weight_gain(C_Net, C_Maintenance, k_g):
 def milk_production(C_Net, C_Lactation, C_milk):
     return max((C_Net - C_Lactation) / C_milk, 0)
 
-# Calculations
+# Recalculate based on user input
 C_Net = net_carbon(C_Intake, C_Fecal, CH4_C, C_Urinary, C_CO2)
 BW_gain = weight_gain(C_Net, C_Maintenance, k_g)
 Milk_Yield = milk_production(C_Net, C_Lactation, C_milk)
@@ -45,7 +45,7 @@ labels = [
 ]
 values = [C_Intake, C_Fecal, C_Urinary, C_CO2, CH4_C, C_Net, BW_gain, Milk_Yield]
 
-# Define the connections between nodes
+# Ensure values are dynamically updated
 source = [0, 0, 0, 0, 0, 5, 5]  # From Carbon Intake & Net Carbon
 
 target = [1, 2, 3, 4, 5, 6, 7]  # To losses & productivity
