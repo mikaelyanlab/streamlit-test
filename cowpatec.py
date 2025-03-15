@@ -61,27 +61,53 @@ BW_gain_carbon = weight_gain_carbon(C_Net, C_Maintenance, k_g)
 Milk_Yield_carbon = milk_production_carbon(C_Net, C_Lactation, C_milk)
 
 # Prepare data for stacked bar chart
-energy_labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Loss", "Net Energy"]
-energy_values = [GE, -FE, -UE, -HI_adjusted, -CH4, NE]
+energy_labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Loss"]
+energy_values = [GE, -FE, -UE, -HI_adjusted, -CH4]
 
-carbon_labels = ["Carbon Intake", "Fecal Loss", "Urinary Loss", "Respired CO2", "Methane Loss", "Net Carbon"]
-carbon_values = [C_Intake, -C_Fecal, -C_Urinary, -C_CO2, -CH4, C_Net]
+carbon_labels = ["Carbon Intake", "Fecal Loss", "Urinary Loss", "Respired CO2", "Methane Loss"]
+carbon_values = [C_Intake, -C_Fecal, -C_Urinary, -C_CO2, -CH4]
 
+# Stacked net energy bar
 fig_energy = go.Figure()
 fig_energy.add_trace(go.Bar(
     x=energy_labels,
     y=energy_values,
-    marker_color=["blue", "red", "red", "red", "red", "green"],
+    marker_color=["blue", "red", "red", "red", "red"],
     name="Energy Partitioning"
+))
+fig_energy.add_trace(go.Bar(
+    x=["Net Energy"],
+    y=[BW_gain_energy],
+    marker_color=["green"],
+    name="Body Biomass"
+))
+fig_energy.add_trace(go.Bar(
+    x=["Net Energy"],
+    y=[Milk_Yield_energy],
+    marker_color=["yellow"],
+    name="Milk Production"
 ))
 fig_energy.update_layout(title="Energy Partitioning (MJ/day)", yaxis_title="MJ/day", barmode="relative")
 
+# Stacked net carbon bar
 fig_carbon = go.Figure()
 fig_carbon.add_trace(go.Bar(
     x=carbon_labels,
     y=carbon_values,
-    marker_color=["blue", "red", "red", "red", "red", "green"],
+    marker_color=["blue", "red", "red", "red", "red"],
     name="Carbon Partitioning"
+))
+fig_carbon.add_trace(go.Bar(
+    x=["Net Carbon"],
+    y=[BW_gain_carbon],
+    marker_color=["green"],
+    name="Body Biomass"
+))
+fig_carbon.add_trace(go.Bar(
+    x=["Net Carbon"],
+    y=[Milk_Yield_carbon],
+    marker_color=["yellow"],
+    name="Milk Production"
 ))
 fig_carbon.update_layout(title="Carbon Partitioning (g/day)", yaxis_title="g/day", barmode="relative")
 
