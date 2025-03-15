@@ -1,76 +1,70 @@
 import streamlit as st
-import numpy as np
 import plotly.graph_objects as go
 
 # Streamlit UI
 st.title("Methane Emission & Livestock Growth Sankey Models")
-st.sidebar.header("Adjust Methane Production")
 
-# Single slider for Methane Production
+# User-adjustable methane production slider
 CH4 = st.sidebar.slider("Methane Production (g/day)", 50, 500, 250)
 
-# Constants for energy partitioning
-GE = 400  # Fixed Gross Energy Intake (MJ/day)
-FE = 100  # Fixed Fecal Energy Loss (MJ/day)
-UE = 15   # Fixed Urinary Energy Loss (MJ/day)
-HI = 50   # Fixed Heat Increment (MJ/day)
-MEm = 60  # Fixed Maintenance Energy (MJ/day)
-k_g = 0.4 # Efficiency of Growth
-NEl = 40  # Fixed Energy for Lactation (MJ/day)
-NE_milk = 5  # Energy per kg of Milk (MJ/kg)
+# Energy Flow Data
+energy_labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Emission", "Net Energy", "Body Biomass", "Milk Production"]
+energy_source = [0, 0, 0, 0, 0, 5, 5]  # Source indices
+energy_target = [1, 2, 3, 4, 5, 6, 7]  # Target indices
+energy_values = [100, 15, 50, CH4, 235, 50, 50]  # Fixed values with methane slider input
 
-# Function for Net Energy calculation
-def net_energy(GE, FE, CH4, UE, HI):
-    return GE - (FE + UE + CH4 + HI)
+# Carbon Flow Data
+carbon_labels = ["Dietary Carbon", "Fecal Carbon Loss", "Urinary Carbon Loss", "Methane Emission", "Carbon Retained in Biomass", "Carbon in Milk"]
+carbon_source = [0, 0, 0, 0, 0]  # Source indices
+carbon_target = [1, 2, 3, 4, 5]  # Target indices
+carbon_values = [400, 50, CH4, 300, 150]  # Fixed values with methane slider input
 
-# Function for weight gain
-def weight_gain(NE, MEm, k_g):
-    NEg = max(NE - MEm, 0)
-    return k_g * NEg
+# Ensure all lists are of the same length
+assert len(energy_source) == len(energy_target) == len(energy_values)
+assert len(carbon_source) == len(carbon_target) == len(carbon_values)
 
-# Function for milk production
-def milk_production(NE, NEl, NE_milk):
-    return max((NE - NEl) / NE_milk, 0)
-
-# Calculations
-NE = net_energy(GE, FE, CH4, UE, HI)
-BW_gain = weight_gain(NE, MEm, k_g)
-Milk_Yield = milk_production(NE, NEl, NE_milk)
-
-# Ensure non-negative values for Sankey inputs
-NE = max(NE, 0)
-BW_gain = max(BW_gain, 0)
-Milk_Yield = max(Milk_Yield, 0)
-
-# Debugging: Print the lists before passing to Sankey
-print("Energy Sankey Data:")
-print("Sources:", [0, 1])
-print("Targets:", [1, 2])
-print("Values:", [GE, NE])
-
-# Minimal Working Example (MWE) for Energy Sankey
+# Energy Sankey Diagram
 energy_sankey = go.Figure(go.Sankey(
     node=dict(
         pad=20,
         thickness=20,
         line=dict(color="black", width=0.5),
-        label=["Gross Energy", "Net Energy", "Body Biomass"],
+        label=energy_labels,
         color="lightgray",
         font=dict(color="black", size=14)
     ),
     link=dict(
-        source=[0, 1],  # Ensure indices exist in label
-        target=[1, 2],  # Ensure indices exist in label
-        value=[GE, NE],
+        source=energy_source,
+        target=energy_target,
+        value=energy_values,
     )
 ))
-energy_sankey.update_layout(title_text="Simplified Energy Partitioning in Livestock", font_size=10)
+energy_sankey.update_layout(title_text="Energy Partitioning in Livestock", font_size=10)
 
-# Display the simplified Sankey diagram first
+# Carbon Sankey Diagram
+carbon_sankey = go.Figure(go.Sankey(
+    node=dict(
+        pad=20,
+        thickness=20,
+        line=dict(color="black", width=0.5),
+        label=carbon_labels,
+        color="lightgray",
+        font=dict(color="black", size=14)
+    ),
+    link=dict(
+        source=carbon_source,
+        target=carbon_target,
+        value=carbon_values,
+    )
+))
+carbon_sankey.update_layout(title_text="Carbon Partitioning in Livestock", font_size=10)
+
+# Display both Sankey diagrams
 st.plotly_chart(energy_sankey)
+st.plotly_chart(carbon_sankey)
 
-# Debugging: If this works, add back complexity gradually
+# Display Key Metrics
 st.write(f"### Methane Production: {CH4:.2f} g/day")
-st.write(f"### Net Energy Available: {NE:.2f} MJ/day")
-st.write(f"### Weight Gain: {BW_gain:.2f} kg/day")
-st.write(f"### Milk Yield: {Milk_Yield:.2f} kg/day")
+st.write(f"### Net Energy Available: {energy_values[5]:.2f} MJ/day")
+st.write(f"### Weight Gain: {energy_values[6]:.2f} kg/day")
+st.write(f"### Milk Yield: {energy_values[7]:.2f} kg/day")
