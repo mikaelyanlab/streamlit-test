@@ -1,31 +1,30 @@
 import streamlit as st
-import numpy as np
 import plotly.graph_objects as go
 
 # Streamlit UI
 st.title("Methane Emission & Livestock Growth Sankey Models")
 st.sidebar.header("Adjust Methane Production")
 
-# Single slider for Methane Production
+# User-adjustable methane production slider
 CH4 = st.sidebar.slider("Methane Production (g/day)", 50, 500, 250)
 
 # Constants for energy partitioning
-GE = 400  # Fixed Gross Energy Intake (MJ/day)
-FE = 100  # Fixed Fecal Energy Loss (MJ/day)
-UE = 15   # Fixed Urinary Energy Loss (MJ/day)
-HI = 50   # Fixed Heat Increment (MJ/day)
-MEm = 60  # Fixed Maintenance Energy (MJ/day)
+GE = 400  # Gross Energy Intake (MJ/day)
+FE = 100  # Fecal Energy Loss (MJ/day)
+UE = 15   # Urinary Energy Loss (MJ/day)
+HI = 50   # Heat Increment (MJ/day)
+MEm = 60  # Maintenance Energy (MJ/day)
 k_g = 0.4 # Efficiency of Growth
-NEl = 40  # Fixed Energy for Lactation (MJ/day)
+NEl = 40  # Energy for Lactation (MJ/day)
 NE_milk = 5  # Energy per kg of Milk (MJ/kg)
 
-# Constants for carbon partitioning (in arbitrary units)
+# Carbon partitioning (values adjusted for debugging)
 C_intake = 1000  # Total dietary carbon intake
 C_feces = 400    # Carbon lost in feces
 C_urine = 50     # Carbon lost in urine
-C_methane = 100  # Carbon lost as methane
+C_methane = CH4  # Carbon lost as methane
 C_biomass = 300  # Carbon retained in body mass
-C_milk = 150     # Carbon excreted in milk
+C_milk = 150     # Carbon in milk
 
 # Function for Net Energy calculation
 def net_energy(GE, FE, CH4, UE, HI):
@@ -52,11 +51,11 @@ Milk_Yield = max(Milk_Yield, 0)
 
 # Energy Sankey Diagram
 energy_labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Emission", "Net Energy", "Body Biomass", "Milk Production"]
-energy_source = [0, 0, 0, 0, 0, 5, 5]  # Source indices
-energy_target = [1, 2, 3, 4, 5, 6, 7]  # Target indices
-energy_values = [FE, UE, HI, CH4, NE, BW_gain, Milk_Yield]  # Corresponding values
+energy_source = [0, 0, 0, 0, 0, 5, 5]
+energy_target = [1, 2, 3, 4, 5, 6, 7]
+energy_values = [FE, UE, HI, CH4, NE, BW_gain, Milk_Yield]
 
-# Ensure all energy values are positive
+# Ensure values are positive (fixes Sankey rendering issue)
 energy_values = [max(v, 0.01) for v in energy_values]
 
 energy_sankey = go.Figure(go.Sankey(
@@ -76,13 +75,13 @@ energy_sankey = go.Figure(go.Sankey(
 ))
 energy_sankey.update_layout(title_text="Energy Partitioning in Livestock", font_size=10)
 
-# Carbon Sankey Diagram
+# Carbon Sankey Diagram (Fixing potential issues)
 carbon_labels = ["Dietary Carbon", "Fecal Carbon Loss", "Urinary Carbon Loss", "Methane Emission", "Carbon Retained in Biomass", "Carbon in Milk"]
 carbon_source = [0, 0, 0, 0, 0]  # Source indices
 carbon_target = [1, 2, 3, 4, 5]  # Target indices
-carbon_values = [C_feces, C_urine, C_methane, C_biomass, C_milk]  # Corresponding values
+carbon_values = [C_feces, C_urine, C_methane, C_biomass, C_milk]
 
-# Ensure all carbon values are positive
+# Ensure values are positive
 carbon_values = [max(v, 0.01) for v in carbon_values]
 
 carbon_sankey = go.Figure(go.Sankey(
@@ -106,6 +105,7 @@ carbon_sankey.update_layout(title_text="Carbon Partitioning in Livestock", font_
 st.plotly_chart(energy_sankey)
 st.plotly_chart(carbon_sankey)
 
+# Display Key Metrics
 st.write(f"### Methane Production: {CH4:.2f} g/day")
 st.write(f"### Net Energy Available: {NE:.2f} MJ/day")
 st.write(f"### Weight Gain: {BW_gain:.2f} kg/day")
