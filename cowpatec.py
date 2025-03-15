@@ -45,11 +45,19 @@ NE = net_energy(GE, FE, CH4, UE, HI)
 BW_gain = weight_gain(NE, MEm, k_g)
 Milk_Yield = milk_production(NE, NEl, NE_milk)
 
+# Ensure non-negative values for Sankey inputs
+NE = max(NE, 0)
+BW_gain = max(BW_gain, 0)
+Milk_Yield = max(Milk_Yield, 0)
+
 # Energy Sankey Diagram
 energy_labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Emission", "Net Energy", "Body Biomass", "Milk Production"]
-energy_source = [0, 0, 0, 0, 0, 5, 5]  # Ensure sources match indices
-energy_target = [1, 2, 3, 4, 5, 6, 7]  # Ensure targets match indices
-energy_values = [FE, UE, HI, CH4, NE, BW_gain, Milk_Yield]  # Ensure correct flow values
+energy_source = [0, 0, 0, 0, 0, 5, 5]  # Source indices
+energy_target = [1, 2, 3, 4, 5, 6, 7]  # Target indices
+energy_values = [FE, UE, HI, CH4, NE, BW_gain, Milk_Yield]  # Corresponding values
+
+# Ensure all energy values are positive
+energy_values = [max(v, 0.01) for v in energy_values]
 
 energy_sankey = go.Figure(go.Sankey(
     node=dict(
@@ -70,9 +78,12 @@ energy_sankey.update_layout(title_text="Energy Partitioning in Livestock", font_
 
 # Carbon Sankey Diagram
 carbon_labels = ["Dietary Carbon", "Fecal Carbon Loss", "Urinary Carbon Loss", "Methane Emission", "Carbon Retained in Biomass", "Carbon in Milk"]
-carbon_source = [0, 0, 0, 0, 0]  # Ensure all sources match indices
-carbon_target = [1, 2, 3, 4, 5]  # Ensure targets match indices
-carbon_values = [C_feces, C_urine, C_methane, C_biomass, C_milk]  # Ensure correct flow values
+carbon_source = [0, 0, 0, 0, 0]  # Source indices
+carbon_target = [1, 2, 3, 4, 5]  # Target indices
+carbon_values = [C_feces, C_urine, C_methane, C_biomass, C_milk]  # Corresponding values
+
+# Ensure all carbon values are positive
+carbon_values = [max(v, 0.01) for v in carbon_values]
 
 carbon_sankey = go.Figure(go.Sankey(
     node=dict(
