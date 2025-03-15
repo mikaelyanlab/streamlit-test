@@ -44,7 +44,6 @@ values = [GE, FE, UE, HI, CH4, NE, BW_gain, Milk_Yield]
 
 # Define the connections between nodes
 source = [0, 0, 0, 0, 0, 5, 5]  # From Gross Energy & Net Energy
-
 target = [1, 2, 3, 4, 5, 6, 7]  # To losses & productivity
 
 # Create Sankey diagram
@@ -54,6 +53,8 @@ fig = go.Figure(go.Sankey(
         thickness=20,
         line=dict(color="black", width=0.5),
         label=labels,
+        color="lightgray",
+        font=dict(color="black", size=14)
     ),
     link=dict(
         source=source,
