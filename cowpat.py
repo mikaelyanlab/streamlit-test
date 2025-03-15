@@ -1,6 +1,5 @@
 import streamlit as st
 import numpy as np
-import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
 # Streamlit UI
@@ -53,7 +52,8 @@ fig = go.Figure(go.Sankey(
         thickness=20,
         line=dict(color="black", width=0.5),
         label=labels,
-        font=dict(color="black")
+        color="lightgray",
+        font=dict(color="black")  # Ensure labels are black
     ),
     link=dict(
         source=source,
