@@ -62,8 +62,8 @@ Milk_Yield_carbon = milk_production_carbon(C_Net, C_Lactation, C_milk)
 # Define nodes and links for Energy Sankey
 en_labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Loss", "Net Energy", "Body Biomass", "Milk Production"]
 en_values = [GE, FE, UE, HI, CH4, NE, BW_gain_energy, Milk_Yield_energy]
-en_source = [0, 0, 0, 0, 0, 5, 5]
-en_target = [1, 2, 3, 4, 5, 6, 7]
+en_source = [0, 0, 0, 0, 0, 0, 5, 5]  # Ensure Gross Energy always connects to Net Energy
+en_target = [1, 2, 3, 4, 5, 6, 7, 8]
 
 fig_energy = go.Figure(go.Sankey(
     node=dict(
@@ -83,8 +83,8 @@ fig_energy.update_layout(title_text="Energy Partitioning in Livestock", font_siz
 # Define nodes and links for Carbon Sankey
 carbon_labels = ["Carbon Intake", "Fecal Loss", "Urinary Loss", "Respired CO2", "Methane Loss", "Net Carbon", "Body Biomass", "Milk Production"]
 carbon_values = [C_Intake, C_Fecal, C_Urinary, C_CO2, CH4, C_Net, BW_gain_carbon, Milk_Yield_carbon]
-carbon_source = [0, 0, 0, 0, 0, 5, 5]
-carbon_target = [1, 2, 3, 4, 5, 6, 7]
+carbon_source = [0, 0, 0, 0, 0, 0, 5, 5]  # Ensure Carbon Intake always connects to Net Carbon
+carbon_target = [1, 2, 3, 4, 5, 6, 7, 8]
 
 fig_carbon = go.Figure(go.Sankey(
     node=dict(
