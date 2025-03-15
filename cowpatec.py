@@ -22,6 +22,17 @@ carbon_source = [0, 0, 0, 0, 0]  # Source indices
 carbon_target = [1, 2, 3, 4, 5]  # Target indices
 carbon_values = [C_feces, C_urine, C_methane, C_biomass, C_milk]
 
+# Debugging: Print lists before passing to Plotly
+print("Carbon Sankey Debugging:")
+print("Labels:", carbon_labels)
+print("Sources:", carbon_source)
+print("Targets:", carbon_target)
+print("Values:", carbon_values)
+
+# Ensure all lists are of the same length
+assert len(carbon_source) == len(carbon_target) == len(carbon_values), "Mismatch in source, target, and values list lengths."
+assert max(carbon_source + carbon_target) < len(carbon_labels), "Index in source/target exceeds label list."
+
 # Ensure values are positive
 carbon_values = [max(v, 0.01) for v in carbon_values]
 
