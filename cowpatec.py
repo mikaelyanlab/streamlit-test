@@ -36,24 +36,20 @@ def net_energy(GE, FE, CH4, UE, HI):
     return GE - (FE + UE + CH4 + HI)
 
 def weight_gain_energy(NE, MEm, k_g):
-# max() ensures that a value does not drop below 0.
-    return k_g * max(NE - MEm, 0)
+    return k_g * (NE - MEm)  # Allow negative values
 
 def milk_production_energy(NE, NEl, NE_milk):
-# max() ensures that milk production doesn't drop below 0
-    return max((NE - NEl) / NE_milk, 0)
+    return (NE - NEl) / NE_milk  # Allow negative values
 
 # Carbon functions
 def net_carbon(C_Intake, C_Fecal, CH4, C_Urinary, C_CO2):
     return C_Intake - (C_Fecal + CH4 + C_Urinary + C_CO2)
 
 def weight_gain_carbon(C_Net, C_Maintenance, k_g):
-# max() ensures that the carbon allocated to body mass is not negative
-    return k_g * max(C_Net - C_Maintenance, 0)
+    return k_g * (C_Net - C_Maintenance)  # Allow negative values
 
 def milk_production_carbon(C_Net, C_Lactation, C_milk):
-# max() ensures that the carbon allocated to milk production is not negative
-    return max((C_Net - C_Lactation) / C_milk, 0)
+    return (C_Net - C_Lactation) / C_milk  # Allow negative values
 
 # Compute energy and carbon values
 NE = net_energy(GE, FE, CH4, UE, HI_adjusted)
@@ -124,9 +120,9 @@ with col2:
 
 # Display results
 st.write(f"### Methane Loss: {CH4:.2f} g/day")
-st.write(f"### Net Energy Available: {NE:.2f} MJ/day")
+st.write(r"### Net Energy Available: \(NE_l = {:.2f}\) MJ/day".format(NE))
 st.write(f"### Weight Gain (Energy): {BW_gain_energy:.2f} kg/day")
 st.write(f"### Milk Yield (Energy): {Milk_Yield_energy:.2f} kg/day")
-st.write(f"### Net Carbon Available: {C_Net:.2f} g/day")
+st.write(r"### Net Carbon Available: \(C_{Net} = {:.2f}\) g/day".format(C_Net))
 st.write(f"### Weight Gain (Carbon): {BW_gain_carbon:.2f} g/day")
-st.write(f"### Milk Yield (Carbon): {Milk_Yield_carbon:.2f} kg/day")
+st.write(f"### Milk Yield (Carbon): {Milk_Yield_carbon:.2f} g/day")
