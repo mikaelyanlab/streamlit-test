@@ -19,7 +19,7 @@ k_g = 0.4 # Efficiency of Growth
 NEl = 40  # Fixed Energy for Lactation (MJ/day)
 NE_milk = 5  # Energy per kg of Milk (MJ/kg)
 
-# Constants for carbon partitioning
+# Constants for carbon partitioning (in arbitrary units)
 C_intake = 1000  # Total dietary carbon intake
 C_feces = 400    # Carbon lost in feces
 C_urine = 50     # Carbon lost in urine
