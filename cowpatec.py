@@ -1,74 +1,118 @@
 import streamlit as st
 import numpy as np
-import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
 # Streamlit UI
-st.title("Carbon Partitioning in Livestock")
-st.sidebar.header("Adjust Methane Carbon Loss")
+st.title("Energy and Carbon Partitioning in Livestock")
+st.sidebar.header("Adjust Methane Loss")
 
-# Single slider for Methane Carbon Loss
-CH4_C = st.sidebar.slider("Methane Carbon Loss (g/day)", 10, 500, 50)
+# Single slider for Methane Loss (0 to 500 g/day)
+CH4 = st.sidebar.slider("Methane Loss (g/day)", 0, 500, 250)
+
+# Constants for energy partitioning (MJ/day)
+GE = 400  # Gross Energy Intake
+FE = 100  # Fecal Energy Loss
+UE = 15   # Urinary Energy Loss
+HI = 50   # Heat Increment
+MEm = 60  # Maintenance Energy
+k_g = 0.4 # Efficiency of Growth
+NEl = 40  # Energy for Lactation
+NE_milk = 5  # Energy per kg of Milk
 
 # Constants for carbon partitioning (g/day)
-C_Intake = 2500  # Fixed Carbon Intake (g/day)
-C_Fecal = 600  # Fixed Fecal Carbon Loss (g/day)
-C_Urinary = 50  # Fixed Urinary Carbon Loss (g/day)
-C_CO2 = 1200  # Fixed Respired Carbon as CO2 (g/day)
-C_Maintenance = 300  # Carbon used for Maintenance (g/day)
-k_g = 0.4  # Efficiency of Carbon into Growth
-C_Lactation = 200  # Carbon allocated to Milk (g/day)
-C_milk = 5  # Carbon per kg of Milk (g/kg)
+C_Intake = 2500  # Carbon Intake
+C_Fecal = 600  # Fecal Carbon Loss
+C_Urinary = 50  # Urinary Carbon Loss
+C_CO2 = 1200  # Respired CO2
+C_Maintenance = 300  # Carbon for Maintenance
+C_Lactation = 200  # Carbon for Milk
+C_milk = 5  # Carbon per kg of Milk
 
-# Function for Net Carbon calculation
-def net_carbon(C_Intake, C_Fecal, CH4_C, C_Urinary, C_CO2):
-    return C_Intake - (C_Fecal + CH4_C + C_Urinary + C_CO2)
+# Energy functions
+def net_energy(GE, FE, CH4, UE, HI):
+    return GE - (FE + UE + CH4 + HI)
 
-# Function for weight gain
-def weight_gain(C_Net, C_Maintenance, k_g):
+def weight_gain_energy(NE, MEm, k_g):
+    NEg = max(NE - MEm, 0)
+    return k_g * NEg
+
+def milk_production_energy(NE, NEl, NE_milk):
+    return max((NE - NEl) / NE_milk, 0)
+
+# Carbon functions
+def net_carbon(C_Intake, C_Fecal, CH4, C_Urinary, C_CO2):
+    return C_Intake - (C_Fecal + CH4 + C_Urinary + C_CO2)
+
+def weight_gain_carbon(C_Net, C_Maintenance, k_g):
     C_Gain = max(C_Net - C_Maintenance, 0)
     return k_g * C_Gain
 
-# Function for milk production
-def milk_production(C_Net, C_Lactation, C_milk):
+def milk_production_carbon(C_Net, C_Lactation, C_milk):
     return max((C_Net - C_Lactation) / C_milk, 0)
 
-# Recalculate based on user input
-C_Net = net_carbon(C_Intake, C_Fecal, CH4_C, C_Urinary, C_CO2)
-BW_gain = weight_gain(C_Net, C_Maintenance, k_g)
-Milk_Yield = milk_production(C_Net, C_Lactation, C_milk)
+# Compute energy and carbon values
+NE = net_energy(GE, FE, CH4, UE, HI)
+BW_gain_energy = weight_gain_energy(NE, MEm, k_g)
+Milk_Yield_energy = milk_production_energy(NE, NEl, NE_milk)
 
-# Update values dynamically
-values = [C_Intake, C_Fecal, C_Urinary, C_CO2, CH4_C, C_Net, BW_gain, Milk_Yield]
+C_Net = net_carbon(C_Intake, C_Fecal, CH4, C_Urinary, C_CO2)
+BW_gain_carbon = weight_gain_carbon(C_Net, C_Maintenance, k_g)
+Milk_Yield_carbon = milk_production_carbon(C_Net, C_Lactation, C_milk)
 
-# Define nodes and links for Sankey diagram
-labels = [
-    "Carbon Intake", "Fecal Loss", "Urinary Loss", "Respired CO2", "Methane Loss", "Net Carbon",
-    "Body Biomass", "Milk Production"
-]
-source = [0, 0, 0, 0, 0, 5, 5]  # From Carbon Intake & Net Carbon
-target = [1, 2, 3, 4, 5, 6, 7]  # To losses & productivity
+# Define nodes and links for Energy Sankey
+en_labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Loss", "Net Energy", "Body Biomass", "Milk Production"]
+en_values = [GE, FE, UE, HI, CH4, NE, BW_gain_energy, Milk_Yield_energy]
+en_source = [0, 0, 0, 0, 0, 5, 5]
+en_target = [1, 2, 3, 4, 5, 6, 7]
 
-# Create Sankey diagram
-fig = go.Figure(go.Sankey(
+fig_energy = go.Figure(go.Sankey(
     node=dict(
         pad=20,
         thickness=20,
         line=dict(color="black", width=0.5),
-        label=labels,
+        label=en_labels,
     ),
     link=dict(
-        source=source,
-        target=target,
-        value=values,
+        source=en_source,
+        target=en_target,
+        value=en_values,
     )
 ))
+fig_energy.update_layout(title_text="Energy Partitioning in Livestock", font_size=10)
 
-fig.update_layout(title_text="Carbon Partitioning in Livestock", font_size=10)
+# Define nodes and links for Carbon Sankey
+carbon_labels = ["Carbon Intake", "Fecal Loss", "Urinary Loss", "Respired CO2", "Methane Loss", "Net Carbon", "Body Biomass", "Milk Production"]
+carbon_values = [C_Intake, C_Fecal, C_Urinary, C_CO2, CH4, C_Net, BW_gain_carbon, Milk_Yield_carbon]
+carbon_source = [0, 0, 0, 0, 0, 5, 5]
+carbon_target = [1, 2, 3, 4, 5, 6, 7]
+
+fig_carbon = go.Figure(go.Sankey(
+    node=dict(
+        pad=20,
+        thickness=20,
+        line=dict(color="black", width=0.5),
+        label=carbon_labels,
+    ),
+    link=dict(
+        source=carbon_source,
+        target=carbon_target,
+        value=carbon_values,
+    )
+))
+fig_carbon.update_layout(title_text="Carbon Partitioning in Livestock", font_size=10)
+
+# Display both Sankey diagrams side by side
+col1, col2 = st.columns(2)
+with col1:
+    st.plotly_chart(fig_energy)
+with col2:
+    st.plotly_chart(fig_carbon)
 
 # Display results
-st.plotly_chart(fig)
-st.write(f"### Methane Carbon Loss: {CH4_C:.2f} g/day")
+st.write(f"### Methane Loss: {CH4:.2f} g/day")
+st.write(f"### Net Energy Available: {NE:.2f} MJ/day")
+st.write(f"### Weight Gain (Energy): {BW_gain_energy:.2f} kg/day")
+st.write(f"### Milk Yield (Energy): {Milk_Yield_energy:.2f} kg/day")
 st.write(f"### Net Carbon Available: {C_Net:.2f} g/day")
-st.write(f"### Weight Gain: {BW_gain:.2f} g/day")
-st.write(f"### Milk Yield: {Milk_Yield:.2f} kg/day")
+st.write(f"### Weight Gain (Carbon): {BW_gain_carbon:.2f} g/day")
+st.write(f"### Milk Yield (Carbon): {Milk_Yield_carbon:.2f} kg/day")
