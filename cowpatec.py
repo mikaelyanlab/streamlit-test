@@ -13,7 +13,7 @@ CH4 = st.sidebar.slider("Methane Loss (g/day)", 0, 500, 250)
 GE = 400  # Gross Energy Intake
 FE = 100  # Fecal Energy Loss
 UE = 15   # Urinary Energy Loss
-HI = 50   # Heat Increment
+HI = 50   # Heat Increment (Now Constant)
 MEm = 60  # Maintenance Energy
 k_g = 0.4 # Efficiency of Growth
 NEl = 40  # Energy for Lactation
@@ -27,9 +27,6 @@ C_CO2 = 1200  # Respired CO2
 C_Maintenance = 300  # Carbon for Maintenance
 C_Lactation = 200  # Carbon for Milk
 C_milk = 5  # Carbon per kg of Milk
-
-# Adjust heat increment dynamically to balance losses
-HI_adjusted = HI + (CH4 * 0.1)  # Increased heat loss with more methane
 
 # Energy functions
 def net_energy(GE, FE, CH4, UE, HI):
@@ -52,7 +49,7 @@ def milk_production_carbon(C_Net, C_Lactation, C_milk):
     return (C_Net - C_Lactation) / C_milk  # Allow negative values
 
 # Compute energy and carbon values
-NE = net_energy(GE, FE, CH4, UE, HI_adjusted)
+NE = net_energy(GE, FE, CH4, UE, HI)
 BW_gain_energy = weight_gain_energy(NE, MEm, k_g)
 Milk_Yield_energy = milk_production_energy(NE, NEl, NE_milk)
 
@@ -62,7 +59,7 @@ Milk_Yield_carbon = milk_production_carbon(C_Net, C_Lactation, C_milk)
 
 # Prepare data for stacked bar chart
 energy_labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Loss"]
-energy_values = [GE, -FE, -UE, -HI_adjusted, -CH4]
+energy_values = [GE, -FE, -UE, -HI, -CH4]
 
 carbon_labels = ["Carbon Intake", "Fecal Loss", "Urinary Loss", "Respired CO2", "Methane Loss"]
 carbon_values = [C_Intake, -C_Fecal, -C_Urinary, -C_CO2, -CH4]
