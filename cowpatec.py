@@ -36,10 +36,11 @@ def net_energy(GE, FE, CH4, UE, HI):
     return GE - (FE + UE + CH4 + HI)
 
 def weight_gain_energy(NE, MEm, k_g):
-# max (NE - MEm, 0) ensures that a value does not drop below 0.
+# max() ensures that a value does not drop below 0.
     return k_g * max(NE - MEm, 0)
 
 def milk_production_energy(NE, NEl, NE_milk):
+# max() ensures that milk production doesn't drop below 0
     return max((NE - NEl) / NE_milk, 0)
 
 # Carbon functions
@@ -47,9 +48,11 @@ def net_carbon(C_Intake, C_Fecal, CH4, C_Urinary, C_CO2):
     return C_Intake - (C_Fecal + CH4 + C_Urinary + C_CO2)
 
 def weight_gain_carbon(C_Net, C_Maintenance, k_g):
+# max() ensures that the carbon allocated to body mass is not negative
     return k_g * max(C_Net - C_Maintenance, 0)
 
 def milk_production_carbon(C_Net, C_Lactation, C_milk):
+# max() ensures that the carbon allocated to milk production is not negative
     return max((C_Net - C_Lactation) / C_milk, 0)
 
 # Compute energy and carbon values
