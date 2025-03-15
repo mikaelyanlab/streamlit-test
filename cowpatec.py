@@ -120,9 +120,9 @@ with col2:
 
 # Display results
 st.write(f"### Methane Loss: {CH4:.2f} g/day")
-st.write(f"### Net Energy Available: {NE:.2f} MJ/day")
+st.write(r"### Net Energy Available: \(NE_l = {:.2f}\) MJ/day".format(NE))
 st.write(f"### Weight Gain (Energy): {BW_gain_energy:.2f} kg/day")
 st.write(f"### Milk Yield (Energy): {Milk_Yield_energy:.2f} kg/day")
-st.write(f"### Net Carbon Available: {C_Net:.2f} g/day")
+st.write(r"### Net Carbon Available: \(C_{Net} = {:.2f}\) g/day".format(C_Net))
 st.write(f"### Weight Gain (Carbon): {BW_gain_carbon:.2f} g/day")
-st.write(f"### Milk Yield (Carbon): {Milk_Yield_carbon:.2f} kg/day")
+st.write(f"### Milk Yield (Carbon): {Milk_Yield_carbon:.2f} g/day")
