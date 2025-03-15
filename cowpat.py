@@ -54,7 +54,6 @@ fig = go.Figure(go.Sankey(
         thickness=20,
         line=dict(color="black", width=0.5),
         label=labels,
-        color=["blue", "red", "green", "orange", "purple", "yellow", "brown", "pink"],
         font=dict(color="black")
     ),
     link=dict(
