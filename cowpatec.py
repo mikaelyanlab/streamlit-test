@@ -1,29 +1,64 @@
 import streamlit as st
+import numpy as np
 import plotly.graph_objects as go
 
 # Streamlit UI
 st.title("Methane Emission & Livestock Growth Sankey Models")
+st.sidebar.header("Adjust Methane Production")
 
-# User-adjustable methane production slider
+# Single slider for Methane Production
 CH4 = st.sidebar.slider("Methane Production (g/day)", 50, 500, 250)
 
-# Energy Flow Data
+# Constants for energy partitioning
+GE = 400  # Fixed Gross Energy Intake (MJ/day)
+FE = 100  # Fixed Fecal Energy Loss (MJ/day)
+UE = 15   # Fixed Urinary Energy Loss (MJ/day)
+HI = 50   # Fixed Heat Increment (MJ/day)
+MEm = 60  # Fixed Maintenance Energy (MJ/day)
+k_g = 0.4 # Efficiency of Growth
+NEl = 40  # Fixed Energy for Lactation (MJ/day)
+NE_milk = 5  # Energy per kg of Milk (MJ/kg)
+
+# Constants for carbon partitioning (in arbitrary units)
+C_intake = 1000  # Total dietary carbon intake
+C_feces = 400    # Carbon lost in feces
+C_urine = 50     # Carbon lost in urine
+C_methane = 100  # Carbon lost as methane
+C_biomass = 300  # Carbon retained in body mass
+C_milk = 150     # Carbon excreted in milk
+
+# Function for Net Energy calculation
+def net_energy(GE, FE, CH4, UE, HI):
+    return GE - (FE + UE + CH4 + HI)
+
+# Function for weight gain
+def weight_gain(NE, MEm, k_g):
+    NEg = max(NE - MEm, 0)
+    return k_g * NEg
+
+# Function for milk production
+def milk_production(NE, NEl, NE_milk):
+    return max((NE - NEl) / NE_milk, 0)
+
+# Calculations
+NE = net_energy(GE, FE, CH4, UE, HI)
+BW_gain = weight_gain(NE, MEm, k_g)
+Milk_Yield = milk_production(NE, NEl, NE_milk)
+
+# Ensure non-negative values for Sankey inputs
+NE = max(NE, 0)
+BW_gain = max(BW_gain, 0)
+Milk_Yield = max(Milk_Yield, 0)
+
+# Energy Sankey Diagram
 energy_labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Emission", "Net Energy", "Body Biomass", "Milk Production"]
 energy_source = [0, 0, 0, 0, 0, 5, 5]  # Source indices
 energy_target = [1, 2, 3, 4, 5, 6, 7]  # Target indices
-energy_values = [100, 15, 50, CH4, 235, 50, 50]  # Fixed values with methane slider input
+energy_values = [FE, UE, HI, CH4, NE, BW_gain, Milk_Yield]  # Corresponding values
 
-# Carbon Flow Data
-carbon_labels = ["Dietary Carbon", "Fecal Carbon Loss", "Urinary Carbon Loss", "Methane Emission", "Carbon Retained in Biomass", "Carbon in Milk"]
-carbon_source = [0, 0, 0, 0, 0]  # Source indices
-carbon_target = [1, 2, 3, 4, 5]  # Target indices
-carbon_values = [400, 50, CH4, 300, 150]  # Fixed values with methane slider input
+# Ensure all energy values are positive
+energy_values = [max(v, 0.01) for v in energy_values]
 
-# Ensure all lists are of the same length
-assert len(energy_source) == len(energy_target) == len(energy_values)
-assert len(carbon_source) == len(carbon_target) == len(carbon_values)
-
-# Energy Sankey Diagram
 energy_sankey = go.Figure(go.Sankey(
     node=dict(
         pad=20,
@@ -42,6 +77,14 @@ energy_sankey = go.Figure(go.Sankey(
 energy_sankey.update_layout(title_text="Energy Partitioning in Livestock", font_size=10)
 
 # Carbon Sankey Diagram
+carbon_labels = ["Dietary Carbon", "Fecal Carbon Loss", "Urinary Carbon Loss", "Methane Emission", "Carbon Retained in Biomass", "Carbon in Milk"]
+carbon_source = [0, 0, 0, 0, 0]  # Source indices
+carbon_target = [1, 2, 3, 4, 5]  # Target indices
+carbon_values = [C_feces, C_urine, C_methane, C_biomass, C_milk]  # Corresponding values
+
+# Ensure all carbon values are positive
+carbon_values = [max(v, 0.01) for v in carbon_values]
+
 carbon_sankey = go.Figure(go.Sankey(
     node=dict(
         pad=20,
@@ -63,8 +106,7 @@ carbon_sankey.update_layout(title_text="Carbon Partitioning in Livestock", font_
 st.plotly_chart(energy_sankey)
 st.plotly_chart(carbon_sankey)
 
-# Display Key Metrics
 st.write(f"### Methane Production: {CH4:.2f} g/day")
-st.write(f"### Net Energy Available: {energy_values[5]:.2f} MJ/day")
-st.write(f"### Weight Gain: {energy_values[6]:.2f} kg/day")
-st.write(f"### Milk Yield: {energy_values[7]:.2f} kg/day")
+st.write(f"### Net Energy Available: {NE:.2f} MJ/day")
+st.write(f"### Weight Gain: {BW_gain:.2f} kg/day")
+st.write(f"### Milk Yield: {Milk_Yield:.2f} kg/day")
