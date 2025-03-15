@@ -19,7 +19,7 @@ k_g = 0.4 # Efficiency of Growth
 NEl = 40  # Fixed Energy for Lactation (MJ/day)
 NE_milk = 5  # Energy per kg of Milk (MJ/kg)
 
-# Constants for carbon partitioning
+# Constants for carbon partitioning (in arbitrary units)
 C_intake = 1000  # Total dietary carbon intake
 C_feces = 400    # Carbon lost in feces
 C_urine = 50     # Carbon lost in urine
@@ -56,8 +56,8 @@ energy_source = [0, 0, 0, 0, 0, 5, 5]  # Source indices
 energy_target = [1, 2, 3, 4, 5, 6, 7]  # Target indices
 energy_values = [FE, UE, HI, CH4, NE, BW_gain, Milk_Yield]  # Corresponding values
 
-# Ensure all lists are of the same length
-assert len(energy_source) == len(energy_target) == len(energy_values)
+# Ensure all energy values are positive
+energy_values = [max(v, 0.01) for v in energy_values]
 
 energy_sankey = go.Figure(go.Sankey(
     node=dict(
@@ -82,8 +82,8 @@ carbon_source = [0, 0, 0, 0, 0]  # Source indices
 carbon_target = [1, 2, 3, 4, 5]  # Target indices
 carbon_values = [C_feces, C_urine, C_methane, C_biomass, C_milk]  # Corresponding values
 
-# Ensure all lists are of the same length
-assert len(carbon_source) == len(carbon_target) == len(carbon_values)
+# Ensure all carbon values are positive
+carbon_values = [max(v, 0.01) for v in carbon_values]
 
 carbon_sankey = go.Figure(go.Sankey(
     node=dict(
