@@ -54,7 +54,8 @@ fig = go.Figure(go.Sankey(
         thickness=20,
         line=dict(color="black", width=0.5),
         label=labels,
-        color="black"
+        color=["blue", "red", "green", "orange", "purple", "yellow", "brown", "pink"],
+        font=dict(color="black")
     ),
     link=dict(
         source=source,
@@ -63,7 +64,7 @@ fig = go.Figure(go.Sankey(
     )
 ))
 
-fig.update_layout(title_text="Energy Partitioning in Livestock", font_size=10, font=dict(color='black'))
+fig.update_layout(title_text="Energy Partitioning in Livestock", font_size=10)
 
 # Display results
 st.plotly_chart(fig)
