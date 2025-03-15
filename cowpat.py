@@ -1,10 +1,10 @@
 import streamlit as st
 import numpy as np
-import networkx as nx
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
 # Streamlit UI
-st.title("Methane Emission & Livestock Growth Network Model")
+st.title("Methane Emission & Livestock Growth Sankey Model")
 st.sidebar.header("Adjust Methane Production")
 
 # Single slider for Methane Production
@@ -38,43 +38,34 @@ NE = net_energy(GE, FE, CH4, UE, HI)
 BW_gain = weight_gain(NE, MEm, k_g)
 Milk_Yield = milk_production(NE, NEl, NE_milk)
 
-# Create network graph
-G = nx.DiGraph()
+# Define nodes and links for Sankey diagram
+labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Emission", "Net Energy", "Body Biomass", "Milk Production"]
+values = [GE, FE, UE, HI, CH4, NE, BW_gain, Milk_Yield]
 
-# Nodes and their sizes (proportional to their magnitude)
-nodes = {
-    "Methane Emission": CH4,
-    "Net Energy": NE,
-    "Milk Production": Milk_Yield,
-    "Body Biomass": BW_gain,
-    "Fecal Loss": FE,
-    "Urinary Loss": UE,
-    "Heat Increment": HI
-}
+# Define the connections between nodes
+source = [0, 0, 0, 0, 0, 5, 5]  # From Gross Energy & Net Energy
 
-# Add nodes to graph
-for node, size in nodes.items():
-    G.add_node(node, size=size)
+target = [1, 2, 3, 4, 5, 6, 7]  # To losses & productivity
 
-# Define edges (energy flow)
-edges = [
-    ("Methane Emission", "Net Energy"),
-    ("Net Energy", "Milk Production"),
-    ("Net Energy", "Body Biomass"),
-    ("Net Energy", "Heat Increment"),
-    ("Net Energy", "Fecal Loss"),
-    ("Net Energy", "Urinary Loss")
-]
-G.add_edges_from(edges)
+# Create Sankey diagram
+fig = go.Figure(go.Sankey(
+    node=dict(
+        pad=20,
+        thickness=20,
+        line=dict(color="black", width=0.5),
+        label=labels,
+    ),
+    link=dict(
+        source=source,
+        target=target,
+        value=values,
+    )
+))
 
-# Draw the graph
-fig, ax = plt.subplots(figsize=(8, 6))
-node_sizes = [nodes[node] * 10 for node in G.nodes]  # Scale sizes
-pos = nx.spring_layout(G, seed=42)
-nx.draw(G, pos, with_labels=True, node_size=node_sizes, node_color="lightblue", edge_color="gray", font_size=10)
+fig.update_layout(title_text="Energy Partitioning in Livestock", font_size=10)
 
 # Display results
-st.pyplot(fig)
+st.plotly_chart(fig)
 st.write(f"### Methane Production: {CH4:.2f} g/day")
 st.write(f"### Net Energy Available: {NE:.2f} MJ/day")
 st.write(f"### Weight Gain: {BW_gain:.2f} kg/day")
