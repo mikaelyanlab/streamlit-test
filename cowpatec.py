@@ -10,20 +10,20 @@ st.sidebar.header("Adjust Methane Loss")
 CH4 = st.sidebar.slider("Methane Loss (g/day)", 0, 500, 250)
 
 # Constants for energy partitioning (MJ/day)
-GE = 400  # Gross Energy Intake
-FE = 100  # Fecal Energy Loss
-UE = 15   # Urinary Energy Loss
+GE = 250  # Gross Energy Intake
+FE = 63  # Fecal Energy Loss
+UE = 10   # Urinary Energy Loss
 HI = 50   # Heat Increment (Now Constant)
-MEm = 60  # Maintenance Energy
+MEm = 41  # Maintenance Energy
 k_g = 0.4 # Efficiency of Growth
-NEl = 40  # Energy for Lactation
-NE_milk = 5  # Energy per kg of Milk
+NEl = 41  # Energy for Lactation
+NE_milk = 3  # Energy per kg of Milk
 
 # Constants for carbon partitioning (g/day)
-C_Intake = 2500  # Carbon Intake
-C_Fecal = 600  # Fecal Carbon Loss
-C_Urinary = 50  # Urinary Carbon Loss
-C_CO2 = 1200  # Respired CO2
+C_Intake = 6000  # Carbon Intake
+C_Fecal = 1200  # Fecal Carbon Loss
+C_Urinary = 202  # Urinary Carbon Loss
+C_CO2 = 1755  # Respired CO2
 C_Maintenance = 300  # Carbon for Maintenance
 C_Lactation = 200  # Carbon for Milk
 C_milk = 5  # Carbon per kg of Milk
