@@ -70,7 +70,7 @@ fig_energy.add_trace(go.Bar(
     x=energy_labels,
     y=energy_values,
     marker_color=["blue", "red", "red", "red", "red"],
-    name="Energy Partitioning"
+    name="Total Gross Energy"
 ))
 fig_energy.add_trace(go.Bar(
     x=["Net Energy"],
@@ -92,7 +92,7 @@ fig_carbon.add_trace(go.Bar(
     x=carbon_labels,
     y=carbon_values,
     marker_color=["blue", "red", "red", "red", "red"],
-    name="Carbon Partitioning"
+    name="Total Carbon Intake"
 ))
 fig_carbon.add_trace(go.Bar(
     x=["Net Carbon"],
