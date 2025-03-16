@@ -28,13 +28,12 @@ C_Maintenance = 300  # Carbon for Maintenance
 C_Lactation = 200  # Carbon for Milk
 C_milk = 5  # Carbon per kg of Milk
 
-# Methane Carbon Loss (dynamically adjusted based on CH4 loss and 9% GE energy loss)
-C_CH4 = CH4 * (12/16)  # Convert CH4 (g) to carbon equivalent (g), assuming 55 MJ/kg CH4
+# Methane Carbon Loss (9% of intake)
+C_CH4 = C_Intake * 0.09
 
 # Energy functions
 def net_energy(GE, FE, CH4, UE, HI):
-    CH4_energy_loss = (CH4 / 16) * 55.5  # Convert CH4 (g) to MJ using 55.5 MJ/kg CH4
-    return GE - (FE + UE + CH4_energy_loss + HI)  # Methane energy loss fixed at 9% of GE
+    return GE - (FE + UE + CH4 + HI)
 
 def weight_gain_energy(NE, MEm, k_g):
     return k_g * (NE - MEm)  # Allow negative values
@@ -63,7 +62,7 @@ Milk_Yield_carbon = milk_production_carbon(C_Net, C_Lactation, C_milk)
 
 # Prepare data for stacked bar chart
 energy_labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Loss"]
-energy_values = [GE, -FE, -UE, -HI, -(0.09 * GE)]
+energy_values = [GE, -FE, -UE, -HI, -CH4]
 
 carbon_labels = ["Carbon Intake", "Fecal Loss", "Urinary Loss", "Respired CO2", "Methane Loss"]
 carbon_values = [C_Intake, -C_Fecal, -C_Urinary, -C_CO2, -C_CH4]
