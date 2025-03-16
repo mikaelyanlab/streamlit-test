@@ -11,24 +11,25 @@ CH4 = st.sidebar.slider("Methane Loss (g/day)", 0, 500, 250)
 
 # Constants for energy partitioning (MJ/day)
 GE = 250  # Gross Energy Intake
-FE = 63  # Fecal Energy Loss
-UE = 10   # Urinary Energy Loss
-HI = 50   # Heat Increment (Now Constant)
-MEm = 41  # Maintenance Energy
+GE_adjusted = GE - (CH4 * 0.055)  # Adjust Gross Energy after methane loss
+FE = 0.35 * GE_adjusted  # Fecal Energy Loss (~35% of adjusted GE)  # Fecal Energy Loss (~35% of GE)  # Fecal Energy Loss
+UE = 0.07 * GE_adjusted  # Urinary Energy Loss (~7% of adjusted GE)  # Urinary Energy Loss (~7% of GE)   # Urinary Energy Loss
+HI = 0.25 * GE_adjusted  # Heat Increment (~25% of adjusted GE)  # Heat Increment (~25% of GE)   # Heat Increment (Now Constant)
+MEm = 41  # Maintenance Energy (fixed for now, but could be dynamic based on BW)  # Maintenance Energy
 k_g = 0.4 # Efficiency of Growth
 NEl = 41  # Energy for Lactation
 NE_milk = 3  # Energy per kg of Milk
 
 # Constants for carbon partitioning (g/day)
 C_Intake = 6000  # Carbon Intake
-C_Fecal = 1800  # 30% of Carbon Intake lost as feces
-C_Urinary = 300  # Urinary Carbon Loss (~5% of Intake)
-C_CO2 = 2700  # 45% Respired CO2
+C_Fecal = 0.30 * C_Intake  # Fecal Carbon Loss (~30% of Intake)  # 30% of Carbon Intake lost as feces
+C_Urinary = 0.05 * C_Intake  # Urinary Carbon Loss (~5% of Intake)  # Urinary Carbon Loss (~5% of Intake)
+C_CO2 = 0.45 * C_Intake  # Respired CO2 (~45% of Intake)  # 45% Respired CO2
 C_Maintenance = 300  # Carbon for Maintenance
 C_Lactation = 200  # Carbon for Milk
 C_milk = 5  # Carbon per kg of Milk
 
-# Convert CH4 (g) to its carbon equivalent (g C/day)
+# Methane Carbon Loss (dynamically adjusted based on CH4 loss and 9% GE energy loss)
 C_CH4 = CH4 * (12/16)  # Convert CH4 (g) to carbon equivalent (g), assuming 55 MJ/kg CH4
 
 # Energy functions
