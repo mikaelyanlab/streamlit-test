@@ -28,7 +28,7 @@ C_Maintenance = 300  # Carbon for Maintenance
 C_Lactation = 200  # Carbon for Milk
 C_milk = 5  # Carbon per kg of Milk
 
-# Methane Carbon Loss (dynamically adjusted based on CH4 loss and 9% GE energy loss)
+# Convert CH4 (g) to its carbon equivalent (g C/day)
 C_CH4 = CH4 * (12/16)  # Convert CH4 (g) to carbon equivalent (g), assuming 55 MJ/kg CH4
 
 # Energy functions
