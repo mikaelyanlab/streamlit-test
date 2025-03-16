@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit as st 
 import numpy as np
 import plotly.graph_objects as go
 
@@ -21,12 +21,15 @@ NE_milk = 3  # Energy per kg of Milk
 
 # Constants for carbon partitioning (g/day)
 C_Intake = 6000  # Carbon Intake
-C_Fecal = 1200  # Fecal Carbon Loss
-C_Urinary = 202  # Urinary Carbon Loss
-C_CO2 = 1755  # Respired CO2
+C_Fecal = 1800  # 30% of Carbon Intake lost as feces
+C_Urinary = 300  # Urinary Carbon Loss (~5% of Intake)
+C_CO2 = 2700  # 45% Respired CO2
 C_Maintenance = 300  # Carbon for Maintenance
 C_Lactation = 200  # Carbon for Milk
 C_milk = 5  # Carbon per kg of Milk
+
+# Methane Carbon Loss (9% of intake)
+C_CH4 = C_Intake * 0.09
 
 # Energy functions
 def net_energy(GE, FE, CH4, UE, HI):
@@ -39,8 +42,8 @@ def milk_production_energy(NE, NEl, NE_milk):
     return (NE - NEl) / NE_milk  # Allow negative values
 
 # Carbon functions
-def net_carbon(C_Intake, C_Fecal, CH4, C_Urinary, C_CO2):
-    return C_Intake - (C_Fecal + CH4 + C_Urinary + C_CO2)
+def net_carbon(C_Intake, C_Fecal, C_CH4, C_Urinary, C_CO2):
+    return C_Intake - (C_Fecal + C_CH4 + C_Urinary + C_CO2)
 
 def weight_gain_carbon(C_Net, C_Maintenance, k_g):
     return k_g * (C_Net - C_Maintenance)  # Allow negative values
@@ -53,7 +56,7 @@ NE = net_energy(GE, FE, CH4, UE, HI)
 BW_gain_energy = weight_gain_energy(NE, MEm, k_g)
 Milk_Yield_energy = milk_production_energy(NE, NEl, NE_milk)
 
-C_Net = net_carbon(C_Intake, C_Fecal, CH4, C_Urinary, C_CO2)
+C_Net = net_carbon(C_Intake, C_Fecal, C_CH4, C_Urinary, C_CO2)
 BW_gain_carbon = weight_gain_carbon(C_Net, C_Maintenance, k_g)
 Milk_Yield_carbon = milk_production_carbon(C_Net, C_Lactation, C_milk)
 
@@ -62,7 +65,7 @@ energy_labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment",
 energy_values = [GE, -FE, -UE, -HI, -CH4]
 
 carbon_labels = ["Carbon Intake", "Fecal Loss", "Urinary Loss", "Respired CO2", "Methane Loss"]
-carbon_values = [C_Intake, -C_Fecal, -C_Urinary, -C_CO2, -CH4]
+carbon_values = [C_Intake, -C_Fecal, -C_Urinary, -C_CO2, -C_CH4]
 
 # Stacked net energy bar
 fig_energy = go.Figure()
