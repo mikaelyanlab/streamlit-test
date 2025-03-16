@@ -28,8 +28,8 @@ C_Maintenance = 300  # Carbon for Maintenance
 C_Lactation = 200  # Carbon for Milk
 C_milk = 5  # Carbon per kg of Milk
 
-# Methane Carbon Loss (9% of intake)
-C_CH4 = C_Intake * 0.09
+# Methane Carbon Loss (9% of intake, adjusted dynamically)
+C_CH4 = CH4 * (12/16)  # Convert CH4 (g) to carbon equivalent (g)
 
 # Energy functions
 def net_energy(GE, FE, CH4, UE, HI):
