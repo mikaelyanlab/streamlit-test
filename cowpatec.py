@@ -64,7 +64,7 @@ Milk_Yield_carbon = milk_production_carbon(C_Net, C_Lactation, C_milk)
 
 # Prepare data for stacked bar chart
 energy_labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Loss"]
-energy_values = [GE, -FE, -UE, -HI, -(0.09 * GE)]
+energy_values = [GE, -FE, -UE, -HI, -CH4_energy_loss]
 
 carbon_labels = ["Carbon Intake", "Fecal Loss", "Urinary Loss", "Respired CO2", "Methane Loss"]
 carbon_values = [C_Intake, -C_Fecal, -C_Urinary, -C_CO2, -C_CH4]
