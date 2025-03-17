@@ -4,11 +4,10 @@ import plotly.graph_objects as go
 
 # Streamlit UI
 st.title("Energy Partitioning in Livestock")
-st.sidebar.header("Adjust Methane Loss and Milk Demand")
+st.sidebar.header("Adjust Methane Loss")
 
-# Sliders for Methane Loss and Milk Demand
+# Single slider for Methane Loss (0 to 500 g/day)
 CH4 = st.sidebar.slider("Methane Loss (g/day)", 0, 500, 250)
-Milk_Demand = st.sidebar.slider("Milk Demand (kg/day)", 0, 50, 45)  # Now represents desired milk output
 
 # Constants for energy partitioning (MJ/day)
 GE = 250  # Gross Energy Intake (Based on high-producing dairy cow estimates, NRC 2001)
@@ -18,6 +17,7 @@ UE = 0.07 * GE_adjusted  # Urinary Energy Loss (~7% of adjusted GE)
 HI = 0.25 * GE_adjusted  # Heat Increment (~25% of adjusted GE)
 MEm = 41  # Maintenance Energy (fixed at 41 MJ/day)
 k_g = 0.4  # Efficiency of Growth
+NEl = 50  # Energy for Lactation (Fixed at 50 MJ/day)
 NE_milk = 3  # Energy per kg of Milk
 
 # Energy functions
@@ -25,27 +25,28 @@ def net_energy(GE, FE, CH4, UE, HI):
     CH4_energy_loss = CH4 * 0.055  # Convert CH4 (g) to MJ using 55.5 MJ/kg CH4
     return GE - (FE + UE + CH4_energy_loss + HI)  # Net Energy after accounting for losses
 
+def weight_gain_energy(NE, MEm, k_g):
+    return k_g * max(0, (NE - MEm))  # Prevent negative values
+
 # Compute energy available after losses
 NE = net_energy(GE, FE, CH4, UE, HI)
 
 # Allocate energy to maintenance first
 NE_remaining = max(0, NE - MEm)  # Maintenance energy is deducted first
 
-# Allocate energy to milk production based on available energy
-Milk_Production = min(Milk_Demand, NE_remaining / NE_milk)  # Energy must support demand
-NEl = Milk_Production * NE_milk  # Energy used for lactation
+# Deduct fixed NEl (50 MJ/day) for milk production
+NE_remaining_after_milk = max(0, NE_remaining - NEl)
 
 # Allocate remaining energy to biomass (growth)
-NE_remaining_after_milk = max(0, NE_remaining - NEl)
 BW_gain_energy = k_g * NE_remaining_after_milk  # Biomass energy after milk demand
 
 # Pricing assumptions for milk and meat (USD)
 Milk_Price = 0.47  # USD per kg
 Meat_Price = 5.00  # USD per kg live weight gain (market dependent)
 
-# Compute revenue (now dynamically responding to methane & milk demand)
-Milk_Revenue = Milk_Production * Milk_Price
-Meat_Revenue = BW_gain_energy * Meat_Price
+# Compute revenue (now dynamically responding to methane)
+Milk_Revenue = (NEl / NE_milk) * Milk_Price  # Milk revenue based on fixed 50 MJ/day NEl
+Meat_Revenue = BW_gain_energy * Meat_Price  # Meat revenue responds to methane loss
 
 # Prepare data for stacked bar chart (Energy)
 energy_labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Loss"]
@@ -68,32 +69,42 @@ fig_energy.add_trace(go.Bar(
 ))
 fig_energy.add_trace(go.Bar(
     x=["Net Energy"],
-    y=[Milk_Production * NE_milk],  # Energy allocated to milk
+    y=[NEl],  # Fixed Energy for Milk
     marker_color=["yellow"],
-    name="Milk Production"
+    name="Milk Production (Fixed)"
 ))
 fig_energy.update_layout(title="Energy Partitioning (MJ/day)", yaxis_title="MJ/day", barmode="relative")
 
-# Revenue comparison bar chart
-fig_revenue = go.Figure()
-fig_revenue.add_trace(go.Bar(
-    x=["Milk Revenue", "Meat Revenue"],
-    y=[Milk_Revenue, Meat_Revenue],
-    marker_color=["yellow", "green"],
-    name="Revenue ($)"
+# Revenue comparison bar charts
+fig_milk_revenue = go.Figure()
+fig_milk_revenue.add_trace(go.Bar(
+    x=["Milk Revenue"],
+    y=[Milk_Revenue],
+    marker_color=["yellow"],
+    name="Milk Revenue ($)"
 ))
-fig_revenue.update_layout(title="Revenue from Milk vs. Meat ($/day)", yaxis_title="USD/day")
+fig_milk_revenue.update_layout(title="Milk Revenue ($/day)", yaxis_title="USD/day")
 
-# Display charts side by side
+fig_meat_revenue = go.Figure()
+fig_meat_revenue.add_trace(go.Bar(
+    x=["Meat Revenue"],
+    y=[Meat_Revenue],
+    marker_color=["green"],
+    name="Meat Revenue ($)"
+))
+fig_meat_revenue.update_layout(title="Meat Revenue ($/day)", yaxis_title="USD/day")
+
+# Display energy chart and revenue charts in separate panels
 col1, col2 = st.columns(2)
 with col1:
     st.plotly_chart(fig_energy)
+
 with col2:
-    st.plotly_chart(fig_revenue)
+    st.plotly_chart(fig_milk_revenue)
+    st.plotly_chart(fig_meat_revenue)
 
 # Display results
 st.write(f"### Methane Loss: {CH4:.2f} g/day")
-st.write(f"### Milk Production (Adjusted to Energy Available): {Milk_Production:.2f} kg/day")
 st.write(f"### Net Energy Available: {NE:.2f} MJ/day")
 st.write(f"### Weight Gain (Energy): {BW_gain_energy:.2f} kg/day")
 st.write(f"### Milk Revenue: ${Milk_Revenue:.2f} per day")
