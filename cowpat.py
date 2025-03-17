@@ -17,7 +17,7 @@ UE = 0.07 * GE_adjusted  # Urinary Energy Loss (~7% of adjusted GE)
 HI = 0.25 * GE_adjusted  # Heat Increment (~25% of adjusted GE)
 MEm = 41  # Maintenance Energy (fixed at 41 MJ/day)
 k_g = 0.4  # Efficiency of Growth
-NEl = 50  # Energy for Lactation (Fixed at 50 MJ/day)
+NEl = 50  # Fixed Energy for Lactation
 NE_milk = 3  # Energy per kg of Milk
 
 # Energy functions
@@ -49,31 +49,18 @@ Milk_Revenue = (NEl / NE_milk) * Milk_Price  # Milk revenue based on fixed 50 MJ
 Meat_Revenue = BW_gain_energy * Meat_Price  # Meat revenue responds to methane loss
 
 # Prepare data for stacked bar chart (Energy)
-energy_labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Loss"]
-CH4_energy_loss = CH4 * 0.055  # Ensure this is defined before use
-energy_values = [GE, -FE, -UE, -HI, -CH4_energy_loss]
+energy_labels = ["Body Biomass", "Milk Production"]
+energy_values = [BW_gain_energy, NEl]  # Green for body biomass, Yellow for Milk
 
-# Energy partitioning bar chart
+# Energy partitioning stacked bar chart (Fixing Display Issue)
 fig_energy = go.Figure()
 fig_energy.add_trace(go.Bar(
     x=energy_labels,
     y=energy_values,
-    marker_color=["blue", "red", "red", "red", "red"],
-    name="Total Gross Energy"
+    marker_color=["green", "yellow"],
+    name="Energy Allocation"
 ))
-fig_energy.add_trace(go.Bar(
-    x=["Net Energy"],
-    y=[BW_gain_energy],
-    marker_color=["green"],
-    name="Body Biomass"
-))
-fig_energy.add_trace(go.Bar(
-    x=["Net Energy"],
-    y=[NEl],  # Fixed Energy for Milk
-    marker_color=["yellow"],
-    name="Milk Production (Fixed)"
-))
-fig_energy.update_layout(title="Energy Partitioning (MJ/day)", yaxis_title="MJ/day", barmode="relative")
+fig_energy.update_layout(title="Energy Partitioning (MJ/day)", yaxis_title="MJ/day", barmode="stack")
 
 # Revenue comparison bar charts
 fig_milk_revenue = go.Figure()
@@ -107,5 +94,4 @@ with col2:
 st.write(f"### Methane Loss: {CH4:.2f} g/day")
 st.write(f"### Net Energy Available: {NE:.2f} MJ/day")
 st.write(f"### Weight Gain (Energy): {BW_gain_energy:.2f} kg/day")
-st.write(f"### Milk Revenue: ${Milk_Revenue:.2f} per day")
-st.write(f"### Meat Revenue: ${Meat_Revenue:.2f} per day")
+st.write(f"### Milk Revenue: ${Mi
