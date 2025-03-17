@@ -17,8 +17,8 @@ UE = 0.07 * GE_adjusted  # Urinary Energy Loss (~7% of adjusted GE), consistent 
 HI = 0.25 * GE_adjusted  # Heat Increment (~25% of adjusted GE), based on maintenance metabolism estimates from Ferrell & Jenkins (1984)  # Heat Increment (~25% of adjusted GE)  # Heat Increment (~25% of GE)   # Heat Increment (Now Constant)
 MEm = 41  # Maintenance Energy (Derived from NRC 2001 and Cooper-Prado et al. 2014 for a 600 kg cow) (fixed for now, but could be dynamic based on BW)  # Maintenance Energy
 k_g = 0.4 # Efficiency of Growth
-NEl = 41  # Energy for Lactation
 NE_milk = 3  # Energy per kg of Milk
+NEl = NE_milk * 45  # Energy for Lactation
 
 # Constants for carbon partitioning (g/day)
 C_Intake = 6000  # Carbon Intake
