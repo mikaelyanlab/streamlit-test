@@ -94,4 +94,5 @@ with col2:
 st.write(f"### Methane Loss: {CH4:.2f} g/day")
 st.write(f"### Net Energy Available: {NE:.2f} MJ/day")
 st.write(f"### Weight Gain (Energy): {BW_gain_energy:.2f} kg/day")
-st.write(f"### Milk Revenue: ${Mi
+st.write(f"### Milk Revenue: ${Milk_Revenue:.2f} per day")
+st.write(f"### Meat Revenue: ${Meat_Revenue:.2f} per day")
