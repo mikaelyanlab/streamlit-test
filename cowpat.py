@@ -21,9 +21,9 @@ k_g = 0.4  # Efficiency of Growth
 NE_milk = 3  # Energy per kg of Milk
 NEl = NE_milk * Milk_Production  # Energy for Lactation (Dynamic based on milk yield)
 
-# Milk price assumption (USD per kg)
+# Pricing assumptions for milk and meat (USD)
 Milk_Price = 0.47  # USD per kg
-Milk_Revenue = Milk_Production * Milk_Price  # Daily revenue in USD
+Meat_Price = 5.00  # USD per kg live weight gain (market dependent)
 
 # Energy functions
 def net_energy(GE, FE, CH4, UE, HI):
@@ -41,12 +41,16 @@ NE = net_energy(GE, FE, CH4, UE, HI)
 BW_gain_energy = weight_gain_energy(NE, MEm, k_g)
 Milk_Yield_energy = milk_production_energy(NE, NEl, NE_milk)
 
-# Prepare data for stacked bar chart
+# Compute revenue
+Milk_Revenue = Milk_Production * Milk_Price
+Meat_Revenue = BW_gain_energy * Meat_Price  # Assuming kg of weight gain directly translates to market value
+
+# Prepare data for stacked bar chart (Energy)
 energy_labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Loss"]
 CH4_energy_loss = CH4 * 0.055  # Ensure this is defined before use
 energy_values = [GE, -FE, -UE, -HI, -CH4_energy_loss]
 
-# Stacked net energy bar
+# Energy partitioning bar chart
 fig_energy = go.Figure()
 fig_energy.add_trace(go.Bar(
     x=energy_labels,
@@ -66,21 +70,30 @@ fig_energy.add_trace(go.Bar(
     marker_color=["yellow"],
     name="Milk Production"
 ))
-fig_energy.add_trace(go.Bar(
-    x=["Net Energy"],
-    y=[Milk_Revenue],  # Revenue bar
-    marker_color=["gold"],
-    name="Milk Revenue ($)"
-))
-fig_energy.update_layout(title="Energy Partitioning (MJ/day) & Milk Revenue", yaxis_title="MJ or USD", barmode="relative")
+fig_energy.update_layout(title="Energy Partitioning (MJ/day)", yaxis_title="MJ/day", barmode="relative")
 
-# Display bar chart
-st.plotly_chart(fig_energy)
+# Revenue comparison bar chart
+fig_revenue = go.Figure()
+fig_revenue.add_trace(go.Bar(
+    x=["Milk Revenue", "Meat Revenue"],
+    y=[Milk_Revenue, Meat_Revenue],
+    marker_color=["yellow", "green"],
+    name="Revenue ($)"
+))
+fig_revenue.update_layout(title="Revenue from Milk vs. Meat ($/day)", yaxis_title="USD/day")
+
+# Display charts side by side
+col1, col2 = st.columns(2)
+with col1:
+    st.plotly_chart(fig_energy)
+with col2:
+    st.plotly_chart(fig_revenue)
 
 # Display results
 st.write(f"### Methane Loss: {CH4:.2f} g/day")
 st.write(f"### Milk Production: {Milk_Production:.2f} kg/day")
-st.write(f"### Milk Revenue: ${Milk_Revenue:.2f} per day")
 st.write(f"### Net Energy Available: {NE:.2f} MJ/day")
 st.write(f"### Weight Gain (Energy): {BW_gain_energy:.2f} kg/day")
 st.write(f"### Milk Yield (Energy): {Milk_Yield_energy:.2f} kg/day")
+st.write(f"### Milk Revenue: ${Milk_Revenue:.2f} per day")
+st.write(f"### Meat Revenue: ${Meat_Revenue:.2f} per day")
