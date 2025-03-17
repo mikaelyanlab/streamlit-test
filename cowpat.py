@@ -1,72 +1,86 @@
-import streamlit as st
+import streamlit as st 
 import numpy as np
-import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
 # Streamlit UI
-st.title("Methane Emission & Livestock Growth Sankey Model")
-st.sidebar.header("Adjust Methane Production")
+st.title("Energy Partitioning in Livestock")
+st.sidebar.header("Adjust Methane Loss and Milk Production")
 
-# Single slider for Methane Production
-CH4 = st.sidebar.slider("Methane Production (g/day)", 50, 500, 250)
+# Sliders for Methane Loss and Milk Production
+CH4 = st.sidebar.slider("Methane Loss (g/day)", 0, 500, 250)
+Milk_Production = st.sidebar.slider("Milk Production (kg/day)", 0, 50, 45)  # Dynamic milk production slider
 
-# Constants for energy partitioning
-GE = 400  # Fixed Gross Energy Intake (MJ/day)
-FE = 100  # Fixed Fecal Energy Loss (MJ/day)
-UE = 15   # Fixed Urinary Energy Loss (MJ/day)
-HI = 50   # Fixed Heat Increment (MJ/day)
-MEm = 60  # Fixed Maintenance Energy (MJ/day)
-k_g = 0.4 # Efficiency of Growth
-NEl = 40  # Fixed Energy for Lactation (MJ/day)
-NE_milk = 5  # Energy per kg of Milk (MJ/kg)
+# Constants for energy partitioning (MJ/day)
+GE = 250  # Gross Energy Intake (Based on high-producing dairy cow estimates, NRC 2001)
+GE_adjusted = GE - (CH4 * 0.055)  # Adjust GE after methane loss (assuming 55.5 MJ/kg CH4)
+FE = 0.35 * GE_adjusted  # Fecal Energy Loss (~35% of adjusted GE), based on NRC (2001) and Arndt et al. (2015)
+UE = 0.07 * GE_adjusted  # Urinary Energy Loss (~7% of adjusted GE), based on NRC (2001)
+HI = 0.25 * GE_adjusted  # Heat Increment (~25% of adjusted GE), based on Ferrell & Jenkins (1984)
+MEm = 41  # Maintenance Energy (fixed at 41 MJ/day, based on NRC 2001 & Cooper-Prado et al. 2014)
+k_g = 0.4  # Efficiency of Growth
+NE_milk = 3  # Energy per kg of Milk
+NEl = NE_milk * Milk_Production  # Energy for Lactation (Dynamic based on milk yield)
 
-# Function for Net Energy calculation
+# Milk price assumption (USD per kg)
+Milk_Price = 0.47  # USD per kg
+Milk_Revenue = Milk_Production * Milk_Price  # Daily revenue in USD
+
+# Energy functions
 def net_energy(GE, FE, CH4, UE, HI):
-    return GE - (FE + UE + CH4 + HI)
+    CH4_energy_loss = CH4 * 0.055  # Convert CH4 (g) to MJ using 55.5 MJ/kg CH4
+    return GE - (FE + UE + CH4_energy_loss + HI)  # Net Energy after accounting for losses
 
-# Function for weight gain
-def weight_gain(NE, MEm, k_g):
-    NEg = max(NE - MEm, 0)
-    return k_g * NEg
+def weight_gain_energy(NE, MEm, k_g):
+    return k_g * max(0, (NE - MEm))  # Prevent negative values
 
-# Function for milk production
-def milk_production(NE, NEl, NE_milk):
-    return max((NE - NEl) / NE_milk, 0)
+def milk_production_energy(NE, NEl, NE_milk):
+    return max(0, (NE - NEl)) / NE_milk  # Prevent negative values
 
-# Calculations
+# Compute energy values
 NE = net_energy(GE, FE, CH4, UE, HI)
-BW_gain = weight_gain(NE, MEm, k_g)
-Milk_Yield = milk_production(NE, NEl, NE_milk)
+BW_gain_energy = weight_gain_energy(NE, MEm, k_g)
+Milk_Yield_energy = milk_production_energy(NE, NEl, NE_milk)
 
-# Define nodes and links for Sankey diagram
-labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Emission", "Net Energy", "Body Biomass", "Milk Production"]
-values = [GE, FE, UE, HI, CH4, NE, BW_gain, Milk_Yield]
+# Prepare data for stacked bar chart
+energy_labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Loss"]
+CH4_energy_loss = CH4 * 0.055  # Ensure this is defined before use
+energy_values = [GE, -FE, -UE, -HI, -CH4_energy_loss]
 
-# Define the connections between nodes
-source = [0, 0, 0, 0, 0, 5, 5]  # From Gross Energy & Net Energy
-
-target = [1, 2, 3, 4, 5, 6, 7]  # To losses & productivity
-
-# Create Sankey diagram
-fig = go.Figure(go.Sankey(
-    node=dict(
-        pad=20,
-        thickness=20,
-        line=dict(color="black", width=0.5),
-        label=labels,
-    ),
-    link=dict(
-        source=source,
-        target=target,
-        value=values,
-    )
+# Stacked net energy bar
+fig_energy = go.Figure()
+fig_energy.add_trace(go.Bar(
+    x=energy_labels,
+    y=energy_values,
+    marker_color=["blue", "red", "red", "red", "red"],
+    name="Total Gross Energy"
 ))
+fig_energy.add_trace(go.Bar(
+    x=["Net Energy"],
+    y=[BW_gain_energy],
+    marker_color=["green"],
+    name="Body Biomass"
+))
+fig_energy.add_trace(go.Bar(
+    x=["Net Energy"],
+    y=[Milk_Yield_energy],
+    marker_color=["yellow"],
+    name="Milk Production"
+))
+fig_energy.add_trace(go.Bar(
+    x=["Net Energy"],
+    y=[Milk_Revenue],  # Revenue bar
+    marker_color=["gold"],
+    name="Milk Revenue ($)"
+))
+fig_energy.update_layout(title="Energy Partitioning (MJ/day) & Milk Revenue", yaxis_title="MJ or USD", barmode="relative")
 
-fig.update_layout(title_text="Energy Partitioning in Livestock", font_size=10)
+# Display bar chart
+st.plotly_chart(fig_energy)
 
 # Display results
-st.plotly_chart(fig)
-st.write(f"### Methane Production: {CH4:.2f} g/day")
+st.write(f"### Methane Loss: {CH4:.2f} g/day")
+st.write(f"### Milk Production: {Milk_Production:.2f} kg/day")
+st.write(f"### Milk Revenue: ${Milk_Revenue:.2f} per day")
 st.write(f"### Net Energy Available: {NE:.2f} MJ/day")
-st.write(f"### Weight Gain: {BW_gain:.2f} kg/day")
-st.write(f"### Milk Yield: {Milk_Yield:.2f} kg/day")
+st.write(f"### Weight Gain (Energy): {BW_gain_energy:.2f} kg/day")
+st.write(f"### Milk Yield (Energy): {Milk_Yield_energy:.2f} kg/day")
