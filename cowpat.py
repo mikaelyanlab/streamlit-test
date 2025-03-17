@@ -6,9 +6,9 @@ import plotly.graph_objects as go
 st.title("Energy Partitioning in Livestock")
 st.sidebar.header("Adjust Methane Loss and Milk Production")
 
-# Sliders for Methane Loss and Milk Production
+# Sliders for Methane Loss and Maximum Possible Milk Production
 CH4 = st.sidebar.slider("Methane Loss (g/day)", 0, 500, 250)
-Milk_Production = st.sidebar.slider("Milk Production (kg/day)", 0, 50, 45)  # Dynamic milk production slider
+Max_Milk_Production = st.sidebar.slider("Max Possible Milk Production (kg/day)", 0, 50, 45)  # Dynamic max production slider
 
 # Constants for energy partitioning (MJ/day)
 GE = 250  # Gross Energy Intake (Based on high-producing dairy cow estimates, NRC 2001)
@@ -19,11 +19,6 @@ HI = 0.25 * GE_adjusted  # Heat Increment (~25% of adjusted GE), based on Ferrel
 MEm = 41  # Maintenance Energy (fixed at 41 MJ/day, based on NRC 2001 & Cooper-Prado et al. 2014)
 k_g = 0.4  # Efficiency of Growth
 NE_milk = 3  # Energy per kg of Milk
-NEl = NE_milk * Milk_Production  # Energy for Lactation (Dynamic based on milk yield)
-
-# Pricing assumptions for milk and meat (USD)
-Milk_Price = 0.47  # USD per kg
-Meat_Price = 5.00  # USD per kg live weight gain (market dependent)
 
 # Energy functions
 def net_energy(GE, FE, CH4, UE, HI):
@@ -33,17 +28,21 @@ def net_energy(GE, FE, CH4, UE, HI):
 def weight_gain_energy(NE, MEm, k_g):
     return k_g * max(0, (NE - MEm))  # Prevent negative values
 
-def milk_production_energy(NE, NEl, NE_milk):
-    return max(0, (NE - NEl)) / NE_milk  # Prevent negative values
+def milk_production_energy(NE, Max_Milk_Production, NE_milk):
+    return min(Max_Milk_Production, max(0, (NE / NE_milk)))  # Ensures methane loss reduces milk yield
 
 # Compute energy values
 NE = net_energy(GE, FE, CH4, UE, HI)
 BW_gain_energy = weight_gain_energy(NE, MEm, k_g)
-Milk_Yield_energy = milk_production_energy(NE, NEl, NE_milk)
+Milk_Production = milk_production_energy(NE, Max_Milk_Production, NE_milk)  # Now methane-responsive
 
-# Compute revenue
+# Pricing assumptions for milk and meat (USD)
+Milk_Price = 0.47  # USD per kg
+Meat_Price = 5.00  # USD per kg live weight gain (market dependent)
+
+# Compute revenue (now dynamically responding to methane)
 Milk_Revenue = Milk_Production * Milk_Price
-Meat_Revenue = BW_gain_energy * Meat_Price  # Assuming kg of weight gain directly translates to market value
+Meat_Revenue = BW_gain_energy * Meat_Price
 
 # Prepare data for stacked bar chart (Energy)
 energy_labels = ["Gross Energy", "Fecal Loss", "Urinary Loss", "Heat Increment", "Methane Loss"]
@@ -66,7 +65,7 @@ fig_energy.add_trace(go.Bar(
 ))
 fig_energy.add_trace(go.Bar(
     x=["Net Energy"],
-    y=[Milk_Yield_energy],
+    y=[Milk_Production * NE_milk],  # Energy allocated to milk
     marker_color=["yellow"],
     name="Milk Production"
 ))
@@ -91,9 +90,8 @@ with col2:
 
 # Display results
 st.write(f"### Methane Loss: {CH4:.2f} g/day")
-st.write(f"### Milk Production: {Milk_Production:.2f} kg/day")
+st.write(f"### Adjusted Milk Production: {Milk_Production:.2f} kg/day (Dynamic)")
 st.write(f"### Net Energy Available: {NE:.2f} MJ/day")
 st.write(f"### Weight Gain (Energy): {BW_gain_energy:.2f} kg/day")
-st.write(f"### Milk Yield (Energy): {Milk_Yield_energy:.2f} kg/day")
 st.write(f"### Milk Revenue: ${Milk_Revenue:.2f} per day")
 st.write(f"### Meat Revenue: ${Meat_Revenue:.2f} per day")
