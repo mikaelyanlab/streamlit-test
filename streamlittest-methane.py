@@ -99,6 +99,6 @@ st.sidebar.markdown("### Model Equations")
 st.sidebar.latex(r"V_{max}(T) = V_{max, ref} \cdot e^{-\frac{E_a}{R} \left(\frac{1}{T} - \frac{1}{T_{ref}}\right)}")
 st.sidebar.latex(r"K_m(T) = K_{m, ref} \cdot (1 + 0.02 \cdot (T - 25))")
 st.sidebar.latex(r"V_{max} = V_{max}(T) \cdot (1 - \frac{\Pi}{100})")
-st.markdown("***Hornstein E and Mikaelyan A, in prep.***")
+st.markdown("***Hornstein E. and Mikaelyan A., in prep.***")
 
 
