@@ -88,7 +88,6 @@ ax.plot(time, sol[:, 2], label="O2 Consumption")
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Concentration (mmol/L)")
 ax.legend()
-ax.set_title("Aram Mikaelyan, NCSU")
 st.pyplot(fig)
 
 # Debugging Output
