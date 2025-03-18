@@ -1,9 +1,12 @@
+# Aram Mikaelyan, Assistant Professor, Department of Entomology and Plant Pathology, NCSU
+# Contact: amikael@ncsu.edu | Methane Oxidation Model (Streamlit App)
+#
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 
-# Arrhenius equation parameters for enzyme kinetics
+# Arrhenius equation parameters for modeling the temperature dependence of enzyme kinetics
 E_a = 50e3  # Activation energy in J/mol
 R = 8.314  # Universal gas constant J/(mol*K)
 T_ref = 298.15  # Reference temperature (25°C in Kelvin)
@@ -15,14 +18,15 @@ def methane_oxidation(C, t, C_atm, g_s, Vmax_ref, Km_ref, Pi, O2, T, k_L, V_cell
     # Convert temperature to Kelvin
     T_K = T + 273.15  
 
-    # Temperature-adjusted Vmax using Arrhenius equation
+    # Temperature-adjusted Vmax using Arrhenius equation (adjusting reaction rates to increase exponentially with temperature)
     Vmax_T = Vmax_ref * np.exp(-E_a / R * (1/T_K - 1/T_ref))
 
-    # Adjust Km with temperature (assumes Km increases slightly)
+    # Adjust Km with temperature (assumes Km increases slightly, 2% changein Km per °C is a reasonable approximation)
     Km_T = Km_ref * (1 + 0.02 * (T - 25))
 
-    # Adjust Vmax for osmolarity effects
-    Vmax = Vmax_T * (1 - Pi / 100)
+    # Adjust Vmax for osmolarity effects (enzyme function is affected by osmotic stress - model assumes a simple linear relationship between osmolarity and Vmax - a 10% increase leads to a reduction of Vmax by 10%)
+    k_osm = 0.02  # Osmolarity inhibition constant (adjust based on experimental data)
+    Vmax = Vmax_T * np.exp(-k_osm * (Pi / 100))
 
     # Constants
     H_0 = 1.4  # Henry's Law constant at 25°C
@@ -96,4 +100,6 @@ st.sidebar.markdown("### Model Equations")
 st.sidebar.latex(r"V_{max}(T) = V_{max, ref} \cdot e^{-\frac{E_a}{R} \left(\frac{1}{T} - \frac{1}{T_{ref}}\right)}")
 st.sidebar.latex(r"K_m(T) = K_{m, ref} \cdot (1 + 0.02 \cdot (T - 25))")
 st.sidebar.latex(r"V_{max} = V_{max}(T) \cdot (1 - \frac{\Pi}{100})")
+st.markdown("***Hornstein E and Mikaelyan A, in prep.***")
+
 
