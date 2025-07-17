@@ -2,26 +2,35 @@ import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
 
-st.title("Methane Oxidation Impact Model")
+st.title("Methane Oxidation Impact Model (Corrected Volume Scaling)")
 st.sidebar.header("Adjust Parameters")
 
-# Sliders
+# --- Model Parameters ---
 ox_rate = st.sidebar.slider("Instantaneous CH₄ Oxidation Rate (mmol/L/s)", 0.0, 10.0, 1.0)
-active_density = st.sidebar.slider("Active Cellular Density (%)", 0, 100, 10)
+active_density = st.sidebar.slider("Active Cellular Activity (%)", 0, 100, 10)  # activity per liter of culture
 leaf_biomass = st.sidebar.slider("Green Leaf Biomass (kg/m²)", 0.1, 10.0, 1.0)
 plant_density = st.sidebar.slider("Plant Density (plants/m²)", 0.1, 100.0, 10.0)
+culture_vol_per_kg = st.sidebar.slider("Culture-equivalent Volume per kg Leaf (L/kg)", 0.001, 1.0, 0.05, step=0.005)
 stomatal_open = st.sidebar.slider("Stomatal Opening Period (hours/day)", 0.0, 24.0, 12.0)
 growing_days = st.sidebar.slider("Growing Days per Year", 0, 365, 200)
 total_adoption = st.sidebar.slider("Total Adoption Area (ha)", 0.0, 5e9, 1e6)
 
 # Constants
-g_per_mmol = 0.01604  # g CH₄/mmol
-
-# Calculate Outputs (based on current leaf biomass setting)
+g_per_mmol = 0.01604  # g CH₄ per mmol
 active_fraction = active_density / 100
-output1 = ox_rate * (leaf_biomass / plant_density) * active_fraction                      # mmol/plant/sec
-output2 = ox_rate * active_fraction * leaf_biomass * (stomatal_open * 3600) * g_per_mmol  # g/m²/day
-output3 = output2 * growing_days * total_adoption * 1000 * 1e-6                            # tonnes/year
+culture_equiv_volume = leaf_biomass * culture_vol_per_kg  # L/m²
+
+# --- Outputs ---
+# Output 1: mmol / plant / sec
+leaf_mass_per_plant = leaf_biomass / plant_density  # kg/plant
+culture_vol_per_plant = leaf_mass_per_plant * culture_vol_per_kg  # L/plant
+output1 = ox_rate * active_fraction * culture_vol_per_plant  # mmol/plant/sec
+
+# Output 2: g / m² / day
+output2 = ox_rate * active_fraction * culture_equiv_volume * (stomatal_open * 3600) * g_per_mmol
+
+# Output 3: tonnes / year
+output3 = output2 * growing_days * total_adoption * 1000 * 1e-6
 
 # Display Metrics
 st.subheader("Model Outputs")
@@ -37,19 +46,23 @@ selected_output = st.radio("Choose Output to Plot vs. Leaf Biomass",
                             "Output 2: g/m²/day", 
                             "Output 3: Tonnes/year"])
 
-# Generate values over a range of leaf biomass
+# --- Plot across a range of leaf biomass values ---
 biomass_range = np.linspace(0.1, 10, 100)
 y_vals = []
 
 for B in biomass_range:
+    V_eq = B * culture_vol_per_kg
+    M_per_plant = B / plant_density
+    V_per_plant = M_per_plant * culture_vol_per_kg
+
     if selected_output.startswith("Output 1"):
-        val = ox_rate * (B / plant_density) * active_fraction
+        val = ox_rate * active_fraction * V_per_plant
         y_label = "mmol/plant/s"
     elif selected_output.startswith("Output 2"):
-        val = ox_rate * active_fraction * B * (stomatal_open * 3600) * g_per_mmol
+        val = ox_rate * active_fraction * V_eq * (stomatal_open * 3600) * g_per_mmol
         y_label = "g CH₄/m²/day"
     else:
-        val = ox_rate * active_fraction * B * (stomatal_open * 3600) * g_per_mmol * growing_days * total_adoption * 1000 * 1e-6
+        val = ox_rate * active_fraction * V_eq * (stomatal_open * 3600) * g_per_mmol * growing_days * total_adoption * 1000 * 1e-6
         y_label = "Tonnes CH₄/year"
     y_vals.append(val)
 
@@ -69,19 +82,21 @@ fig.update_layout(
 )
 st.plotly_chart(fig, use_container_width=True)
 
-# Optional equations
+# Equations for reference
 with st.expander("Show Equations"):
-    st.latex(r"\text{Output}_1 = R \cdot \left(\frac{B}{D}\right) \cdot A")
-    st.latex(r"\text{Output}_2 = R \cdot A \cdot B \cdot (t \cdot 3600) \cdot 0.01604")
+    st.latex(r"\text{Output}_1 = R \cdot A \cdot \left( \frac{B}{D} \cdot V_{\text{eq}} \right)")
+    st.latex(r"\text{Output}_2 = R \cdot A \cdot (B \cdot V_{\text{eq}}) \cdot (t \cdot 3600) \cdot M_{\text{CH}_4}")
     st.latex(r"\text{Output}_3 = \text{Output}_2 \cdot d \cdot H \cdot 1000 \cdot 10^{-6}")
     st.markdown("""
-    - \( R \): Instantaneous oxidation rate  
-    - \( A \): Active cellular density (fraction)  
-    - \( B \): Green leaf biomass  
-    - \( D \): Plant density  
-    - \( t \): Stomatal opening (hours/day)  
-    - \( d \): Growing days  
-    - \( H \): Adoption area (hectares)
+    - \( R \): Methane oxidation rate (mmol/L/s)  
+    - \( A \): Active cellular activity (fraction)  
+    - \( B \): Leaf biomass (kg/m²)  
+    - \( D \): Plant density (plants/m²)  
+    - \( V_{eq} \): L of culture-equivalent volume per kg leaf biomass  
+    - \( t \): Stomatal window (hr/day)  
+    - \( d \): Growing days/year  
+    - \( H \): Adoption area (ha)  
+    - \( M_{CH_4} \): 0.01604 g/mmol
     """)
 
-st.markdown("***Model by A. Mikaelyan | Department of Entomology and Plant Pathology, NCSU***")
+st.markdown("***Corrected Model by A. Mikaelyan | Entomology and Plant Pathology, NCSU***")
