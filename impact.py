@@ -46,4 +46,4 @@ fig.update_layout(
 
 st.plotly_chart(fig, use_container_width=True)
 
-st.markdown("***Model by A. Mikaelyan | Department of Entomology and Plant Pathology, NCSU***")
+st.markdown("***Hornstein E. and Mikaelyan A., in prep.***")
