@@ -6,7 +6,14 @@ st.title("Methane Oxidation Impact Model (Corrected Volume Scaling)")
 st.sidebar.header("Adjust Parameters")
 
 # --- Model Parameters ---
-ox_rate = st.sidebar.slider("Instantaneous CH₄ Oxidation Rate (mmol/L/s)", 0.0, 0.3, 0.03)
+# Define min and max in log10 space
+log_min = -4  # log10(0.0001)
+log_max = -0.5  # log10(0.3) ≈ -0.522, rounded
+
+log_val = st.sidebar.slider("Log₁₀ of Instantaneous CH₄ Oxidation Rate (mmol/L/s)", 
+                            log_min, log_max, -1.5, step=0.1)
+ox_rate = 10 ** log_val  # back-transform
+st.sidebar.markdown(f"Selected Rate: **{ox_rate:.4e} mmol/L/s**")
 active_density = st.sidebar.slider("Active Cellular Activity (%)", 0, 100, 10)  # activity per liter of culture
 leaf_biomass = st.sidebar.slider("Green Leaf Biomass (kg/m²)", 0.1, 10.0, 1.0)
 plant_density = st.sidebar.slider("Plant Density (plants/m²)", 0.1, 100.0, 10.0)
