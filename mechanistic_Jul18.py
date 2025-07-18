@@ -65,7 +65,10 @@ st.sidebar.header("Adjust Model Parameters")
 
 C_atm = st.sidebar.slider("Atmospheric CH₄ (ppm)", 0.1, 10.0, 1.8)
 g_s = st.sidebar.slider("Stomatal Conductance (gₛ)", 0.01, 0.2, 0.05)
-Vmax_ref = st.sidebar.slider("Max sMMO Activity at 25°C (mmol/L/s)", 0.1, 2.0, 1.0)
+import math
+log_vmax = st.sidebar.slider("log₁₀(Max sMMO Activity)", -3.0, math.log10(2.0), -1.0, step=0.1)
+Vmax_ref = 10 ** log_vmax
+st.sidebar.text(f"Vmax_ref = {Vmax_ref:.6f} mmol/L/s")
 Km_ref = st.sidebar.slider("Methane Affinity at 25°C (Km_ref, mmol/L)", 0.1, 2.0, 0.5)
 Pi = st.sidebar.slider("Cytosolic Osmolarity (%)", 0, 100, 50)
 O2 = st.sidebar.slider("Cytosolic O₂ (mmol/L)", 0.01, 2.0, 0.5)
