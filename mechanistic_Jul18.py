@@ -111,3 +111,17 @@ st.sidebar.latex(r"V_{max}(T) = V_{max,ref} \cdot \text{scaling} \cdot e^{-\frac
 st.sidebar.latex(r"K_m(T) = K_{m,ref} \cdot (1 + 0.02 \cdot (T - 25))")
 st.sidebar.latex(r"V_{max} = V_{max}(T) \cdot e^{-k_{osm} \cdot (\Pi / 100)}")
 st.markdown("***Hornstein E. and Mikaelyan A., in prep.***")
+
+# Calculate V_MMO over time (after solving ODEs)
+Vmax_trace = Vmax_ref * scaling_factor * np.exp(-E_a / R * (1 / (T + 273.15) - 1 / T_ref)) * np.exp(-0.02 * (Pi / 100))
+V_MMO_trace = Vmax_trace * (sol[:, 0] / (Km_ref * (1 + 0.02 * (T - 25)) + sol[:, 0]))
+
+# Plot V_MMO in a separate figure
+fig2, ax2 = plt.subplots()
+ax2.plot(time, V_MMO_trace, color='darkred', label="V_MMO (CH₄ Oxidation Rate)")
+ax2.set_title("Instantaneous Methane Oxidation Rate (V_MMO)")
+ax2.set_xlabel("Time (s)")
+ax2.set_ylabel("Rate (mmol/L/s)")
+ax2.legend()
+st.pyplot(fig2)
+
