@@ -127,7 +127,7 @@ fig_gauge = go.Figure(go.Indicator(
     title={'text': "Final CH₄ Oxidation Rate"},
     gauge={
         'axis': {'range': [0, 0.3], 'tickwidth': 1, 'tickcolor': "gray"},
-        'bar': {'color': "#f4d7d7"},
+        'bar': {'color': "#ffcc00"},
         'steps': [
             {'range': [0, 0.03], 'color': "#ffd5d5"},
             {'range': [0.03, 0.06], 'color': "#ffaaaa"},
