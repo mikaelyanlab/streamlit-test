@@ -105,6 +105,8 @@ st.sidebar.text(f"Temp-Only Adjusted Vmax: {Vmax_temp_only:.6f} mmol/L/s")
 st.sidebar.text(f"Scaled Vmax (with cell density): {Vmax_scaled:.6f} mmol/L/s")
 st.sidebar.text(f"Temp-Adjusted Km: {Km_ref * (1 + 0.02 * (T - 25)):.6f} mmol/L")
 
+import plotly.graph_objects as go
+
 # Display equations
 st.sidebar.markdown("### Model Equations")
 st.sidebar.latex(r"V_{max}(T) = V_{max,ref} \cdot \text{scaling} \cdot e^{-\frac{E_a}{R} \left( \frac{1}{T} - \frac{1}{T_{ref}} \right)}")
@@ -118,8 +120,35 @@ Vmax_osm = Vmax_T * np.exp(-0.02 * (Pi / 100))
 C_cyt_final = sol[-1, 0]
 V_MMO_final = Vmax_osm * (C_cyt_final / (Km_T + C_cyt_final))
 
-# Show final oxidation rate as a metric box
-st.metric(label="Final CH₄ Oxidation Rate (V_MMO)", value=f"{V_MMO_final:.4f} mmol/L/s")
+# Plotly gauge to show final CH₄ oxidation rate
+fig_gauge = go.Figure(go.Indicator(
+    mode="gauge+number",
+    value=V_MMO_final,
+    title={'text': "Final CH₄ Oxidation Rate (V_MMO)", 'font': {'size': 18}},
+    number={'suffix': " mmol/L/s", 'font': {'size': 16}},
+    gauge={
+        'axis': {'range': [0, 2], 'tickwidth': 1, 'tickcolor': "darkgray"},
+        'bar': {'color': "darkred"},
+        'bgcolor': "white",
+        'borderwidth': 1,
+        'bordercolor': "gray",
+        'steps': [
+            {'range': [0, 0.2], 'color': '#f9ebea'},
+            {'range': [0.2, 0.5], 'color': '#f5c6cb'},
+            {'range': [0.5, 1.0], 'color': '#f1948a'},
+            {'range': [1.0, 1.5], 'color': '#ec7063'},
+            {'range': [1.5, 2.0], 'color': '#cb4335'},
+        ],
+        'threshold': {
+            'line': {'color': "black", 'width': 3},
+            'thickness': 0.75,
+            'value': V_MMO_final
+        }
+    }
+))
+
+st.plotly_chart(fig_gauge)
+
 
 st.markdown("***Hornstein E. and Mikaelyan A., in prep.***")
 
