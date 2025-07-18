@@ -5,16 +5,21 @@ import plotly.graph_objects as go
 st.title("Methane Oxidation Impact Model (Corrected Volume Scaling)")
 st.sidebar.header("Adjust Parameters")
 
-# --- Model Parameters ---
-# Define min and max in log10 space
-log_min = -4  # log10(0.0001)
-log_max = -0.5  # log10(0.3) ≈ -0.522, rounded
-
-log_val = st.sidebar.slider("Log₁₀ of Instantaneous CH₄ Oxidation Rate (mmol/L/s)", 
-                            log_min, log_max, -1.5, step=0.1)
+# --- Log-scale CH₄ Oxidation Rate Slider ---
+log_min = float(-4)    # log10(0.0001)
+log_max = float(-0.5)  # log10(0.3)
+log_val = st.sidebar.slider(
+    "Log₁₀ of Instantaneous CH₄ Oxidation Rate (mmol/L/s)",
+    min_value=log_min,
+    max_value=log_max,
+    value=-1.5,
+    step=0.1
+)
 ox_rate = 10 ** float(log_val)
 st.sidebar.markdown(f"Selected Rate: **{ox_rate:.4e} mmol/L/s**")
-active_density = st.sidebar.slider("Active Cellular Activity (%)", 0, 100, 10)  # activity per liter of culture
+
+# --- Other Parameters ---
+active_density = st.sidebar.slider("Active Cellular Activity (%)", 0, 100, 10)
 leaf_biomass = st.sidebar.slider("Green Leaf Biomass (kg/m²)", 0.1, 10.0, 1.0)
 plant_density = st.sidebar.slider("Plant Density (plants/m²)", 0.1, 100.0, 10.0)
 culture_vol_per_kg = st.sidebar.slider("Culture-equivalent Volume per kg Leaf (L/kg)", 0.001, 1.0, 0.05, step=0.005)
@@ -22,7 +27,7 @@ stomatal_open = st.sidebar.slider("Stomatal Opening Period (hours/day)", 0.0, 24
 growing_days = st.sidebar.slider("Growing Days per Year", 0, 365, 200)
 total_adoption = st.sidebar.slider("Total Adoption Area (ha)", 0.0, 5e9, 1e6)
 
-# Constants
+# --- Constants ---
 g_per_mmol = 0.01604  # g CH₄ per mmol
 active_fraction = active_density / 100
 culture_equiv_volume = leaf_biomass * culture_vol_per_kg  # L/m²
@@ -47,13 +52,13 @@ st.metric("3. Annual Global Oxidation", f"{output3:.2f} Tonnes/year")
 if output3 > 1e6:
     st.markdown(f"**≈ {output3 / 1e6:.2f} Teragrams/year**")
 
-# Dropdown to choose output to graph
+# --- Output Selection for Plot ---
 selected_output = st.radio("Choose Output to Plot vs. Leaf Biomass", 
                            ["Output 1: mmol/plant/sec", 
                             "Output 2: g/m²/day", 
                             "Output 3: Tonnes/year"])
 
-# --- Plot across a range of leaf biomass values ---
+# --- Plot vs Leaf Biomass ---
 biomass_range = np.linspace(0.1, 10, 100)
 y_vals = []
 
@@ -73,25 +78,34 @@ for B in biomass_range:
         y_label = "Tonnes CH₄/year"
     y_vals.append(val)
 
+# Clean up y_vals for plotting
 y_vals = np.array(y_vals)
-y_vals = np.where(y_vals > 0, y_vals, np.nan)  # replace 0 or negative with NaN
+y_vals = np.where(y_vals > 0, y_vals, np.nan)  # avoid zeros if log scale is used
+
 # Plot
 fig = go.Figure()
 fig.add_trace(go.Scatter(
-    x=biomass_range, y=y_vals,
+    x=biomass_range,
+    y=y_vals,
     mode='lines+markers',
     name=selected_output.split(":")[0],
     line=dict(color="green")
 ))
+
 fig.update_layout(
     title=selected_output + " vs Leaf Biomass",
     xaxis_title="Leaf Biomass (kg/m²)",
     yaxis_title=y_label,
     template="plotly_white"
 )
+
+# Optional: log-scale y-axis for Output 3
+if selected_output.startswith("Output 3"):
+    fig.update_yaxes(type="log")
+
 st.plotly_chart(fig, use_container_width=True)
 
-# Equations for reference
+# --- Equations ---
 with st.expander("Show Equations"):
     st.latex(r"\text{Output}_1 = R \cdot A \cdot \left( \frac{B}{D} \cdot V_{\text{eq}} \right)")
     st.latex(r"\text{Output}_2 = R \cdot A \cdot (B \cdot V_{\text{eq}}) \cdot (t \cdot 3600) \cdot M_{\text{CH}_4}")
