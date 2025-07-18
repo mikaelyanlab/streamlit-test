@@ -98,6 +98,7 @@ fig.update_layout(
     yaxis_title=y_label,
     template="plotly_white"
 )
+fig.update_yaxes(tickformat=".2e")  # Use scientific notation (e.g., 1.00e-04)
 
 # Optional: log-scale y-axis for Output 3
 if selected_output.startswith("Output 3"):
