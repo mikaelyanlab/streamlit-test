@@ -110,18 +110,16 @@ st.sidebar.markdown("### Model Equations")
 st.sidebar.latex(r"V_{max}(T) = V_{max,ref} \cdot \text{scaling} \cdot e^{-\frac{E_a}{R} \left( \frac{1}{T} - \frac{1}{T_{ref}} \right)}")
 st.sidebar.latex(r"K_m(T) = K_{m,ref} \cdot (1 + 0.02 \cdot (T - 25))")
 st.sidebar.latex(r"V_{max} = V_{max}(T) \cdot e^{-k_{osm} \cdot (\Pi / 100)}")
+
+# Compute final V_MMO value at the last time point
+Km_T = Km_ref * (1 + 0.02 * (T - 25))
+Vmax_T = Vmax_ref * scaling_factor * np.exp(-E_a / R * (1 / (T + 273.15) - 1 / T_ref))
+Vmax_osm = Vmax_T * np.exp(-0.02 * (Pi / 100))
+C_cyt_final = sol[-1, 0]
+V_MMO_final = Vmax_osm * (C_cyt_final / (Km_T + C_cyt_final))
+
+# Show final oxidation rate as a metric box
+st.metric(label="Final CH₄ Oxidation Rate (V_MMO)", value=f"{V_MMO_final:.4f} mmol/L/s")
+
 st.markdown("***Hornstein E. and Mikaelyan A., in prep.***")
-
-# Calculate V_MMO over time (after solving ODEs)
-Vmax_trace = Vmax_ref * scaling_factor * np.exp(-E_a / R * (1 / (T + 273.15) - 1 / T_ref)) * np.exp(-0.02 * (Pi / 100))
-V_MMO_trace = Vmax_trace * (sol[:, 0] / (Km_ref * (1 + 0.02 * (T - 25)) + sol[:, 0]))
-
-# Plot V_MMO in a separate figure
-fig2, ax2 = plt.subplots()
-ax2.plot(time, V_MMO_trace, color='darkred', label="V_MMO (CH₄ Oxidation Rate)")
-ax2.set_title("Instantaneous Methane Oxidation Rate (V_MMO)")
-ax2.set_xlabel("Time (s)")
-ax2.set_ylabel("Rate (mmol/L/s)")
-ax2.legend()
-st.pyplot(fig2)
 
