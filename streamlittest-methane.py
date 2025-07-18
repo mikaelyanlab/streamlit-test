@@ -32,7 +32,7 @@ def methane_oxidation(C, t, C_atm, g_s, Vmax_ref, Km_ref, Pi, O2, T, k_L, V_cell
     H_0 = 1.4  # Henry's Law constant at 25°C
     alpha = 0.02  # Temperature sensitivity coefficient for solubility
     beta = 0.01  # Osmotic effect coefficient for solubility
-    k_MeOH = 0.05  # Methanol oxidation rate
+    k_MeOH = 0.000011  # Methanol oxidation rate adjusted to 0.000011, Gout et al. (2000) based on 0.2 umol/hr/g in Sycamore cell suspension  
 
     # Convert atmospheric methane from ppm to mmol/L
     C_atm_mmolL = C_atm * 0.0409
