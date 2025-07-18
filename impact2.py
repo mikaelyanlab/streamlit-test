@@ -12,7 +12,7 @@ log_max = -0.5  # log10(0.3) ≈ -0.522, rounded
 
 log_val = st.sidebar.slider("Log₁₀ of Instantaneous CH₄ Oxidation Rate (mmol/L/s)", 
                             log_min, log_max, -1.5, step=0.1)
-ox_rate = 10 ** log_val  # back-transform
+ox_rate = 10 ** float(log_val)
 st.sidebar.markdown(f"Selected Rate: **{ox_rate:.4e} mmol/L/s**")
 active_density = st.sidebar.slider("Active Cellular Activity (%)", 0, 100, 10)  # activity per liter of culture
 leaf_biomass = st.sidebar.slider("Green Leaf Biomass (kg/m²)", 0.1, 10.0, 1.0)
@@ -73,6 +73,8 @@ for B in biomass_range:
         y_label = "Tonnes CH₄/year"
     y_vals.append(val)
 
+y_vals = np.array(y_vals)
+y_vals = np.where(y_vals > 0, y_vals, np.nan)  # replace 0 or negative with NaN
 # Plot
 fig = go.Figure()
 fig.add_trace(go.Scatter(
