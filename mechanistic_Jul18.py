@@ -64,7 +64,7 @@ st.title("Methane Oxidation Model with Enzyme Sensitivity")
 st.sidebar.header("Adjust Model Parameters")
 
 C_atm = st.sidebar.slider("Atmospheric CH₄ (ppm)", 0.1, 10.0, 1.8)
-g_s = st.sidebar.slider("Stomatal Conductance (gₛ)", 0.01, 0.2, 0.05)
+g_s = st.sidebar.slider("Stomatal Conductance (gₛ, mol/m²/s)", 0.01, 0.2, 0.05)
 import math
 log_vmax = st.sidebar.slider("log₁₀(Max sMMO Activity)", -3.0, math.log10(2.0), -1.0, step=0.1)
 Vmax_ref = 10 ** log_vmax
