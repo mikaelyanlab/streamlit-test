@@ -2,8 +2,7 @@ import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
 
-st.title("Methane Oxidation Impact Model (Corrected Volume Scaling)")
-st.sidebar.header("Adjust Parameters")
+st.title("Methane Oxidation Impact Model")
 
 # --- Log-scale CH₄ Oxidation Rate Slider ---
 log_min = float(-4)    # log10(0.0001)
