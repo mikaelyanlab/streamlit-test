@@ -1,4 +1,4 @@
-# Aram Mikaelyan, Assistant Professor, Department of Entomology and Plant Pathology, NCSU 
+# Aram Mikaelyan, Assistant Professor, Department of Entomology and Plant Pathology, NCSU  
 # Contact: amikael@ncsu.edu | Methane Oxidation Model (Streamlit App)
 
 import streamlit as st
@@ -27,7 +27,7 @@ def methane_oxidation(C, t, C_atm, g_s, Vmax_ref, Km_ref, Pi, O2_ext, T, k_L, V_
     Km_T = Km_ref * (1 + 0.02 * (T - 25))
 
     # Adjust Vmax for osmolarity effects
-    k_osm = 0.02
+    k_osm = 0.02  # Osmolarity inhibition constant
     Vmax = Vmax_T * np.exp(-k_osm * (Pi / 100))
 
     # Constants for methane solubility and methanol oxidation
@@ -81,26 +81,36 @@ C0 = [0.2, 0.1, O2_ext]
 sol = odeint(methane_oxidation, C0, time,
              args=(C_atm, g_s, Vmax_ref, Km_ref, Pi, O2_ext, T, k_L, 1e-15, scaling_factor))
 
-# Plotting function
-def plot_results():
-    fig, ax = plt.subplots()
-    ax.plot(time, sol[:, 0], label="C_cyt (CH₄)")
-    ax.plot(time, sol[:, 1], label="CH₃OH")
-    ax.plot(time, sol[:, 2], label="O₂")
-    ax.set_xlabel("Time (s)")
-    ax.set_ylabel("Concentration (mmol/L)")
-    ax.legend()
-    return fig
+# Plotting results
+fig, ax = plt.subplots()
+ax.plot(time, sol[:, 0], label="C_cyt (CH₄)")
+ax.plot(time, sol[:, 1], label="CH₃OH")
+ax.plot(time, sol[:, 2], label="O₂")
+ax.set_xlabel("Time (s)")
+ax.set_ylabel("Concentration (mmol/L)")
+ax.legend()
 
-fig = plot_results()
+# Debugging output
+Vmax_temp_only = Vmax_ref * np.exp(E_a / R * (1/T_ref - 1/(T + 273.15)))
+Vmax_scaled = Vmax_temp_only * scaling_factor
+st.sidebar.text(f"Temp-Only Adjusted Vmax: {Vmax_temp_only:.6f} mmol/L/s")
+st.sidebar.text(f"Scaled Vmax (with cell density): {Vmax_scaled:.6f} mmol/L/s")
+st.sidebar.text(f"Temp-Adjusted Km: {Km_ref * (1 + 0.02 * (T - 25)):.6f} mmol/L")
 
-# Compute final V_MMO
+# Display equations
+st.sidebar.markdown("### Model Equations")
+st.sidebar.latex(r"V_{max}(T) = V_{max,ref} \cdot \text{scaling} \cdot e^{\frac{E_a}{R} \left( \frac{1}{T_{ref}} - \frac{1}{T} \right)}")
+st.sidebar.latex(r"K_m(T) = K_{m,ref} \cdot (1 + 0.02 \cdot (T - 25))")
+st.sidebar.latex(r"V_{max} = V_{max}(T) \cdot e^{-k_{osm} \cdot (\Pi / 100)}")
+
+# Compute final V_MMO value
 Km_T = Km_ref * (1 + 0.02 * (T - 25))
 Vmax_T = Vmax_ref * scaling_factor * np.exp(E_a / R * (1/T_ref - 1/(T + 273.15)))
 Vmax_osm = Vmax_T * np.exp(-0.02 * (Pi / 100))
 C_cyt_final = sol[-1, 0]
 V_MMO_final = Vmax_osm * (C_cyt_final / (Km_T + C_cyt_final))
 
+# Plotly gauge for final oxidation rate
 fig_gauge = go.Figure(go.Indicator(
     mode="gauge+number",
     value=V_MMO_final,
@@ -109,11 +119,12 @@ fig_gauge = go.Figure(go.Indicator(
     gauge={'axis': {'range': [0, 0.3]}}
 ))
 
-# Display side by side
+# Display plot and gauge side by side
 col1, col2 = st.columns([2, 1])
 with col1:
     st.pyplot(fig)
 with col2:
     st.plotly_chart(fig_gauge, use_container_width=True)
 
-st.markdown("***Hornstein E. and Mikaelyan A., in prep.***)"}]}
+# Footer
+st.markdown("***Hornstein E. and Mikaelyan A., in prep.***")
