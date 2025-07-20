@@ -97,7 +97,7 @@ ax.plot(time, sol[:, 2], label="O₂ Consumption")
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Concentration (mmol/L)")
 ax.legend()
-st.pyplot(fig)
+#st.pyplot(fig)
 
 # Debugging output
 Vmax_temp_only = Vmax_ref * np.exp(-E_a / R * (1/(T + 273.15) - 1/T_ref))
