@@ -5,6 +5,8 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import odeint
+import math
+import plotly.graph_objects as go
 
 # Arrhenius equation parameters for modeling the temperature dependence of enzyme kinetics
 E_a = 50e3  # Activation energy in J/mol
@@ -18,13 +20,13 @@ def methane_oxidation(C, t, C_atm, g_s, Vmax_ref, Km_ref, Pi, O2, T, k_L, V_cell
     # Convert temperature to Kelvin
     T_K = T + 273.15  
 
-    # Temperature-adjusted Vmax using Arrhenius equation (adjusting reaction rates to increase exponentially with temperature)
+    # Temperature-adjusted Vmax using Arrhenius equation
     Vmax_T = Vmax_ref * scaling_factor * np.exp(-E_a / R * (1/T_K - 1/T_ref))
 
-    # Adjust Km with temperature (assumes Km increases slightly, 2% change per °C)
+    # Adjust Km with temperature
     Km_T = Km_ref * (1 + 0.02 * (T - 25))
 
-    # Adjust Vmax for osmolarity effects (linear reduction based on osmotic stress)
+    # Adjust Vmax for osmolarity effects
     k_osm = 0.02  # Osmolarity inhibition constant
     Vmax = Vmax_T * np.exp(-k_osm * (Pi / 100))
 
@@ -32,7 +34,7 @@ def methane_oxidation(C, t, C_atm, g_s, Vmax_ref, Km_ref, Pi, O2, T, k_L, V_cell
     H_0 = 1.4  # Henry's Law constant at 25°C
     alpha = 0.02  # Temperature sensitivity for solubility
     beta = 0.01  # Osmotic effect coefficient for solubility
-    k_MeOH = 0.000011  # Methanol oxidation rate, from Sycamore suspension study
+    k_MeOH = 0.000011  # Methanol oxidation rate
 
     # Convert atmospheric methane from ppm to mmol/L
     C_atm_mmolL = C_atm * 0.0409
@@ -50,7 +52,7 @@ def methane_oxidation(C, t, C_atm, g_s, Vmax_ref, Km_ref, Pi, O2, T, k_L, V_cell
     # Enzymatic oxidation in cytosol
     V_MMO = Vmax * (C_cyt / (Km_T + C_cyt))
 
-    # Oxygen consumption (1:1 molar ratio)
+    # Oxygen consumption
     dO2_dt = -V_MMO
 
     # Methanol dynamics
@@ -65,11 +67,10 @@ st.sidebar.header("Adjust Model Parameters")
 
 C_atm = st.sidebar.slider("Atmospheric CH₄ (ppm)", 0.1, 10.0, 1.8)
 g_s = st.sidebar.slider("Stomatal Conductance (gₛ, mol/m²/s)", 0.01, 0.2, 0.05)
-import math
-log_vmax = st.sidebar.slider("log₁₀(Max sMMO Activity)", -3.0, math.log10(2.0), -1.0, step=0.1)
+log_vmax = st.sidebar.slider("log₁₀(Max sMMO Activity, mmol/L/s)", -3.0, math.log10(2.0), -1.0, step=0.1)
 Vmax_ref = 10 ** log_vmax
 st.sidebar.text(f"Vmax_ref = {Vmax_ref:.6f} mmol/L/s")
-Km_ref = st.sidebar.slider("Methane Affinity at 25°C (Km_ref, mmol/L)", 0.1, 2.0, 0.5)
+Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.1, 2.0, 0.5)
 Pi = st.sidebar.slider("Cytosolic Osmolarity (%)", 0, 100, 50)
 O2 = st.sidebar.slider("Cytosolic O₂ (mmol/L)", 0.01, 2.0, 0.5)
 T = st.sidebar.slider("Temperature (°C)", 5, 45, 25)
@@ -77,10 +78,10 @@ k_L = st.sidebar.slider("Mass Transfer Coefficient (k_L, m/s)", 0.001, 0.1, 0.01
 cellular_material = st.sidebar.slider("Cellular Material (g/L)", 0.1, 200.0, 1.0)
 
 # Scaling Vmax based on biomass concentration
-baseline_cell_density = 0.7  # g/L (methanotroph reference)
+baseline_cell_density = 0.7  # g/L
 scaling_factor = cellular_material / baseline_cell_density
 
-# Assume a bacterial cell volume (not used in model, but available)
+# Bacterial cell volume
 V_cell = 1e-15  # L
 
 # Solve ODEs
@@ -105,7 +106,6 @@ st.sidebar.text(f"Temp-Only Adjusted Vmax: {Vmax_temp_only:.6f} mmol/L/s")
 st.sidebar.text(f"Scaled Vmax (with cell density): {Vmax_scaled:.6f} mmol/L/s")
 st.sidebar.text(f"Temp-Adjusted Km: {Km_ref * (1 + 0.02 * (T - 25)):.6f} mmol/L")
 
-import plotly.graph_objects as go
 # Display equations
 st.sidebar.markdown("### Model Equations")
 st.sidebar.latex(r"V_{max}(T) = V_{max,ref} \cdot \text{scaling} \cdot e^{-\frac{E_a}{R} \left( \frac{1}{T} - \frac{1}{T_{ref}} \right)}")
@@ -151,6 +151,4 @@ fig_gauge = go.Figure(go.Indicator(
 # Display the gauge in the main app view
 st.plotly_chart(fig_gauge, use_container_width=True)
 
-
 st.markdown("***Hornstein E. and Mikaelyan A., in prep.***")
-
