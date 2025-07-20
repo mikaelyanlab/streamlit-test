@@ -21,7 +21,8 @@ def methane_oxidation(C, t, C_atm, g_s, Vmax_ref, Km_ref, Pi, O2_ext, T, k_L, V_
     T_K = T + 273.15  
 
     # Temperature-adjusted Vmax using Arrhenius equation
-    Vmax_T = Vmax_ref * scaling_factor * np.exp(-E_a / R * (1/T_K - 1/T_ref))
+    # Vmax_T = Vmax_ref * scaling_factor * np.exp(-E_a / R * (1/T_K - 1/T_ref))
+    Vmax_T = Vmax_ref * scaling_factor * np.exp(E_a / R * (1/T_ref - 1/T_K))
 
     # Adjust Km with temperature
     Km_T = Km_ref * (1 + 0.02 * (T - 25))
