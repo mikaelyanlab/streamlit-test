@@ -31,37 +31,33 @@ def methane_oxidation(C, t, C_atm, g_s, Vmax_ref, Km_ref, Pi, O2, T, k_L, V_cell
     Vmax = Vmax_T * np.exp(-k_osm * (Pi / 100))
 
     # Constants
-    H_0 = 1.4  # Henry's Law constant at 25°C
-    alpha = 0.02  # Temperature sensitivity for solubility
-    beta = 0.01  # Osmotic effect coefficient for solubility
+    H_0 = 1.4  # Gas solubility coefficient (Henry-like constant) at 25°C
     k_MeOH = 0.000011  # Methanol oxidation rate
 
     # Convert atmospheric methane from ppm to mmol/L
     C_atm_mmolL = C_atm * 0.0409
 
-    # Adjust Henry's Law constant based on temperature and osmolarity
-    H_CH4 = H_0 * np.exp(-alpha * (T - 25)) * (1 - beta * Pi)
+    # Use constant solubility (no temperature dependence) to let kinetics dominate
+    H_CH4 = H_0
 
-    # Gas exchange through stomata
-    P_CH4 = g_s * (C_atm / 1.0)  
-    C_cyt_eq = H_CH4 * P_CH4  
-
-    # Methane transfer into cytosol
-    J_CH4 = k_L * (C_cyt_eq - C_cyt)  
+    # Gas exchange through stomata for CH4
+    P_CH4 = g_s * (C_atm / 1.0)
+    C_cyt_eq = H_CH4 * P_CH4
+    J_CH4 = k_L * (C_cyt_eq - C_cyt)
 
     # Enzymatic oxidation in cytosol
     V_MMO = Vmax * (C_cyt / (Km_T + C_cyt))
 
-    # Oxygen influx through stomata (optional basic model)
-    J_O2 = g_s * (0.21 * 1000)  # Approximate ambient O2 = 21% of 1000 mmol/m3 ~ 210 mmol/m3
-    J_O2 = J_O2 / 1000  # convert to mmol/L/s (assuming 1 L intracellular volume per m^2 leaf)
+    # Oxygen influx through stomata (basic model)
+    J_O2 = g_s * (0.21 * 1000)  # Approx ambient O2 = 21% of air in mmol/m3
+    J_O2 = J_O2 / 1000          # convert to mmol/L/s
 
     # Oxygen consumption
     dO2_dt = J_O2 - V_MMO
 
     # Methanol dynamics
-    dC_cyt_dt = J_CH4 - V_MMO  
-    dCH3OH_dt = V_MMO - k_MeOH * CH3OH  
+    dC_cyt_dt = J_CH4 - V_MMO
+    dCH3OH_dt = V_MMO - k_MeOH * CH3OH
 
     return [dC_cyt_dt, dCH3OH_dt, dO2_dt]
 
@@ -103,7 +99,7 @@ ax.set_ylabel("Concentration (mmol/L)")
 ax.legend()
 
 # Debugging output
-Vmax_temp_only = Vmax_ref * np.exp(E_a / R * (1/(T_ref) - 1/(T + 273.15)))
+Vmax_temp_only = Vmax_ref * np.exp(E_a / R * (1/T_ref - 1/(T + 273.15)))
 Vmax_scaled = Vmax_temp_only * scaling_factor
 st.sidebar.text(f"Temp-Only Adjusted Vmax: {Vmax_temp_only:.6f} mmol/L/s")
 st.sidebar.text(f"Scaled Vmax (with cell density): {Vmax_scaled:.6f} mmol/L/s")
@@ -117,7 +113,7 @@ st.sidebar.latex(r"V_{max} = V_{max}(T) \cdot e^{-k_{osm} \cdot (\Pi / 100)}")
 
 # Compute final V_MMO value at the last time point
 Km_T = Km_ref * (1 + 0.02 * (T - 25))
-Vmax_T = Vmax_ref * scaling_factor * np.exp(E_a / R * (1 / T_ref - 1 / (T + 273.15)))
+Vmax_T = Vmax_ref * scaling_factor * np.exp(E_a / R * (1/T_ref - 1/(T + 273.15)))
 Vmax_osm = Vmax_T * np.exp(-0.02 * (Pi / 100))
 C_cyt_final = sol[-1, 0]
 V_MMO_final = Vmax_osm * (C_cyt_final / (Km_T + C_cyt_final))
