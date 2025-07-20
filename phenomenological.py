@@ -30,7 +30,7 @@ def methane_oxidation(C, t, C_atm, g_s, Vmax_ref, Km_ref, Pi, O2_ext, T, k_L, V_
     k_osm = 0.02
     Vmax = Vmax_T * np.exp(-k_osm * (Pi / 100))
 
-    # Constants for methane solubility
+    # Constants for methane solubility and methanol oxidation
     H_CH4 = 1.4
     k_MeOH = 0.000011
 
@@ -49,7 +49,7 @@ def methane_oxidation(C, t, C_atm, g_s, Vmax_ref, Km_ref, Pi, O2_ext, T, k_L, V_
     # Change in O2
     dO2_dt = J_O2 - V_MMO
 
-    # State changes
+    # State changes for CH4 and CH3OH
     dC_cyt_dt = J_CH4 - V_MMO
     dCH3OH_dt = V_MMO - k_MeOH * CH3OH
 
@@ -71,7 +71,7 @@ T = st.sidebar.slider("Temperature (°C)", 5, 45, 25)
 k_L = st.sidebar.slider("Mass Transfer Coefficient (k_L, m/s)", 0.001, 0.1, 0.01)
 cellular_material = st.sidebar.slider("Cellular Material (g/L)", 0.1, 200.0, 1.0)
 
-# Scaling Vmax
+# Scaling Vmax based on biomass concentration
 baseline_cell_density = 0.7
 scaling_factor = cellular_material / baseline_cell_density
 
@@ -81,7 +81,7 @@ C0 = [0.2, 0.1, O2_ext]
 sol = odeint(methane_oxidation, C0, time,
              args=(C_atm, g_s, Vmax_ref, Km_ref, Pi, O2_ext, T, k_L, 1e-15, scaling_factor))
 
-# Plotting
+# Plotting function
 def plot_results():
     fig, ax = plt.subplots()
     ax.plot(time, sol[:, 0], label="C_cyt (CH₄)")
@@ -94,7 +94,7 @@ def plot_results():
 
 fig = plot_results()
 
-# V_MMO gauge
+# Compute final V_MMO
 Km_T = Km_ref * (1 + 0.02 * (T - 25))
 Vmax_T = Vmax_ref * scaling_factor * np.exp(E_a / R * (1/T_ref - 1/(T + 273.15)))
 Vmax_osm = Vmax_T * np.exp(-0.02 * (Pi / 100))
@@ -116,4 +116,4 @@ with col1:
 with col2:
     st.plotly_chart(fig_gauge, use_container_width=True)
 
-st.markdown("***Hornstein E. and Mikaelyan A., in prep.***)
+st.markdown("***Hornstein E. and Mikaelyan A., in prep.***)"}]}
