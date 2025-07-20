@@ -1,4 +1,4 @@
-# blowfly_lpi_app.py
+# Aram Mikaelyan, NCSU | Streamlit App: Blowfly larval performance index; July 20, 2025 
 import streamlit as st
 import plotly.graph_objects as go
 
