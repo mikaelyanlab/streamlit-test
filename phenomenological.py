@@ -57,7 +57,7 @@ def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
     return [dC_cyt_dt, dCH3OH_dt, dO2_dt]
 
 # --- Streamlit UI ---
-st.title("Methane Oxidation Model (with Temperature-Adjusted Methanol Decay)")
+st.title("PLAMMO Methane Oxidation Model")
 
 # Atmosphere and Transfer
 st.sidebar.header("Atmosphere & Gas Transfer")
@@ -103,7 +103,6 @@ ax.plot(time, sol[:, 2], label="Cytosolic O₂")
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Concentration (mmol/L)")
 ax.legend()
-st.pyplot(fig)
 
 # Compute V_MMO at final time
 C_cyt_final = sol[-1, 0]
@@ -133,8 +132,6 @@ with col1:
 
 with col2:
     st.plotly_chart(fig_gauge, use_container_width=True)
-
-st.markdown("***Hornstein E. and Mikaelyan A., in prep.***")
 # Debugging
 k_MeOH_scaled = k_MeOH_ref * np.exp(-E_a_MeOH / R * (1/(T + 273.15) - 1/T_ref))
 st.sidebar.text(f"Temp-Adjusted k_MeOH: {k_MeOH_scaled:.6g} 1/s")
