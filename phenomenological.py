@@ -125,8 +125,16 @@ fig_gauge = go.Figure(go.Indicator(
         'threshold': {'line': {'color': "black", 'width': 4}, 'value': V_MMO_final}
     }
 ))
-st.plotly_chart(fig_gauge, use_container_width=True)
+# Display the gauge in the main app view
+col1, col2 = st.columns([2, 1])  # Wider chart, narrower gauge
 
+with col1:
+    st.pyplot(fig)
+
+with col2:
+    st.plotly_chart(fig_gauge, use_container_width=True)
+
+st.markdown("***Hornstein E. and Mikaelyan A., in prep.***")
 # Debugging
 k_MeOH_scaled = k_MeOH_ref * np.exp(-E_a_MeOH / R * (1/(T + 273.15) - 1/T_ref))
 st.sidebar.text(f"Temp-Adjusted k_MeOH: {k_MeOH_scaled:.6g} 1/s")
