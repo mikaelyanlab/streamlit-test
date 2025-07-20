@@ -11,7 +11,7 @@ E_a = 50e3         # J/mol for MMO
 E_a_MeOH = 45e3    # J/mol for methanol oxidation
 R = 8.314
 T_ref = 298.15     # K
-k_MeOH_ref = 0.000011  # 1/s at 25°C
+k_MeOH_ref = 0.00011  # 1/s at 25°C
 
 # --- ODE System ---
 def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
