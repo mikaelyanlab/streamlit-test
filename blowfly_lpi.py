@@ -2,10 +2,10 @@
 import streamlit as st
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="Lucilia cuprina LPI Comparator",
+st.set_page_config(page_title="Lucilia cuprina LPI Sandbox",
                    layout="wide")
 
-st.title("🌱 Lucilia cuprina Larval Performance Comparator")
+st.title("Lucilia cuprina Larval Performance Sandbox")
 
 ###############################################################################
 # Helper: Larval Performance Index (multiplicative, 0–1 scale)
