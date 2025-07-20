@@ -149,6 +149,12 @@ fig_gauge = go.Figure(go.Indicator(
 ))
 
 # Display the gauge in the main app view
-st.plotly_chart(fig_gauge, use_container_width=True)
+col1, col2 = st.columns([2, 1])  # Wider chart, narrower gauge
+
+with col1:
+    st.pyplot(fig)
+
+with col2:
+    st.plotly_chart(fig_gauge, use_container_width=True)
 
 st.markdown("***Hornstein E. and Mikaelyan A., in prep.***")
