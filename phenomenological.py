@@ -128,7 +128,7 @@ with col1:
     st.pyplot(fig)
 
 with col2:
-    st.markdown("<div style='padding-top:-60px;'>", unsafe_allow_html=True)
+    st.markdown("<div style='padding-bottom:60px;'>", unsafe_allow_html=True)
     st.plotly_chart(fig_gauge, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 # Debug output
