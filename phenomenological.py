@@ -12,6 +12,7 @@ E_a_MeOH = 45e3    # J/mol for methanol oxidation
 R = 8.314
 T_ref = 298.15     # K
 k_MeOH_ref = 0.00011  # 1/s at 25°C
+A_V_ratio = 1e6  # m⁻¹, surface-area-to-volume ratio for a plant cell
 
 # --- ODE System ---
 def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
@@ -40,7 +41,7 @@ def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
     O2_eq = H_O2 * P_O2
 
     # Fluxes
-    J_CH4 = k_L_CH4 * (C_cyt_eq - C_cyt)
+    J_CH4 = k_L_CH4 * (C_cyt_eq - C_cyt) * A_V_ratio
     J_O2 = k_L_O2 * (O2_eq - O2_cyt)
 
     # MMO activity
