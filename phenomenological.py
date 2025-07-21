@@ -122,15 +122,23 @@ fig_gauge = go.Figure(go.Indicator(
         'threshold': {'line': {'color': "black", 'width': 4}, 'value': V_MMO_final}
     }
 ))
+fig, ax = plt.subplots(figsize=(5, 2.2))  # Reduce height to match gauge
+ax.plot(time, sol[:, 0], label="Cytosolic CH₄")
+ax.plot(time, sol[:, 1], label="Methanol (CH₃OH)")
+ax.plot(time, sol[:, 2], label="Cytosolic O₂")
+ax.set_xlabel("Time (s)")
+ax.set_ylabel("Concentration (mmol/L)")
+ax.legend()
+
 col1, col2 = st.columns(2)
 
 with col1:
     st.pyplot(fig)
 
 with col2:
-    st.markdown("<div style='height:-180px;'></div>", unsafe_allow_html=True)
     st.plotly_chart(fig_gauge, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+
+
 # Debug output
 k_MeOH_scaled = k_MeOH_ref * np.exp(-E_a_MeOH / R * (1/(T + 273.15) - 1/T_ref))
 st.sidebar.text(f"Temp-Adjusted k_MeOH: {k_MeOH_scaled:.6g} 1/s")
