@@ -63,7 +63,7 @@ st.title("Methane Oxidation Model (with Optional Photosynthetic O₂)")
 st.sidebar.header("Atmosphere & Gas Transfer")
 C_atm = st.sidebar.slider("Atmospheric CH₄ (ppm)", 0.1, 10.0, 1.8)
 O2_atm = st.sidebar.slider("Atmospheric O₂ (%)", 1.0, 25.0, 21.0)
-g_s = st.sidebar.slider("Stomatal Conductance (mol/m²/s)", 0.01, 2, 0.2)
+g_s = st.sidebar.slider("Stomatal Conductance (mol/m²/s)", 0.1, 2.0, 0.2)
 k_L_CH4 = st.sidebar.slider("CH₄ Mass Transfer Coefficient (m/s)", 0.0001, 0.1, 0.01)
 k_L_O2 = st.sidebar.slider("O₂ Mass Transfer Coefficient (m/s)", 0.0001, 0.1, 0.03)
 
