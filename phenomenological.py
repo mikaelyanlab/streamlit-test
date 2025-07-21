@@ -122,7 +122,7 @@ fig_gauge = go.Figure(go.Indicator(
         'threshold': {'line': {'color': "black", 'width': 4}, 'value': V_MMO_final}
     }
 ))
-fig, ax = plt.subplots(figsize=(5, 2.2))  # Reduce height to match gauge
+fig, ax = plt.subplots(figsize=(5, 3))  # Reduce height to match gauge
 ax.plot(time, sol[:, 0], label="Cytosolic CH₄")
 ax.plot(time, sol[:, 1], label="Methanol (CH₃OH)")
 ax.plot(time, sol[:, 2], label="Cytosolic O₂")
