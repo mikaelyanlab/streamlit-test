@@ -128,9 +128,9 @@ with col1:
     st.pyplot(fig)
 
 with col2:
+    st.markdown("<div style='padding-top:60px;'>", unsafe_allow_html=True)
     st.plotly_chart(fig_gauge, use_container_width=True)
-
-
+    st.markdown("</div>", unsafe_allow_html=True)
 # Debug output
 k_MeOH_scaled = k_MeOH_ref * np.exp(-E_a_MeOH / R * (1/(T + 273.15) - 1/T_ref))
 st.sidebar.text(f"Temp-Adjusted k_MeOH: {k_MeOH_scaled:.6g} 1/s")
