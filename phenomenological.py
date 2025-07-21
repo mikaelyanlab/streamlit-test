@@ -101,7 +101,7 @@ ax.plot(time, sol[:, 2], label="Cytosolic O₂")
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Concentration (mmol/L)")
 ax.legend()
-st.pyplot(fig)
+#st.pyplot(fig)
 
 # Final MMO rate
 C_cyt_final = sol[-1, 0]
@@ -122,7 +122,14 @@ fig_gauge = go.Figure(go.Indicator(
         'threshold': {'line': {'color': "black", 'width': 4}, 'value': V_MMO_final}
     }
 ))
-st.plotly_chart(fig_gauge, use_container_width=True)
+col1, col2 = st.columns(2)
+
+with col1:
+    st.pyplot(fig)
+
+with col2:
+    st.plotly_chart(fig_gauge, use_container_width=True)
+
 
 # Debug output
 k_MeOH_scaled = k_MeOH_ref * np.exp(-E_a_MeOH / R * (1/(T + 273.15) - 1/T_ref))
