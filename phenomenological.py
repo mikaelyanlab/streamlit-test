@@ -83,7 +83,11 @@ Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.1, 2.0, 0.5)
 st.sidebar.header("Biomass Settings")
 cellular_material = st.sidebar.slider("Cellular Material (g/L)", 0.1, 200.0, 1.0)
 baseline_cell_density = 0.7
-scaling_factor = cellular_material / baseline_cell_density
+# Only cytosolic volume (e.g., 3%) contributes to enzyme activity
+cytosol_fraction = 0.03  # 3% of cell volume
+active_volume = cellular_material * cytosol_fraction  # in g/L
+scaling_factor = active_volume / baseline_cell_density
+
 V_cell = 1e-15
 
 # Time and initial conditions
