@@ -86,7 +86,7 @@ scaling_factor = cellular_material / baseline_cell_density
 V_cell = 1e-15
 
 # Time and initial conditions
-time = np.linspace(0, 100, 500)
+time = np.linspace(0, 100, 5000)
 O2_init = 1.3 * np.exp(-0.02 * (T - 25)) * (1 - 0.01 * Pi) * (O2_atm / 100.0)
 C0 = [0.2, 0.1, O2_init]
 
