@@ -127,6 +127,7 @@ fig_gauge = go.Figure(go.Indicator(
 col1, col2 = st.columns(2)
 
 with col1:
+     st.markdown("<div style='height:70px'></div>", unsafe_allow_html=True)  # Adjust height as needed
     st.pyplot(fig)
 
 with col2:
