@@ -109,9 +109,9 @@ sol_ivp = solve_ivp(
 sol = sol_ivp.y.T  # Transpose to match shape from odeint
 
 
-#sol = odeint(methane_oxidation, C0, time,
-             args=(C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
-                   k_L_CH4, k_L_O2, V_cell, scaling_factor, photosynthesis_on))
+# sol = odeint(methane_oxidation, C0, time,
+#             args=(C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
+#                   k_L_CH4, k_L_O2, V_cell, scaling_factor, photosynthesis_on))
 
 # Plot concentration dynamics
 fig, ax = plt.subplots()
