@@ -2,7 +2,8 @@
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.integrate import odeint
+#from scipy.integrate import odeint
+from scipy.integrate import solve_ivp
 import math
 import plotly.graph_objects as go
 
@@ -91,7 +92,24 @@ O2_init = 1.3 * np.exp(-0.02 * (T - 25)) * (1 - 0.01 * Pi) * (O2_atm / 100.0)
 C0 = [0.2, 0.1, O2_init]
 
 # Solve ODEs
-sol = odeint(methane_oxidation, C0, time,
+def wrapped_ode(t, C):
+    return methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
+                              k_L_CH4, k_L_O2, V_cell, scaling_factor, photosynthesis_on)
+
+sol_ivp = solve_ivp(
+    fun=wrapped_ode,
+    t_span=(time[0], time[-1]),
+    y0=C0,
+    t_eval=time,
+    method='LSODA',  # or 'RK45'
+    rtol=1e-6,
+    atol=1e-9
+)
+
+sol = sol_ivp.y.T  # Transpose to match shape from odeint
+
+
+#sol = odeint(methane_oxidation, C0, time,
              args=(C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
                    k_L_CH4, k_L_O2, V_cell, scaling_factor, photosynthesis_on))
 
