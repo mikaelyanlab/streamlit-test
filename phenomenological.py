@@ -45,7 +45,8 @@ def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
     J_O2 = k_L_O2 * (O2_eq - O2_cyt)
 
     # MMO activity
-    V_MMO = Vmax * (C_cyt / (Km_T + C_cyt))
+    Km_O2 = 0.01  # mmol/L, adjust based on literature or experimental value
+    V_MMO = Vmax * (C_cyt / (Km_T + C_cyt)) * (O2_cyt / (Km_O2 + O2_cyt))
 
     # Optional photosynthetic O₂ production
     O2_prod = 0.015 if photosynthesis_on else 0  # mmol/L/s
