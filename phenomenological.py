@@ -128,7 +128,9 @@ C_cyt_final = sol[-1, 0]
 Km_T = Km_ref * (1 + 0.02 * (T - 25))
 Vmax_T = Vmax_ref * scaling_factor * np.exp(-E_a / R * (1/(T + 273.15) - 1/T_ref))
 Vmax_osm = Vmax_T * np.exp(-0.02 * (Pi / 100))
-V_MMO_final = Vmax_osm * (C_cyt_final / (Km_T + C_cyt_final))
+O2_cyt_final = sol[-1, 2]
+Km_O2 = 0.01  # Same as in ODE
+V_MMO_final = Vmax_osm * (C_cyt_final / (Km_T + C_cyt_final)) * (O2_cyt_final / (Km_O2 + O2_cyt_final))
 
 fig_gauge = go.Figure(go.Indicator(
     mode="gauge+number",
