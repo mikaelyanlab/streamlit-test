@@ -102,9 +102,14 @@ with tab_rad:
 
 m1, m2, m3 = st.columns(3)
 m1.metric("O₂ shell δ", f"{r1:.0f} µm")
-m2.metric("Acetate prod", f"{A_prod:.1f}")
-m3.metric("Needed", f"{A_need:.1f}", delta=None if energy_ok else "⚠ short")
-st.success("✔ acetate OK") if energy_ok else st.error("✖ shortfall")
+m2.metric("Acetate prod", f"{A_prod:.2f}" if A_prod < 1 else f"{A_prod:.1f}")
+m3.metric("Needed", f"{A_need:.2f}" if A_need < 1 else f"{A_need:.1f}", delta=None if energy_ok else "⚠ short")
+
+# ✅ FIXED: success or error alert using proper syntax
+if energy_ok:
+    st.success("✔ acetate OK")
+else:
+    st.error("✖ shortfall")
 
 with st.expander("Download CSVs"):
     st.download_button("Axial", ax.to_csv(index=False).encode(), "axial.csv", "text/csv")
