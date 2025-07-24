@@ -64,16 +64,16 @@ def build_field(R, humification, selection_pressure, n=220):
     if core_limit < 0:
         core_limit = 0.0
 
-    # O2 gradient: max 50 µM at periphery, less penetration with higher humification
-    decay_rate = 5 * (1 + humification * selection_pressure)
-    O2 = 50 * np.exp(-decay_rate * (r / R))
+    # O2 gradient: max 50 µM at periphery, decays to 0 µM at core
+    decay_rate = 5 * (1 + humification * selection_pressure)  # Increases with humification
+    O2 = 50 * (1 - np.exp(-decay_rate * (1 - r / R)))  # High at periphery, low at core
     O2[~mask] = np.nan
     wall_zone = r > (1 - 0.02) * R
-    O2[wall_zone] *= 0.6
+    O2[wall_zone] *= 0.6  # Slight decay near wall
 
-    # H2 gradient: max 100 µM in core, increases with humification and pressure
+    # H2 gradient: 0 µM at periphery, increases to H2_max at core
     H2_max = 100 + 100 * humification * selection_pressure
-    H2 = H2_max * (1 - np.exp(-decay_rate * (r / R)))
+    H2 = H2_max * np.exp(-decay_rate * (r / R))  # High in core, low at periphery
     H2[~mask] = np.nan
 
     # Clip to realistic ranges
