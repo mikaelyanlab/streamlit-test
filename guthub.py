@@ -20,12 +20,9 @@ for comp in BASE_COMPARTS:
 # Function to adjust gut morphology based on diet
 def adjust_compartments(recalcitrance, selection_pressure):
     comparts = BASE_COMPARTS.copy()
-    # Correlated progression: higher recalcitrance -> larger P3, higher enzyme activity
     comparts["P3"]["length"] *= (1 + 0.6 * recalcitrance * selection_pressure)
     comparts["P3"]["radius"] *= (1 + 0.4 * recalcitrance * selection_pressure)
-    # P5 shrinks with less recalcitrant diets (less need for nitrogen recycling)
     comparts["P5"]["length"] *= (1 - 0.3 * recalcitrance * selection_pressure)
-    # Update volumes
     for comp in comparts:
         comparts[comp]["volume"] = np.pi * comparts[comp]["radius"]**2 * comparts[comp]["length"]
     return comparts
@@ -62,20 +59,20 @@ comparts = adjust_compartments(recalcitrance, selection_pressure)
 x, pH, O2_ax, H2_ax, Eh_ax, enzyme_activity = axial_profiles(recalcitrance, selection_pressure, comparts)
 rad_data = {comp: radial_grad(d["radius"], d["volume"], enzyme_activity) for comp, d in comparts.items()}
 
-# 3D Gut Visualization
+# 3D Gut Visualization (horizontal)
 fig = go.Figure()
-z0 = 0
+x0 = 0
 for comp, d in comparts.items():
     L, R = d["length"], d["radius"]
-    z1 = z0 + L
+    x1 = x0 + L
     theta = np.linspace(0, 2 * np.pi, THETA_RES)
-    z_lin = np.linspace(z0, z1, Z_RES)
-    TH, ZZ = np.meshgrid(theta, z_lin)
-    X, Y = R * np.cos(TH), R * np.sin(TH)
+    x_lin = np.linspace(x0, x1, Z_RES)
+    TH, XX = np.meshgrid(theta, x_lin)
+    Y, Z = R * np.cos(TH), R * np.sin(TH)
     surf = {"pH": pH, "O2": O2_ax, "H2": H2_ax, "Eh": Eh_ax}[var_map]
     surf2d = np.tile(surf[:Z_RES], (THETA_RES, 1)).T
     fig.add_trace(go.Surface(
-        x=X, y=Y, z=ZZ,
+        x=XX, y=Y, z=Z,
         surfacecolor=surf2d,
         cmin=surf.min(), cmax=surf.max(),
         colorscale="Viridis",
@@ -84,14 +81,15 @@ for comp, d in comparts.items():
         opacity=0.85,
         hovertemplate=f"{comp}<br>{var_map}: %{{surfacecolor:.2f}}<extra></extra>"
     ))
-    z0 = z1
+    x0 = x1
 
 fig.update_layout(
     scene=dict(
-        xaxis_visible=False,
+        xaxis_title="Axial Position (mm)",
         yaxis_visible=False,
-        zaxis_title="Axial Position (mm)",
-        aspectratio=dict(x=1, y=1, z=3)
+        zaxis_visible=False,
+        aspectratio=dict(x=3, y=1, z=1),
+        camera=dict(eye=dict(x=1.8, y=0.5, z=0.5))
     ),
     annotations=[
         dict(
