@@ -1,13 +1,16 @@
 import numpy as np, pandas as pd, altair as alt, streamlit as st
 
-# —————— CONSTANTS —————————————————————————————
+# — Constants —
 BASE_RETENTION = 14.0
-DG_ACETATE     = 8.7e5
-DEFAULT_RMET   = 8.0
-COMPART = {"P1 (mixed)": 0.00, "P3 (paunch)": .35,
-           "P4 (colon)": .70, "P5 (rectum)": 1.00}
+DG_ACETATE = 8.7e5
+DEFAULT_RMET = 8.0
+COMPART = {
+    "P1 (mixed)": 0.00,
+    "P3 (paunch)": 0.35,
+    "P4 (colon)": 0.70,
+    "P5 (rectum)": 1.00,
+}
 
-# —————— MODEL FUNCTIONS —————————————————————————
 def o2_solubility_uM_per_kPa(T):
     return 12.56 - 0.1667 * (T - 25)
 
@@ -22,7 +25,7 @@ def axial_profiles(H, T_ret, alpha, J_O2, P_H2):
 def radial_profile(O2_wall_uM, H2_core_kPa, pH_core, r_rel, k_r, sol_kPa_per_uM):
     O2_kPa = (O2_wall_uM * sol_kPa_per_uM) * np.exp(-k_r * (1 - r_rel))
     H2_kPa = H2_core_kPa * (1 - np.exp(-k_r * r_rel))
-    pH      = pH_core - 0.5 * (1 - r_rel)
+    pH = pH_core - 0.5 * (1 - r_rel)
     return O2_kPa, H2_kPa, pH
 
 def acetate_balance(P_H2, f_aceto, gut_mass_g, Mmg, Rdot, Facet):
@@ -34,22 +37,22 @@ def acetate_balance(P_H2, f_aceto, gut_mass_g, Mmg, Rdot, Facet):
 def compute_Tret(Mmg, GutFrac, FeedingRate, Digestibility, Motility):
     V_gut = Mmg * GutFrac / 1000
     Q_flow = FeedingRate * Digestibility * Motility
-    return V_gut / Q_flow if Q_flow > 0 else 0
+    return V_gut / Q_flow if Q_flow > 0 else np.nan
 
-# —————— APP UI ——————————————————————————————
+# — UI —
 st.title("Termite gut simulator — retention model fixed")
 
 with st.sidebar:
     Mmg = st.slider("Body mass (mg)", 1, 200, 12)
     GutFrac = st.slider("Hindgut fraction", 0.05, 0.5, 0.2)
     FeedingRate = st.slider("Feeding rate (mg/h)", 0.1, 50.0, 5.0)
-    Digestibility = st.slider("Digestibility", 0.2, 1.0, 0.6)
-    Motility = st.slider("Motility", 0.1, 1.0, 0.5)
+    Digestibility = st.slider("Digestibility (%)", 0.2, 1.0, 0.6)
+    Motility = st.slider("Motility factor", 0.1, 1.0, 0.5)
     H = st.slider("Humification H", 0.0, 1.0, 0.5)
     alpha = st.slider("Alkaline secretion α", 0.0, 10.0, 5.0)
     tempC = st.slider("Temperature (°C)", 15, 40, 30)
     J_O2 = st.slider("O₂ influx", 0.0, 1.0, 0.3)
-    P_H2 = st.slider("H₂ production", 0.0, 8.0, 2.0)
+    P_H2 = st.slider("H₂ production (µmol/g/h)", 0.0, 8.0, 2.0)
     f_aceto = st.slider("Acetogen H₂ use", 0.0, 1.0, 0.8)
     Rdot = st.slider("Metabolic rate (J/g/h)", 0.5, 50.0, DEFAULT_RMET)
     Facet = st.slider("ATP fraction", 0.5, 1.0, 0.9)
@@ -59,11 +62,11 @@ with st.sidebar:
 T_ret = compute_Tret(Mmg, GutFrac, FeedingRate, Digestibility, Motility)
 st.sidebar.metric("T_ret (h)", f"{T_ret:.2f}")
 
-# —————— COMPUTATION ————————————————————————————
+# — Calculations —
 df_ax = axial_profiles(H, T_ret, alpha, J_O2, P_H2)
 sol = o2_solubility_uM_per_kPa(tempC)
 uM_to_kPa = 1 / sol
-O2_thr_kPa = uM_to_kPa
+O2_thr = uM_to_kPa
 
 r_rel = np.linspace(0, 1, 150)
 μm = r_rel * radius_mm * 1000
@@ -72,13 +75,13 @@ idx = int(COMPART[comp] * (len(df_ax) - 1))
 core = df_ax.iloc[idx]
 O2k, H2k, pHr = radial_profile(core.O2_uM, core.H2_kPa, core.pH, r_rel, k_r, uM_to_kPa)
 rad_df = pd.DataFrame({"μm": μm, "O2_kPa": O2k, "H2_kPa": H2k, "pH": pHr})
-micro = rad_df[rad_df.O2_kPa > O2_thr_kPa]
+micro = rad_df[rad_df.O2_kPa > O2_thr]
 r0, r1 = (micro.μm.min(), micro.μm.max()) if not micro.empty else (0, 0)
 
 A_prod, A_need = acetate_balance(P_H2, f_aceto, 0.4 * Mmg / 1000, Mmg, Rdot, Facet)
 energy_ok = A_prod >= A_need
 
-# —————— PLOTTING ——————————————————————————————
+# — Plotting —
 tab1, tab2 = st.tabs(["Axial", "Radial"])
 
 with tab1:
@@ -102,7 +105,6 @@ with tab1:
         x=alt.X('x', title='Axial position'),
         y=alt.Y('Eh', title='Eh (mV)')
     )
-
     st.altair_chart((p1 & p2 & p3 & p4).resolve_axis(y='independent'), use_container_width=True)
 
 with tab2:
@@ -121,7 +123,7 @@ with tab2:
         use_container_width=True
     )
 
-# —————— METRICS ——————————————————————————————
+# — Metrics —
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("T_ret (h)", f"{T_ret:.2f}")
 c2.metric("O₂ shell δ", f"{r1:.0f} µm")
