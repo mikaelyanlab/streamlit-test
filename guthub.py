@@ -34,9 +34,9 @@ def adjust_radii(humification, selection_pressure):
     comparts = BASE.copy()
     H_sq = humification ** 2
     comparts["P1"]["radius"] *= (1 + 0.10 * H_sq * selection_pressure)
-    comparts["P3"]["radius"] *= (1 + 0.70 * H_sq * selection_pressure)  # Increased for P3
+    comparts["P3"]["radius"] *= (1 + 0.70 * H_sq * selection_pressure)
     comparts["P4"]["radius"] *= (1 + 0.20 * H_sq * selection_pressure)
-    comparts["P5"]["radius"] *= (1 - 0.50 * H_sq * selection_pressure)  # Increased decrease for P5
+    comparts["P5"]["radius"] *= (1 - 0.50 * H_sq * selection_pressure)
     # Prevent collapse
     for k in comparts:
         comparts[k]["radius"] = max(comparts[k]["radius"], 0.05)
@@ -51,8 +51,8 @@ scaled_radii = adjust_radii(humification, selection_pressure)
 microoxic_frac = 0.10 + 0.20 * humification  # fraction of radius occupied by the annulus
 microoxic_frac = min(microoxic_frac, 0.8)  # cap so core does not vanish
 
-def build_field(R, n=220):
-    """Return (X,Y,mask,r,core_limit,O2,H2) for a compartment of radius R."""
+def build_field(R, humification, selection_pressure, n=220):
+    """Return (X,Y,mask,r,core_limit,O2,H2) with dynamic gradients."""
     x = np.linspace(-R, R, n)
     y = np.linspace(-R, R, n)
     X, Y = np.meshgrid(x, y)
@@ -64,16 +64,21 @@ def build_field(R, n=220):
     if core_limit < 0:
         core_limit = 0.0
 
-    # Smooth gradient for O2 (high at periphery, decaying inward)
-    O2 = np.exp(-5 * (r / R))  # Exponential decay from periphery
-    O2[~mask] = np.nan  # Mask outside region
-    # Adjust O2 near wall for microoxic effect
+    # Dynamic O2 gradient: steeper decay with higher humification
+    decay_rate = 5 * (1 + humification * selection_pressure)  # Increases with inputs
+    O2 = np.exp(-decay_rate * (r / R))  # Smoother decay from periphery
+    O2[~mask] = np.nan
     wall_zone = r > (1 - 0.02) * R
     O2[wall_zone] *= 0.6  # Slight decay at wall
 
-    # H2 inverse gradient (high in core, low at periphery)
-    H2 = 1 - O2
+    # Dynamic H2 gradient: increases with humification and selection pressure
+    H2_base = 1 + humification * selection_pressure  # Base amplitude
+    H2 = H2_base * (1 - O2)  # Inverse, scaled by inputs
     H2[~mask] = np.nan
+
+    # Normalize for consistent color scale
+    O2 = O2 / O2.max() if O2.max() > 0 else O2
+    H2 = H2 / H2.max() if H2.max() > 0 else H2
 
     return X, Y, mask, r, core_limit, O2, H2
 
@@ -85,7 +90,7 @@ plt.subplots_adjust(wspace=0.4)  # Increased spacing
 
 for ax, compartment in zip(axes, ["P1", "P3", "P4", "P5"]):
     R = scaled_radii[compartment]["radius"]
-    X, Y, mask, r, core_limit, O2_field, H2_field = build_field(R)
+    X, Y, mask, r, core_limit, O2_field, H2_field = build_field(R, humification, selection_pressure)
 
     field = O2_field if var == "O₂" else H2_field
     plot_field = np.ma.array(field, mask=~mask)
@@ -97,7 +102,7 @@ for ax, compartment in zip(axes, ["P1", "P3", "P4", "P5"]):
         origin="lower",
         cmap=cmap,
         vmin=0,
-        vmax=1,
+        vmax=1,  # Fixed range for consistency
     )
 
     circ_outer = plt.Circle((0, 0), R, edgecolor="black", facecolor="none", linewidth=1)
