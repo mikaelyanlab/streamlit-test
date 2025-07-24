@@ -63,9 +63,21 @@ fig.update_layout(
 )
 st.plotly_chart(fig, use_container_width=True)
 
-# Fallback 2D plot
-st.header("2D Axial Profiles")
-df = pd.DataFrame({"Position": x, "pH": pH, "O₂": O2, "H₂": H2, "Eh": Eh})
-base = alt.Chart(df).transform_fold(["pH","O₂","H₂","Eh"], as_=["Param","Value"])
-line = base.mark_line().encode(x="Position", y="Value", color="Param")
+# 2D Plot with safe column names
+st.header("📈 2D Axial Profiles")
+df = pd.DataFrame({
+    "Position": x,
+    "pH": pH,
+    "O2": O2,
+    "H2": H2,
+    "Eh": Eh
+})
+base = alt.Chart(df).transform_fold(
+    ["pH", "O2", "H2", "Eh"], as_=["Param", "Value"]
+)
+line = base.mark_line().encode(
+    x="Position",
+    y="Value",
+    color="Param"
+)
 st.altair_chart(line, use_container_width=True)
