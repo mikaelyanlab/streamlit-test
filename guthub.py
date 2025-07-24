@@ -71,9 +71,9 @@ def build_field(R, humification, selection_pressure, n=220):
     wall_zone = r > (1 - 0.02) * R
     O2[wall_zone] *= 0.6  # Slight decay near wall
 
-    # H2 gradient: 0 µM at periphery, increases to H2_max at core
+    # H2 gradient: H2_max at core, decays to 0 µM at periphery
     H2_max = 100 + 100 * humification * selection_pressure
-    H2 = H2_max * (1 - np.exp(-decay_rate * (r / R)))  # 0 µM at periphery, H2_max at core
+    H2 = H2_max * np.exp(-decay_rate * (r / R))  # H2_max at core, 0 µM at periphery
     H2[~mask] = np.nan
 
     # Clip to realistic ranges
@@ -95,7 +95,7 @@ for ax, compartment in zip(axes, ["P1", "P3", "P4", "P5"]):
     field = O2_field if var == "O₂" else H2_field
     plot_field = np.ma.array(field, mask=~mask)
 
-    cmap = "viridis" if var == "O₂" else "magma"  # Default viridis
+    cmap = "viridis" if var == "O₂" else "viridis"  # Uniform viridis for consistency
     im = ax.imshow(
         plot_field,
         extent=(-R, R, -R, R),
