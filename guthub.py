@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import altair as alt
 import streamlit as st
 
-# Define base gut compartments
+# Base gut compartments
 BASE_COMPARTS = {
     "P1": {"length": 3, "radius": 0.15},
     "P3": {"length": 8, "radius": 0.45},
@@ -12,14 +12,12 @@ BASE_COMPARTS = {
     "P5": {"length": 2, "radius": 0.15}
 }
 
-# Compute radial gradients
 def radial_grad(radius, volume, enzyme_activity):
     r_rel = np.linspace(0, 1, 50)
     O2 = 100 * np.exp(-5 * (1 - r_rel)) / (1 + 0.3 * volume)
     H2 = 2 * enzyme_activity * (1 - np.exp(-5 * r_rel))
     return r_rel * radius, O2, H2
 
-# Adjust gut compartments based on diet and selection
 def adjust_compartments(recalcitrance, selection_pressure):
     comparts = BASE_COMPARTS.copy()
     comparts["P3"]["length"] *= (1 + 0.6 * recalcitrance * selection_pressure)
@@ -29,7 +27,6 @@ def adjust_compartments(recalcitrance, selection_pressure):
         comparts[comp]["volume"] = np.pi * comparts[comp]["radius"]**2 * comparts[comp]["length"]
     return comparts
 
-# Axial profiles
 def axial_profiles(recalcitrance, selection_pressure, comparts):
     x = np.linspace(0, 1, 200)
     enzyme_activity = 1 + 0.5 * recalcitrance * selection_pressure
@@ -39,45 +36,54 @@ def axial_profiles(recalcitrance, selection_pressure, comparts):
     Eh = -100 - 59 * (pH - 7) + 0.3 * O2 - 40 * H2
     return x, pH, O2, H2, Eh, enzyme_activity
 
-# Streamlit inputs
+# Streamlit UI
 st.sidebar.header("Evolutionary Parameters")
 recalcitrance = st.sidebar.slider("Dietary Recalcitrance (0: Soil-like, 1: Wood-like)", 0.0, 1.0, 0.5)
 selection_pressure = st.sidebar.slider("Selection Pressure", 0.0, 2.0, 1.0)
-var_map = st.sidebar.selectbox("3D Color Variable", ["O2", "H2", "pH", "Eh"])
+var_map = st.sidebar.selectbox("Color Variable", ["O2", "H2"])
 
-# Model computation
 comparts = adjust_compartments(recalcitrance, selection_pressure)
 x, pH, O2_ax, H2_ax, Eh_ax, enzyme_activity = axial_profiles(recalcitrance, selection_pressure, comparts)
 rad_data = {comp: radial_grad(d["radius"], d["volume"], enzyme_activity) for comp, d in comparts.items()}
 
-# 3D gut visualization
+# 3D Radial Endcap Heatmaps
 fig = go.Figure()
 x0 = 0
+N_theta = 60
+N_rad = 25
 for comp, d in comparts.items():
-    L, R = d["length"], d["radius"]
-    r, O2_r, H2_r = rad_data[comp]
-    slices = 30
-    dx = L / slices
-    for i in range(slices):
-        xi = x0 + i * dx
-        for j in range(len(r) - 1):
-            theta = np.linspace(0, 2*np.pi, 30)
-            x_vals, y_vals, z_vals = [], [], []
-            for angle in theta:
-                y_vals.append(r[j] * np.cos(angle))
-                z_vals.append(r[j] * np.sin(angle))
-                x_vals.append(xi)
-            for angle in reversed(theta):
-                y_vals.append(r[j+1] * np.cos(angle))
-                z_vals.append(r[j+1] * np.sin(angle))
-                x_vals.append(xi)
-            surf_val = {"O2": O2_r[j], "H2": H2_r[j], "pH": pH[i], "Eh": Eh_ax[i]}.get(var_map, O2_r[j])
+    R = d["radius"]
+    L = d["length"]
+    r_array, O2_array, H2_array = rad_data[comp]
+    values = {"O2": O2_array, "H2": H2_array}[var_map]
+
+    for i in range(len(r_array)-1):
+        r1, r2 = r_array[i], r_array[i+1]
+        val = values[i]
+        for j in range(N_theta):
+            theta1 = 2 * np.pi * j / N_theta
+            theta2 = 2 * np.pi * (j+1) / N_theta
+            x_vals = [x0] * 4
+            y_vals = [
+                r1 * np.cos(theta1),
+                r1 * np.cos(theta2),
+                r2 * np.cos(theta2),
+                r2 * np.cos(theta1)
+            ]
+            z_vals = [
+                r1 * np.sin(theta1),
+                r1 * np.sin(theta2),
+                r2 * np.sin(theta2),
+                r2 * np.sin(theta1)
+            ]
             fig.add_trace(go.Mesh3d(
-                x=x_vals, y=y_vals, z=z_vals,
-                intensity=[surf_val] * len(x_vals),
+                x=x_vals,
+                y=y_vals,
+                z=z_vals,
+                intensity=[val] * 4,
                 colorscale='Viridis',
+                opacity=0.9,
                 showscale=False,
-                opacity=0.85,
                 hoverinfo='skip'
             ))
     x0 += L
@@ -87,24 +93,17 @@ fig.update_layout(
         xaxis_title="Axial Position (mm)",
         yaxis_title="Radial (Y)",
         zaxis_title="Radial (Z)",
-        camera=dict(eye=dict(x=2.5, y=0.1, z=0.1)),
+        camera=dict(eye=dict(x=2.5, y=0.1, z=0.3)),
         aspectratio=dict(x=3, y=1, z=1)
     ),
-    annotations=[
-        dict(
-            text=f"Diet Recalcitrance: {recalcitrance:.2f}",
-            xref="paper", yref="paper", x=0.5, y=0.95,
-            showarrow=False, font=dict(size=12, color="black")
-        )
-    ],
-    margin=dict(l=0, r=0, t=50, b=0),
+    title=f"Gut Cross-Section Radial Heatmaps – {var_map}",
+    margin=dict(l=0, r=0, t=40, b=0),
     height=600
 )
-
-st.header(f"3D Gut Model – {var_map}")
+st.header("Radial Cross-Sections of Gut Compartments")
 st.plotly_chart(fig, use_container_width=True)
 
-# 2D radial profile (P3)
+# 2D Radial Profile for P3
 st.subheader("Radial Profile in P3 (Paunch)")
 rv, O2_rad, H2_rad = rad_data["P3"]
 radial_df = pd.DataFrame({"Radius (mm)": rv, "O₂ (µM)": O2_rad, "H₂ (µM)": H2_rad})
@@ -115,12 +114,9 @@ chart_o2 = alt.Chart(radial_df).mark_line(color="blue").encode(
 chart_h2 = alt.Chart(radial_df).mark_line(color="red").encode(
     x="Radius (mm)", y="H₂ (µM)"
 )
-microoxic = alt.Chart(pd.DataFrame({"x": [0, comparts["P3"]["radius"]]})).mark_rect(opacity=0.2, color="blue").encode(
-    x="x", x2=alt.value(comparts["P3"]["radius"]), y=alt.value(0), y2=alt.value(O2_rad.max())
-)
-st.altair_chart(microoxic + chart_o2 + chart_h2, use_container_width=True)
+st.altair_chart(chart_o2 + chart_h2, use_container_width=True)
 
-# Axial profiles
+# 2D Axial Profiles
 st.subheader("Axial Profiles")
 def plot_line(y, col, title, ylab):
     df = pd.DataFrame({"Position": x, title: y})
