@@ -1,4 +1,3 @@
-# app.py — Clarity-First Version
 import numpy as np, pandas as pd, altair as alt, streamlit as st
 
 # ───── CONSTANTS ─────────────────────────────────────────────
@@ -20,7 +19,7 @@ def axial_profiles(H, tau, T_ret, alpha, J_O2, P_H2):
 
 def radial_profile(O2_wall_uM, H2_core_kPa, pH_core, r_rel, k_r, sol_kPa_per_uM):
     O2_kPa = (O2_wall_uM * sol_kPa_per_uM) * np.exp(-k_r * (1 - r_rel))
-    H2_kPa = H2_core_kpa * (1 - np.exp(-k_r * r_rel))
+    H2_kPa = H2_core_kPa * (1 - np.exp(-k_r * r_rel))  # ✅ Fixed typo
     pH     = pH_core - 0.5 * (1 - r_rel)
     return O2_kPa, H2_kPa, pH
 
