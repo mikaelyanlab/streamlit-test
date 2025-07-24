@@ -48,9 +48,9 @@ with st.sidebar:
     tempC = st.slider("Gut temperature (°C)", 15, 40, 30)
 
     st.header("Gas / microbiome")
-    J_O2    = st.slider("Relative O₂ influx", 0.,1.,.3)
-    P_H2    = st.slider("H₂ production (µmol g⁻¹ h⁻¹)", 0.,6.,2.)
-    f_aceto = st.slider("Acetogen share of H₂", 0.,1.,.8)
+    J_O2    = st.slider("Relative O2 influx", 0.,1.,.3)
+    P_H2    = st.slider("H2 production (µmol g⁻¹ h⁻¹)", 0.,6.,2.)
+    f_aceto = st.slider("Acetogen share of H2", 0.,1.,.8)
 
     st.header("Energetics")
     Mmg   = st.slider("Body mass (mg)", 1, 50, 12)
@@ -89,7 +89,7 @@ for xi,(O2_wall_uM, H2_core, pH_core) in ax[['O2_uM','H2_kPa','pH']].iterrows():
 
 field = pd.DataFrame(data2d)
 
-# δ(x): shell where O₂>1 µM
+# δ(x): shell where O2>1 µM
 shell_df = field[field["O2_kPa"]>O2_thr_kPa].groupby("x")["r"].min().reset_index()
 shell_df["r"] = shell_df["r"]
 
@@ -99,7 +99,7 @@ energy_ok = A_prod>=A_need
 
 # ───── 4. VISUALS ──────────────────────────────────────────────────────────
 tab_ax, tab_rad, tab_2dO2, tab_2dpH = st.tabs(
-    ["Axial profiles","Radial slice","2-D O₂ heat-map","2-D pH heat-map"])
+    ["Axial profiles","Radial slice","2-D O2 heat-map","2-D pH heat-map"])
 
 with tab_ax:
     ax_plot = ax.melt('x', value_vars=['pH','Eh','O2_uM','H2_kPa']
@@ -120,8 +120,8 @@ with tab_rad:
     O2k,H2k,pHr = radial_profile(core.O2_uM,core.H2_kPa,core.pH,
                                  r_rel,k_r,uM_to_kPa)
     rad_df = pd.DataFrame({"μm":r_rel*radius_mm*1000,
-                           "O₂_kPa":O2k,"H₂_kPa":H2k})
-    micro = rad_df[rad_df.O₂_kPa>O2_thr_kPa]
+                           "O2_kPa":O2k,"H2_kPa":H2k})
+    micro = rad_df[rad_df.O2_kPa>O2_thr_kPa]
     shell_rect = alt.Chart(pd.DataFrame({
         "x":[micro.μm.min()],"x2":[micro.μm.max()],
         "y":[0],"y2":[P_H2*1.1]
@@ -129,15 +129,15 @@ with tab_rad:
 
     base = alt.Chart(rad_df).encode(
         x=alt.X('μm', title='Radial distance (µm)'),
-        y=alt.Y('O₂_kPa', title='Partial pressure (kPa)')
+        y=alt.Y('O2_kPa', title='Partial pressure (kPa)')
     )
-    O2l = base.mark_line().encode(y='O₂_kPa')
-    H2l = base.mark_line(strokeDash=[6,4]).encode(y='H₂_kPa')
+    O2l = base.mark_line().encode(y='O2_kPa')
+    H2l = base.mark_line(strokeDash=[6,4]).encode(y='H2_kPa')
     st.altair_chart( (shell_rect+O2l+H2l).properties(height=300),
                      use_container_width=True)
 
 with tab_2dO2:
-    st.subheader("O₂ partial pressure (kPa)")
+    st.subheader("O2 partial pressure (kPa)")
     ch2 = alt.Chart(field).mark_rect().encode(
         x=alt.X('x:Q', title='Axial (rel)'),
         y=alt.Y('r:Q', title='Radial µm'),
@@ -157,7 +157,7 @@ with tab_2dpH:
 
 # ───── METRICS ──────────────────────────────────────────────────────────────
 m1,m2,m3 = st.columns(3)
-m1.metric("O₂ shell δₘₐₓ", f"{shell_df.r.max():.0f} µm")
+m1.metric("O2 shell δₘₐₓ", f"{shell_df.r.max():.0f} µm")
 m2.metric("Acetate prod", f"{A_prod:.1f} µmol h⁻¹")
 m3.metric("Needed", f"{A_need:.1f}", delta=None if energy_ok else "⚠ short")
 
