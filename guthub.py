@@ -52,7 +52,7 @@ microoxic_frac = 0.10 + 0.20 * humification  # fraction of radius occupied by th
 microoxic_frac = min(microoxic_frac, 0.8)  # cap so core does not vanish
 
 def build_field(R, humification, selection_pressure, n=220):
-    """Return (X,Y,mask,r,core_limit,O2,H2) with dynamic gradients."""
+    """Return (X,Y,mask,r,core_limit,O2,H2) with real units."""
     x = np.linspace(-R, R, n)
     y = np.linspace(-R, R, n)
     X, Y = np.meshgrid(x, y)
@@ -64,21 +64,21 @@ def build_field(R, humification, selection_pressure, n=220):
     if core_limit < 0:
         core_limit = 0.0
 
-    # Dynamic O2 gradient: steeper decay with higher humification
-    decay_rate = 5 * (1 + humification * selection_pressure)  # Increases with inputs
-    O2 = np.exp(-decay_rate * (r / R))  # Smoother decay from periphery
+    # O2 gradient: max 50 µM at periphery, decays with humification and pressure
+    decay_rate = 5 * (1 + humification * selection_pressure)  # Steeper with inputs
+    O2 = 50 * np.exp(-decay_rate * (r / R))  # µM, high at periphery
     O2[~mask] = np.nan
     wall_zone = r > (1 - 0.02) * R
     O2[wall_zone] *= 0.6  # Slight decay at wall
 
-    # Dynamic H2 gradient: increases with humification and selection pressure
-    H2_base = 1 + humification * selection_pressure  # Base amplitude
-    H2 = H2_base * (1 - O2)  # Inverse, scaled by inputs
+    # H2 gradient: max 100 µM in core, increases with humification and pressure
+    H2_max = 100 * (1 + humification * selection_pressure)  # µM, scales with inputs
+    H2 = H2_max * (1 - np.exp(-decay_rate * (r / R)))  # Inverse, high in core
     H2[~mask] = np.nan
 
-    # Normalize for consistent color scale
-    O2 = O2 / O2.max() if O2.max() > 0 else O2
-    H2 = H2 / H2.max() if H2.max() > 0 else H2
+    # Clip to realistic ranges
+    O2 = np.clip(O2, 0, 50)
+    H2 = np.clip(H2, 0, 200)  # Allow up to 200 µM for high activity
 
     return X, Y, mask, r, core_limit, O2, H2
 
@@ -102,7 +102,7 @@ for ax, compartment in zip(axes, ["P1", "P3", "P4", "P5"]):
         origin="lower",
         cmap=cmap,
         vmin=0,
-        vmax=1,  # Fixed range for consistency
+        vmax=50 if var == "O₂" else 200,  # Real unit ranges
     )
 
     circ_outer = plt.Circle((0, 0), R, edgecolor="black", facecolor="none", linewidth=1)
@@ -120,7 +120,7 @@ for ax, compartment in zip(axes, ["P1", "P3", "P4", "P5"]):
     ax.set_ylim(-R - 0.1, R + 0.1)
 
 cbar = fig.colorbar(im, ax=axes, fraction=0.025, pad=0.04)
-cbar.set_label(f"{var} (relative units)")
+cbar.set_label(f"{var} (µM)")
 
 st.pyplot(fig)
 
