@@ -94,10 +94,8 @@ for ax, compartment in zip(axes, ["P1", "P3", "P4", "P5"]):
 
     field = O2_field if var == "O₂" else H2_field
     plot_field = np.ma.array(field, mask=~mask)
-    # Flip vertically to ensure periphery (high O2) is at edges
-    plot_field = np.flipud(plot_field)
 
-    cmap = "viridis_r" if var == "O₂" else "magma"  # Reversed viridis for O₂
+    cmap = "viridis" if var == "O₂" else "magma"  # Default viridis for O₂
     im = ax.imshow(
         plot_field,
         extent=(-R, R, -R, R),
