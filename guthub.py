@@ -27,7 +27,7 @@ humification = st.sidebar.slider(
 DSIR = st.sidebar.slider(
     "Daily Substrate Intake Requirement (0 = low, 1 = moderate, 2 = high)",
     0.0, 2.0, 1.0,
-    help="Grams of substrate per gram body weight/day needed for energy (acetate), carbon, and nitrogen (0 = ~0.2 g/g, 1 = ~0.5 g/g, 2 = ~1.0 g/g)."
+    help="Grams of substrate per gram body weight/day to meet energy (acetate), carbon, and nitrogen needs. 0 = ~0.1-0.2 g/g (10-15 mg acetate/g, 40% C, 1-2% N), 1 = ~0.5 g/g (5-8 mg acetate/g, 25% C, 0.5-1% N), 2 = ~1.0 g/g (2-4 mg acetate/g, 10% C, 0.2-0.5% N)."
 )
 
 var = st.sidebar.selectbox("Radial gradient to display", ["O₂", "H₂"])
@@ -135,7 +135,10 @@ st.pyplot(fig)
 st.markdown(
     f"""
 **Humification:** {humification:.2f}  
-**Daily Substrate Intake Requirement:** {DSIR:.2f}  
+**Daily Substrate Intake Requirement:** {DSIR:.2f} g/g body weight/day  
+- Energy: ~{(10 - 6 * DSIR):.1f} mg acetate/g substrate  
+- Carbon Incorporation: ~{(40 - 15 * DSIR):.0f}%  
+- Nitrogen Incorporation: ~{(2 - 1.5 * DSIR):.1f}%  
 Microoxic annulus thickness = {microoxic_frac*100:.1f}% of radius (dashed circle = anoxic core boundary).  
 Selected gradient: **{var}** (O₂ high at periphery, H₂ high in core).
 """
