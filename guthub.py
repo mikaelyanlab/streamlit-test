@@ -1,6 +1,5 @@
 import numpy as np, pandas as pd, altair as alt, streamlit as st
 
-# ───── CONSTANTS ─────────────────────────────────────────────
 BASE_RETENTION = 14.0
 DG_ACETATE     = 8.7e5
 DEFAULT_RMET   = 8.0
@@ -19,7 +18,7 @@ def axial_profiles(H, tau, T_ret, alpha, J_O2, P_H2):
 
 def radial_profile(O2_wall_uM, H2_core_kPa, pH_core, r_rel, k_r, sol_kPa_per_uM):
     O2_kPa = (O2_wall_uM * sol_kPa_per_uM) * np.exp(-k_r * (1 - r_rel))
-    H2_kPa = H2_core_kPa * (1 - np.exp(-k_r * r_rel))  # ✅ Fixed typo
+    H2_kPa = H2_core_kPa * (1 - np.exp(-k_r * r_rel))
     pH     = pH_core - 0.5 * (1 - r_rel)
     return O2_kPa, H2_kPa, pH
 
@@ -29,7 +28,6 @@ def acetate_balance(P_H2, f_aceto, gut_mass_g, Mmg, Rdot, F_acet):
     A_need = F_acet * E_need / DG_ACETATE * 1e6
     return A_prod, A_need
 
-# ───── STREAMLIT UI ─────────────────────────────────────────
 st.title("Termite hind-gut simulator — clarified axial + radial panels")
 
 with st.sidebar:
@@ -39,19 +37,15 @@ with st.sidebar:
     T_ret   = st.number_input("Absolute retention time (h)", 0., 48., 0.)
     alpha   = st.slider("Alkaline secretion α", 0., 10., 5.)
     tempC   = st.slider("Temperature (°C)", 15, 40, 30)
-
     J_O2    = st.slider("O₂ influx (relative)", 0., 1., 0.3)
     P_H2    = st.slider("H₂ production (µmol g⁻¹ h⁻¹)", 0., 6., 2.)
     f_aceto = st.slider("Acetogen H₂ use", 0., 1., 0.8)
-
     Mmg     = st.slider("Body mass (mg)", 1, 50, 12)
     Rdot    = st.slider("Metabolic rate J g⁻¹ h⁻¹", .5, 25., DEFAULT_RMET)
     Facet   = st.slider("ATP from acetate", .7, 1., .9)
-
     radius_mm = st.slider("Gut radius (mm)", 0.1, 1.5, 0.6)
     k_r       = st.slider("Radial decay rate kᵣ", 3., 10., 6.)
 
-# Compute profiles
 ax = axial_profiles(H, tau, T_ret, alpha, J_O2, P_H2)
 sol = o2_solubility_uM_per_kPa(tempC)
 uM_to_kPa = 1 / sol
@@ -70,7 +64,6 @@ r0, r1 = micro.μm.min() if not micro.empty else 0, micro.μm.max() if not micro
 A_prod, A_need = acetate_balance(P_H2, f_aceto, 0.4 * Mmg / 1000, Mmg, Rdot, Facet)
 energy_ok = A_prod >= A_need
 
-# TABS
 tab_ax, tab_rad = st.tabs(["Axial profiles", "Radial slice"])
 
 with tab_ax:
@@ -95,16 +88,18 @@ with tab_rad:
     H2r = alt.Chart(rad_df).mark_line(color="green", strokeDash=[6,4]).encode(
         x='μm', y=alt.Y('H2_kPa', title='H₂ (kPa)')
     )
-    pHr = alt.Chart(rad_df).mark_line(color="purple").encode(
+    pH_min, pH_max = rad_df["pH"].min() - 0.1, rad_df["pH"].max() + 0.1
+    pHr_chart = alt.Chart(rad_df).mark_line(color="purple").encode(
         x='μm', y=alt.Y('pH', title='pH')
     )
 
-    st.altair_chart((shell([0, O2k.max()*1.1]) + O2r)
-                    & (shell([0, H2k.max()*1.1]) + H2r)
-                    & (shell([pHr.min() - 0.1, pHr.max() + 0.1]) + pHr),
-                    use_container_width=True)
+    st.altair_chart(
+        (shell([0, O2k.max()*1.1]) + O2r)
+        & (shell([0, H2k.max()*1.1]) + H2r)
+        & (shell([pH_min, pH_max]) + pHr_chart),
+        use_container_width=True
+    )
 
-# Summary
 m1, m2, m3 = st.columns(3)
 m1.metric("O₂ shell δ", f"{r1:.0f} µm")
 m2.metric("Acetate prod", f"{A_prod:.1f}")
