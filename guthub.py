@@ -33,10 +33,10 @@ var = st.sidebar.selectbox("Radial gradient to display", ["O₂", "H₂"])
 def adjust_radii(humification, selection_pressure):
     comparts = BASE.copy()
     H_sq = humification ** 2
-    comparts["P1"]["radius"] *= (1 + 0.10 * H_sq * selection_pressure)  # Modest increase with humification
-    comparts["P3"]["radius"] *= (1 - 0.70 * H_sq * selection_pressure)  # Decreases with humification (less fermentation)
-    comparts["P4"]["radius"] *= (1 + 0.20 * H_sq * selection_pressure)  # Moderate increase
-    comparts["P5"]["radius"] *= (1 + 0.50 * H_sq * selection_pressure)  # Increases with humification (more recycling)
+    comparts["P1"]["radius"] *= (1 + 0.10 * H_sq * selection_pressure)
+    comparts["P3"]["radius"] *= (1 - 0.70 * H_sq * selection_pressure)
+    comparts["P4"]["radius"] *= (1 + 0.20 * H_sq * selection_pressure)
+    comparts["P5"]["radius"] *= (1 + 0.50 * H_sq * selection_pressure)
     # Prevent collapse
     for k in comparts:
         comparts[k]["radius"] = max(comparts[k]["radius"], 0.05)
@@ -48,8 +48,8 @@ scaled_radii = adjust_radii(humification, selection_pressure)
 # Radial microoxic geometry
 # Microoxic annulus thickness decreases with humification (more anoxic in soil).
 # ------------------------------------------------------------------
-microoxic_frac = 0.30 - 0.20 * humification  # Decreases from 0.30 to 0.10
-microoxic_frac = max(microoxic_frac, 0.1)  # Minimum 0.1 to avoid vanishing annulus
+microoxic_frac = 0.30 - 0.20 * humification
+microoxic_frac = max(microoxic_frac, 0.1)
 
 def build_field(R, humification, selection_pressure, n=220):
     """Return (X,Y,mask,r,core_limit,O2,H2) with real units."""
@@ -65,20 +65,20 @@ def build_field(R, humification, selection_pressure, n=220):
         core_limit = 0.0
 
     # O2 gradient: max 50 µM at periphery, less penetration with higher humification
-    decay_rate = 5 * (1 - humification * selection_pressure)  # Less decay at high humification
+    decay_rate = 5 * (1 + humification * selection_pressure)  # Increases with humification
     O2 = 50 * np.exp(-decay_rate * (r / R))
     O2[~mask] = np.nan
     wall_zone = r > (1 - 0.02) * R
     O2[wall_zone] *= 0.6
 
     # H2 gradient: max 100 µM in core, increases with humification and pressure
-    H2_max = 100 * (1 + humification * selection_pressure)
+    H2_max = 100 + 100 * humification * selection_pressure  # Baseline 100 µM, up to 300 µM
     H2 = H2_max * (1 - np.exp(-decay_rate * (r / R)))
     H2[~mask] = np.nan
 
     # Clip to realistic ranges
     O2 = np.clip(O2, 0, 50)
-    H2 = np.clip(H2, 0, 200)
+    H2 = np.clip(H2, 0, 300)  # Adjusted for soil-feeder max
 
     return X, Y, mask, r, core_limit, O2, H2
 
@@ -102,7 +102,7 @@ for ax, compartment in zip(axes, ["P1", "P3", "P4", "P5"]):
         origin="lower",
         cmap=cmap,
         vmin=0,
-        vmax=50 if var == "O₂" else 200,
+        vmax=50 if var == "O₂" else 300,  # Updated H2 vmax
     )
 
     circ_outer = plt.Circle((0, 0), R, edgecolor="black", facecolor="none", linewidth=1)
