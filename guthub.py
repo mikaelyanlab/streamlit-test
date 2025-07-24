@@ -28,15 +28,15 @@ var = st.sidebar.selectbox("Radial gradient to display", ["O₂", "H₂"])
 
 # ------------------------------------------------------------------
 # Morphological response to humification
-# (simple phenomenological rules adjusted with selection pressure)
+# (adjusted with quadratic scaling for area emphasis)
 # ------------------------------------------------------------------
-# Adjust radii based on humification and selection pressure
 def adjust_radii(humification, selection_pressure):
     comparts = BASE.copy()
-    comparts["P1"]["radius"] *= (1 + 0.05 * humification * selection_pressure)
-    comparts["P3"]["radius"] *= (1 + 0.40 * humification * selection_pressure)
-    comparts["P4"]["radius"] *= (1 + 0.15 * humification * selection_pressure)
-    comparts["P5"]["radius"] *= (1 - 0.25 * humification * selection_pressure)
+    H_sq = humification ** 2  # Quadratic scaling for area effect
+    comparts["P1"]["radius"] *= (1 + 0.05 * H_sq * selection_pressure)
+    comparts["P3"]["radius"] *= (1 + 0.40 * H_sq * selection_pressure)
+    comparts["P4"]["radius"] *= (1 + 0.15 * H_sq * selection_pressure)
+    comparts["P5"]["radius"] *= (1 - 0.25 * H_sq * selection_pressure)
     # Prevent collapse
     for k in comparts:
         comparts[k]["radius"] = max(comparts[k]["radius"], 0.05)
@@ -47,7 +47,6 @@ scaled_radii = adjust_radii(humification, selection_pressure)
 # ------------------------------------------------------------------
 # Radial microoxic geometry
 # Microoxic annulus thickness increases with humification.
-# We use the SAME fractional rule for all compartments for simplicity.
 # ------------------------------------------------------------------
 microoxic_frac = 0.10 + 0.20 * humification  # fraction of radius occupied by the annulus
 microoxic_frac = min(microoxic_frac, 0.8)  # cap so core does not vanish
@@ -93,7 +92,7 @@ for ax, compartment in zip(axes, ["P1", "P3", "P4", "P5"]):
     cmap = "viridis" if var == "O₂" else "magma"
     im = ax.imshow(
         plot_field,
-        extent=(-R, R, -R, R),
+        extent=(-R, R, -R, R),  # Scale extent with adjusted radius
         origin="lower",
         cmap=cmap,
         vmin=0,
