@@ -3,8 +3,6 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import altair as alt
-import seaborn as sns
-import matplotlib.pyplot as plt
 
 # Define base gut compartments
 BASE_COMPARTS = {
@@ -13,9 +11,9 @@ BASE_COMPARTS = {
     "P4": {"length": 6, "radius": 0.30},
     "P5": {"length": 2, "radius": 0.15}
 }
-THETA_RES, Z_RES = 50, 50  # Higher resolution for smoother 3D model
+THETA_RES, Z_RES = 50, 50
 
-# Calculate base volumes (cylindrical approximation: V = π * r² * L)
+# Calculate base volumes
 for comp in BASE_COMPARTS:
     BASE_COMPARTS[comp]["volume"] = np.pi * BASE_COMPARTS[comp]["radius"]**2 * BASE_COMPARTS[comp]["length"]
 
@@ -62,12 +60,9 @@ var_map = st.sidebar.selectbox("3D Color Variable", ["O2", "H2", "pH", "Eh"])
 # Compute morphology and profiles
 comparts = adjust_compartments(recalcitrance, selection_pressure)
 x, pH, O2_ax, H2_ax, Eh_ax, enzyme_activity = axial_profiles(recalcitrance, selection_pressure, comparts)
-rad_data = {
-    comp: radial_grad(d["radius"], d["volume"], enzyme_activity)
-    for comp, d in comparts.items()
-}
+rad_data = {comp: radial_grad(d["radius"], d["volume"], enzyme_activity) for comp, d in comparts.items()}
 
-# 3D Gut Visualization (refined for Brune’s lab style)
+# 3D Gut Visualization (corrected hovertemplate)
 fig = go.Figure()
 z0 = 0
 for comp, d in comparts.items():
@@ -88,7 +83,8 @@ for comp, d in comparts.items():
         showscale=(comp == "P1"),
         name=comp,
         opacity=0.85,
-        hovertemplate=f"{comp}<br>{var_map}: %{surfacecolor:.2f}"
+        # Corrected hovertemplate using Plotly syntax
+        hovertemplate=f"{comp}<br>{var_map}: %{{surfacecolor:.2f}}<extra></extra>"
     ))
     z0 = z1
 fig.update_layout(
@@ -144,20 +140,3 @@ charts = [
 ]
 for ch in charts:
     st.altair_chart(ch, use_container_width=True)
-
-# Correlation Matrix with Directional Influences
-st.subheader("Correlated Progression of Traits")
-trait_df = pd.DataFrame({
-    "P3 Volume": [comparts["P3"]["volume"]],
-    "P3 Radius/Length": [comparts["P3"]["radius"] / comparts["P3"]["length"]],
-    "Enzyme Activity": [enzyme_activity],
-    "Mean pH": [pH.mean()],
-    "Mean O₂": [O2_ax.mean()],
-    "Mean H₂": [H2_ax.mean()],
-    "Mean Eh": [Eh_ax.mean()]
-})
-corr = trait_df.corr()
-fig_corr, ax = plt.subplots(figsize=(8, 6))
-sns.heatmap(corr, annot=True, cmap="coolwarm", ax=ax, vmin=-1, vmax=1)
-ax.set_title("Trait Correlation Matrix\n(P3 Volume → H₂, Enzyme Activity → pH/H₂)")
-st.pyplot(fig_corr)
