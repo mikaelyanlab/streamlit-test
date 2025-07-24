@@ -21,22 +21,22 @@ st.sidebar.header("Inputs")
 humification = st.sidebar.slider(
     "Humification (0 = soil-like, 1 = wood-like)",
     0.0, 1.0, 0.5,
-    help="Increases fermentation demand and enlarges paunch; shrinks terminal segment."
+    help="Increases fermentation demand (enlarges paunch P3); shrinks terminal segment P5."
 )
 selection_pressure = st.sidebar.slider("Selection Pressure", 0.0, 2.0, 1.0)
 var = st.sidebar.selectbox("Radial gradient to display", ["O₂", "H₂"])
 
 # ------------------------------------------------------------------
 # Morphological response to humification
-# (adjusted with quadratic scaling for area emphasis)
+# (differential scaling for realistic volume changes)
 # ------------------------------------------------------------------
 def adjust_radii(humification, selection_pressure):
     comparts = BASE.copy()
     H_sq = humification ** 2  # Quadratic scaling for area effect
-    comparts["P1"]["radius"] *= (1 + 0.05 * H_sq * selection_pressure)
-    comparts["P3"]["radius"] *= (1 + 0.40 * H_sq * selection_pressure)
-    comparts["P4"]["radius"] *= (1 + 0.15 * H_sq * selection_pressure)
-    comparts["P5"]["radius"] *= (1 - 0.25 * H_sq * selection_pressure)
+    comparts["P1"]["radius"] *= (1 + 0.10 * H_sq * selection_pressure)  # Modest increase
+    comparts["P3"]["radius"] *= (1 + 0.60 * H_sq * selection_pressure)  # Large increase for paunch
+    comparts["P4"]["radius"] *= (1 + 0.20 * H_sq * selection_pressure)  # Moderate increase
+    comparts["P5"]["radius"] *= (1 - 0.40 * H_sq * selection_pressure)  # Significant decrease
     # Prevent collapse
     for k in comparts:
         comparts[k]["radius"] = max(comparts[k]["radius"], 0.05)
@@ -78,11 +78,9 @@ def build_field(R, n=220):
 # ------------------------------------------------------------------
 # Plot four circles with selected gradient
 # ------------------------------------------------------------------
-# Dynamically adjust figsize based on max radius
-max_radius = max(r["radius"] for r in scaled_radii.values())
-figsize_width = 12 + 2 * (max_radius - 0.45) / 0.45  # Scale width with max radius
-fig, axes = plt.subplots(1, 4, figsize=(figsize_width, 3))
-plt.subplots_adjust(wspace=0.25)
+# Fixed figsize with individual subplot scaling
+fig, axes = plt.subplots(1, 4, figsize=(14, 3))  # Increased width for clarity
+plt.subplots_adjust(wspace=0.3)  # Increased spacing for better distinction
 
 for ax, compartment in zip(axes, ["P1", "P3", "P4", "P5"]):
     R = scaled_radii[compartment]["radius"]
@@ -114,6 +112,9 @@ for ax, compartment in zip(axes, ["P1", "P3", "P4", "P5"]):
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_aspect("equal")
+    # Adjust subplot limits to fit the circle
+    ax.set_xlim(-R - 0.1, R + 0.1)  # Add padding for visibility
+    ax.set_ylim(-R - 0.1, R + 0.1)
 
 # Shared colorbar
 cbar = fig.colorbar(im, ax=axes, fraction=0.025, pad=0.04)
