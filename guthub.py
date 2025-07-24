@@ -62,7 +62,7 @@ comparts = adjust_compartments(recalcitrance, selection_pressure)
 x, pH, O2_ax, H2_ax, Eh_ax, enzyme_activity = axial_profiles(recalcitrance, selection_pressure, comparts)
 rad_data = {comp: radial_grad(d["radius"], d["volume"], enzyme_activity) for comp, d in comparts.items()}
 
-# 3D Gut Visualization (corrected hovertemplate)
+# 3D Gut Visualization (corrected annotations)
 fig = go.Figure()
 z0 = 0
 for comp, d in comparts.items():
@@ -83,7 +83,6 @@ for comp, d in comparts.items():
         showscale=(comp == "P1"),
         name=comp,
         opacity=0.85,
-        # Corrected hovertemplate using Plotly syntax
         hovertemplate=f"{comp}<br>{var_map}: %{{surfacecolor:.2f}}<extra></extra>"
     ))
     z0 = z1
@@ -93,12 +92,17 @@ fig.update_layout(
         yaxis_visible=False,
         zaxis_title="Axial Position (mm)",
         aspectratio=dict(x=1, y=1, z=3),
-        annotations=[dict(
-            showarrow=False,
-            text=f"Diet Recalcitrance: {recalcitrance:.2f}",
-            xref="paper", yref="paper",
-            x=0.5, y=0.95
-        )]
+        annotations=[
+            dict(
+                text=f"Diet Recalcitrance: {recalcitrance:.2f}",
+                xref="paper",
+                yref="paper",
+                x=0.5,
+                y=0.95,
+                showarrow=False,
+                font=dict(size=12, color="black")
+            )
+        ]
     ),
     margin=dict(l=0, r=0, t=50, b=0),
     height=600
