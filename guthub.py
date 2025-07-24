@@ -36,7 +36,7 @@ var_map = st.sidebar.selectbox("Map color:", ["O2","H2","Eh"])
 st.sidebar.markdown("*Adjust top sliders accordingly*")
 
 x,pH,O2_ax,H2_ax,Eh = axial_profiles(H,alpha,J_O2,P_H2)
-O2w,J_O2,P_H2  # unused placeholder
+#O2w,J_O2,P_H2  # unused placeholder
 
 # Build 3D gut
 fig = go.Figure()
