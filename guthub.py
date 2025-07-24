@@ -78,7 +78,10 @@ def build_field(R, n=220):
 # ------------------------------------------------------------------
 # Plot four circles with selected gradient
 # ------------------------------------------------------------------
-fig, axes = plt.subplots(1, 4, figsize=(12, 3))
+# Dynamically adjust figsize based on max radius
+max_radius = max(r["radius"] for r in scaled_radii.values())
+figsize_width = 12 + 2 * (max_radius - 0.45) / 0.45  # Scale width with max radius
+fig, axes = plt.subplots(1, 4, figsize=(figsize_width, 3))
 plt.subplots_adjust(wspace=0.25)
 
 for ax, compartment in zip(axes, ["P1", "P3", "P4", "P5"]):
