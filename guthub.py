@@ -1,3 +1,4 @@
+# Aram Mikaelyan | Associate Professor, Department of Entomology and Plant Pathology, NCSU | amikael@ncsu.edu
 import numpy as np
 import matplotlib.pyplot as plt
 import streamlit as st
