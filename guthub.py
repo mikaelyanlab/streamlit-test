@@ -24,26 +24,33 @@ humification = st.sidebar.slider(
     0.0, 1.0, 0.5,
     help="0 represents fresh wood (high lignocellulose), 1 represents soil-like (high humification)."
 )
-selection_pressure = st.sidebar.slider("Selection Pressure", 0.0, 2.0, 1.0)
+DSIR = st.sidebar.slider(
+    "Daily Substrate Intake Requirement (0 = low, 1 = moderate, 2 = high)",
+    0.0, 2.0, 1.0,
+    help="Grams of substrate per gram body weight/day needed for energy (acetate), carbon, and nitrogen (0 = ~0.2 g/g, 1 = ~0.5 g/g, 2 = ~1.0 g/g)."
+)
+
 var = st.sidebar.selectbox("Radial gradient to display", ["O₂", "H₂"])
 
 # ------------------------------------------------------------------
-# Morphological response to humification
-# (adjusted scaling: P3 increases at low humification, decreases at high)
+# Morphological response to humification and intake requirement
+# (P3 increases at low humification/low intake, decreases at high humification/high intake)
 # ------------------------------------------------------------------
-def adjust_radii(humification, selection_pressure):
+def adjust_radii(humification, DSIR):
     comparts = BASE.copy()
     H_sq = humification ** 2
-    comparts["P1"]["radius"] *= (1 + 0.10 * H_sq * selection_pressure)
-    comparts["P3"]["radius"] *= (1 + 0.70 * (1 - H_sq) * selection_pressure - 0.70 * H_sq * selection_pressure)
-    comparts["P4"]["radius"] *= (1 + 0.20 * H_sq * selection_pressure)
-    comparts["P5"]["radius"] *= (1 + 0.50 * H_sq * selection_pressure)
+    # P3 shrinks with high humification and high intake (less efficient fermentation)
+    comparts["P3"]["radius"] *= (1 + 0.70 * (1 - H_sq) * (1 / (1 + DSIR)) - 0.70 * H_sq * (1 + DSIR))
+    # P5 grows with high intake for recycling
+    comparts["P5"]["radius"] *= (1 + 0.50 * H_sq * (1 + DSIR))
+    comparts["P1"]["radius"] *= (1 + 0.10 * H_sq * (1 + DSIR))
+    comparts["P4"]["radius"] *= (1 + 0.20 * H_sq * (1 + DSIR))
     # Prevent collapse
     for k in comparts:
         comparts[k]["radius"] = max(comparts[k]["radius"], 0.05)
     return comparts
 
-scaled_radii = adjust_radii(humification, selection_pressure)
+scaled_radii = adjust_radii(humification, DSIR)
 
 # ------------------------------------------------------------------
 # Radial microoxic geometry
@@ -52,7 +59,7 @@ scaled_radii = adjust_radii(humification, selection_pressure)
 microoxic_frac = 0.30 - 0.20 * humification
 microoxic_frac = max(microoxic_frac, 0.1)
 
-def build_field(R, humification, selection_pressure, n=220):
+def build_field(R, humification, DSIR, n=220):
     """Return (X,Y,mask,r,core_limit,O2,H2) with real units."""
     x = np.linspace(-R, R, n)
     y = np.linspace(-R, R, n)
@@ -66,18 +73,18 @@ def build_field(R, humification, selection_pressure, n=220):
         core_limit = 0.0
 
     # O2 gradient: 0 µM at core, increases to 50 µM at periphery
-    decay_rate = 5 * (1 + humification * selection_pressure)  # Increases with humification
+    decay_rate = 5 * (1 + humification * DSIR)  # Increases with humification and intake
     O2 = 50 * (1 - np.exp(-decay_rate * (r / R)))  # 0 µM at core, 50 µM at periphery
     O2[~mask] = np.nan
     wall_zone = r > (1 - 0.02) * R
     O2[wall_zone] *= 0.6  # Slight decay near wall
 
     # H2 gradient: H2_max at core, decays to 0 µM at periphery
-    H2_max = 100 + 100 * humification * selection_pressure
+    H2_max = 100 + 100 * humification * DSIR
     H2 = H2_max * np.exp(-decay_rate * (r / R))  # H2_max at core, 0 µM at periphery
     H2[~mask] = np.nan
 
-    # Clip to realistic ranges (based on numbers from the Brune lab) 
+    # Clip to realistic ranges
     O2 = np.clip(O2, 0, 50)
     H2 = np.clip(H2, 0, 300)
 
@@ -91,12 +98,12 @@ plt.subplots_adjust(wspace=0.4)
 
 for ax, compartment in zip(axes, ["P1", "P3", "P4", "P5"]):
     R = scaled_radii[compartment]["radius"]
-    X, Y, mask, r, core_limit, O2_field, H2_field = build_field(R, humification, selection_pressure)
+    X, Y, mask, r, core_limit, O2_field, H2_field = build_field(R, humification, DSIR)
 
     field = O2_field if var == "O₂" else H2_field
     plot_field = np.ma.array(field, mask=~mask)
 
-    cmap = "viridis" if var == "O₂" else "viridis"  # Uniform viridis for consistency
+    cmap = "viridis" if var == "O₂" else "viridis"  # Uniform viridis
     im = ax.imshow(
         plot_field,
         extent=(-R, R, -R, R),
@@ -128,7 +135,7 @@ st.pyplot(fig)
 st.markdown(
     f"""
 **Humification:** {humification:.2f}  
-**Selection Pressure:** {selection_pressure:.2f}  
+**Daily Substrate Intake Requirement:** {DSIR:.2f}  
 Microoxic annulus thickness = {microoxic_frac*100:.1f}% of radius (dashed circle = anoxic core boundary).  
 Selected gradient: **{var}** (O₂ high at periphery, H₂ high in core).
 """
