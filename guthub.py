@@ -18,34 +18,38 @@ BASE = {
 # Sidebar: user input sliders
 # ---------------------------
 st.sidebar.header("Inputs")
-H = st.sidebar.slider(
+humification = st.sidebar.slider(
     "Humification (0 = soil-like, 1 = wood-like)",
     0.0, 1.0, 0.5,
     help="Increases fermentation demand and enlarges paunch; shrinks terminal segment."
 )
+selection_pressure = st.sidebar.slider("Selection Pressure", 0.0, 2.0, 1.0)
 var = st.sidebar.selectbox("Radial gradient to display", ["O₂", "H₂"])
 
 # ------------------------------------------------------------------
 # Morphological response to humification
-# (simple phenomenological rules)
+# (simple phenomenological rules adjusted with selection pressure)
 # ------------------------------------------------------------------
-# Paunch (P3) expands most; distal P5 shrinks; P4 modest expansion
-scaled_radii = {
-    "P1": BASE["P1"]["radius"] * (1 + 0.05 * H),
-    "P3": BASE["P3"]["radius"] * (1 + 0.40 * H),
-    "P4": BASE["P4"]["radius"] * (1 + 0.15 * H),
-    "P5": BASE["P5"]["radius"] * (1 - 0.25 * H),
-}
-# Prevent collapse
-for k in scaled_radii:
-    scaled_radii[k] = max(scaled_radii[k], 0.05)
+# Adjust radii based on humification and selection pressure
+def adjust_radii(humification, selection_pressure):
+    comparts = BASE.copy()
+    comparts["P1"]["radius"] *= (1 + 0.05 * humification * selection_pressure)
+    comparts["P3"]["radius"] *= (1 + 0.40 * humification * selection_pressure)
+    comparts["P4"]["radius"] *= (1 + 0.15 * humification * selection_pressure)
+    comparts["P5"]["radius"] *= (1 - 0.25 * humification * selection_pressure)
+    # Prevent collapse
+    for k in comparts:
+        comparts[k]["radius"] = max(comparts[k]["radius"], 0.05)
+    return comparts
+
+scaled_radii = adjust_radii(humification, selection_pressure)
 
 # ------------------------------------------------------------------
 # Radial microoxic geometry
 # Microoxic annulus thickness increases with humification.
 # We use the SAME fractional rule for all compartments for simplicity.
 # ------------------------------------------------------------------
-microoxic_frac = 0.10 + 0.20 * H  # fraction of radius occupied by the annulus
+microoxic_frac = 0.10 + 0.20 * humification  # fraction of radius occupied by the annulus
 microoxic_frac = min(microoxic_frac, 0.8)  # cap so core does not vanish
 
 def build_field(R, n=220):
@@ -79,7 +83,7 @@ fig, axes = plt.subplots(1, 4, figsize=(12, 3))
 plt.subplots_adjust(wspace=0.25)
 
 for ax, compartment in zip(axes, ["P1", "P3", "P4", "P5"]):
-    R = scaled_radii[compartment]
+    R = scaled_radii[compartment]["radius"]
     X, Y, mask, r, core_limit, O2_field, H2_field = build_field(R)
 
     field = O2_field if var == "O₂" else H2_field
@@ -117,7 +121,8 @@ st.pyplot(fig)
 
 st.markdown(
     f"""
-**Humification:** {H:.2f}  
+**Humification:** {humification:.2f}  
+**Selection Pressure:** {selection_pressure:.2f}  
 Microoxic annulus thickness = {microoxic_frac*100:.1f}% of radius (dashed circle = anoxic core boundary).  
 Selected gradient: **{var}** (O₂ high only in annulus; H₂ inverse).
 """
