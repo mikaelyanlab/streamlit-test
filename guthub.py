@@ -19,24 +19,24 @@ BASE = {
 # ---------------------------
 st.sidebar.header("Inputs")
 humification = st.sidebar.slider(
-    "Humification (0 = soil-like, 1 = wood-like)",
+    "Humification (0 = least humified, 1 = most humified)",
     0.0, 1.0, 0.5,
-    help="Increases fermentation demand (enlarges paunch P3); shrinks terminal segment P5."
+    help="0 represents fresh wood (high lignocellulose), 1 represents soil-like (high humification)."
 )
 selection_pressure = st.sidebar.slider("Selection Pressure", 0.0, 2.0, 1.0)
 var = st.sidebar.selectbox("Radial gradient to display", ["O₂", "H₂"])
 
 # ------------------------------------------------------------------
 # Morphological response to humification
-# (differential scaling based on literature)
+# (reversed scaling: 0 = fresh wood, 1 = soil-like)
 # ------------------------------------------------------------------
 def adjust_radii(humification, selection_pressure):
     comparts = BASE.copy()
     H_sq = humification ** 2
-    comparts["P1"]["radius"] *= (1 + 0.10 * H_sq * selection_pressure)
-    comparts["P3"]["radius"] *= (1 + 0.70 * H_sq * selection_pressure)
-    comparts["P4"]["radius"] *= (1 + 0.20 * H_sq * selection_pressure)
-    comparts["P5"]["radius"] *= (1 - 0.50 * H_sq * selection_pressure)
+    comparts["P1"]["radius"] *= (1 + 0.10 * H_sq * selection_pressure)  # Modest increase with humification
+    comparts["P3"]["radius"] *= (1 - 0.70 * H_sq * selection_pressure)  # Decreases with humification (less fermentation)
+    comparts["P4"]["radius"] *= (1 + 0.20 * H_sq * selection_pressure)  # Moderate increase
+    comparts["P5"]["radius"] *= (1 + 0.50 * H_sq * selection_pressure)  # Increases with humification (more recycling)
     # Prevent collapse
     for k in comparts:
         comparts[k]["radius"] = max(comparts[k]["radius"], 0.05)
@@ -46,10 +46,10 @@ scaled_radii = adjust_radii(humification, selection_pressure)
 
 # ------------------------------------------------------------------
 # Radial microoxic geometry
-# Microoxic annulus thickness increases with humification.
+# Microoxic annulus thickness decreases with humification (more anoxic in soil).
 # ------------------------------------------------------------------
-microoxic_frac = 0.10 + 0.20 * humification  # fraction of radius occupied by the annulus
-microoxic_frac = min(microoxic_frac, 0.8)  # cap so core does not vanish
+microoxic_frac = 0.30 - 0.20 * humification  # Decreases from 0.30 to 0.10
+microoxic_frac = max(microoxic_frac, 0.1)  # Minimum 0.1 to avoid vanishing annulus
 
 def build_field(R, humification, selection_pressure, n=220):
     """Return (X,Y,mask,r,core_limit,O2,H2) with real units."""
@@ -64,29 +64,29 @@ def build_field(R, humification, selection_pressure, n=220):
     if core_limit < 0:
         core_limit = 0.0
 
-    # O2 gradient: max 50 µM at periphery, decays with humification and pressure
-    decay_rate = 5 * (1 + humification * selection_pressure)  # Steeper with inputs
-    O2 = 50 * np.exp(-decay_rate * (r / R))  # µM, high at periphery
+    # O2 gradient: max 50 µM at periphery, less penetration with higher humification
+    decay_rate = 5 * (1 - humification * selection_pressure)  # Less decay at high humification
+    O2 = 50 * np.exp(-decay_rate * (r / R))
     O2[~mask] = np.nan
     wall_zone = r > (1 - 0.02) * R
-    O2[wall_zone] *= 0.6  # Slight decay at wall
+    O2[wall_zone] *= 0.6
 
     # H2 gradient: max 100 µM in core, increases with humification and pressure
-    H2_max = 100 * (1 + humification * selection_pressure)  # µM, scales with inputs
-    H2 = H2_max * (1 - np.exp(-decay_rate * (r / R)))  # Inverse, high in core
+    H2_max = 100 * (1 + humification * selection_pressure)
+    H2 = H2_max * (1 - np.exp(-decay_rate * (r / R)))
     H2[~mask] = np.nan
 
     # Clip to realistic ranges
     O2 = np.clip(O2, 0, 50)
-    H2 = np.clip(H2, 0, 200)  # Allow up to 200 µM for high activity
+    H2 = np.clip(H2, 0, 200)
 
     return X, Y, mask, r, core_limit, O2, H2
 
 # ------------------------------------------------------------------
 # Plot four circles with selected gradient
 # ------------------------------------------------------------------
-fig, axes = plt.subplots(1, 4, figsize=(16, 3))  # Increased width for clarity
-plt.subplots_adjust(wspace=0.4)  # Increased spacing
+fig, axes = plt.subplots(1, 4, figsize=(16, 3))
+plt.subplots_adjust(wspace=0.4)
 
 for ax, compartment in zip(axes, ["P1", "P3", "P4", "P5"]):
     R = scaled_radii[compartment]["radius"]
@@ -102,7 +102,7 @@ for ax, compartment in zip(axes, ["P1", "P3", "P4", "P5"]):
         origin="lower",
         cmap=cmap,
         vmin=0,
-        vmax=50 if var == "O₂" else 200,  # Real unit ranges
+        vmax=50 if var == "O₂" else 200,
     )
 
     circ_outer = plt.Circle((0, 0), R, edgecolor="black", facecolor="none", linewidth=1)
