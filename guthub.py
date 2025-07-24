@@ -29,7 +29,7 @@ radius_mm = st.sidebar.slider("Gut radius (mm)", 0.1, 1.5, 0.5)
 # Generate profiles
 x, pH, O2, H2, Eh = axial_profiles(H, T_ret, alpha, J_O2, P_H2)
 
-# Prepare 3D cylinders
+# ── 3D Gut Cylinder Plot ──
 st.header("🌐 3D Gut Volume (colored by pH)")
 z0 = 0
 fig = go.Figure()
@@ -38,46 +38,37 @@ z_scale = 10
 for comp, frac in COMPART.items():
     z1 = z0 + frac * z_scale
     theta = np.linspace(0, 2 * np.pi, 50)
-    z_values = np.linspace(z0, z1, 50)
-    TH, ZZ = np.meshgrid(theta, z_values)
+    z_vals = np.linspace(z0, z1, 50)
+    TH, ZZ = np.meshgrid(theta, z_vals)
     X = radius_mm * np.cos(TH)
     Y = radius_mm * np.sin(TH)
     Z = ZZ
-    # Map pH along axis
-    idx = ((ZZ - z0) / (z1 - z0) * (len(pH)-1)).astype(int)
-    intensity = pH[idx]
+    idx = ((ZZ - z0) / (z1 - z0) * (len(pH) - 1)).astype(int)
+    color_vals = pH[idx]
     fig.add_trace(go.Surface(
-        x=X, y=Y, z=Z, surfacecolor=intensity,
+        x=X, y=Y, z=Z, surfacecolor=color_vals,
         cmin=min(pH), cmax=max(pH),
-        colorscale="Viridis", showscale=(comp=="P1"),
-        hoverinfo="none"))
-
+        colorscale="Viridis", showscale=(comp == "P1"),
+        hoverinfo="none"
+    ))
     z0 = z1
 
 fig.update_layout(
-    scene=dict(xaxis=dict(title="X (mm)", visible=False),
-               yaxis=dict(title="Y (mm)", visible=False),
-               zaxis=dict(title="Gut axis", visible=True)),
+    scene=dict(xaxis=dict(visible=False), yaxis=dict(visible=False), zaxis=dict(title="Axial")),
     margin=dict(l=0, r=0, t=40, b=0),
     height=600
 )
 st.plotly_chart(fig, use_container_width=True)
 
-# 2D Plot with safe column names
-st.header("📈 2D Axial Profiles")
-df = pd.DataFrame({
-    "Position": x,
-    "pH": pH,
-    "O2": O2,
-    "H2": H2,
-    "Eh": Eh
-})
-base = alt.Chart(df).transform_fold(
-    ["pH", "O2", "H2", "Eh"], as_=["Param", "Value"]
-)
-line = base.mark_line().encode(
-    x="Position",
-    y="Value",
-    color="Param"
-)
-st.altair_chart(line, use_container_width=True)
+# ── Combined 2D Axial Profiles ──
+st.header("📈 Combined Axial Profiles")
+df = pd.DataFrame({"Position": x, "pH": pH, "O2": O2, "H2": H2, "Eh": Eh})
+
+base = alt.Chart(df).properties(width=700, height=200)
+
+chart_pH = base.mark_line(color="blue").encode(x="Position", y=alt.Y("pH", title="pH"))
+chart_O2 = base.mark_line(color="green").encode(x="Position", y=alt.Y("O2", title="O₂ (μM)"))
+chart_H2 = base.mark_line(color="purple").encode(x="Position", y=alt.Y("H2", title="H₂ (kPa)"))
+chart_Eh = base.mark_line(color="gray").encode(x="Position", y=alt.Y("Eh", title="Eh (mV)"))
+
+st.altair_chart(chart_pH & chart_O2 & chart_H2 & chart_Eh, use_container_width=True)
