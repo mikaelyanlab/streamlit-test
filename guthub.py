@@ -27,49 +27,44 @@ def radial_grad(R, k_r, O2_wall, H2_core):
     H2 = H2_core * (1 - np.exp(-k_r * r_rel))
     return r_rel * R, O2, H2
 
-# Sidebar
+# Sidebar inputs
 st.sidebar.header("Inputs")
 H = st.sidebar.slider("Humification H", 0.0, 1.0, 0.5)
 alpha = st.sidebar.slider("Alkaline secretion α", 0.0, 10.0, 5.0)
 J_O2 = st.sidebar.slider("O₂ influx", 0.0, 1.0, 0.3)
 P_H2 = st.sidebar.slider("H₂ production", 0.0, 8.0, 2.0)
 k_r = st.sidebar.slider("Radial decay kᵣ", 1.0, 15.0, 5.0)
-var_map = st.sidebar.selectbox("Map color variable:", ["O2", "H2"])
+var_map = st.sidebar.selectbox("Color map variable", ["O2", "H2"])
 
-# This ensures radial gradients are based on current production/influx
-O2_wall = J_O2 * 100
-H2_core = P_H2
-
-# Calc profiles
+# Compute profiles
 x, pH, O2_ax, H2_ax, Eh_ax = axial_profiles(H, alpha, J_O2, P_H2)
+O2_wall, H2_core = J_O2 * 100, P_H2
 
-# RADIAL GRADIENT for each compartment
-rad_data = {}
-for comp, d in COMPARTS.items():
-    R = d["radius"]
-    rv, Or, Hr = radial_grad(R, k_r, O2_wall, H2_core)
-    rad_data[comp] = (rv, Or, Hr)
+# Pre-compute radial gradients
+rad_data = {
+    comp: radial_grad(d["radius"], k_r, O2_wall, H2_core)
+    for comp, d in COMPARTS.items()
+}
 
-# Build 3D
+# 3D Gut with radial coloring
 fig = go.Figure()
 z0 = 0
 for comp, d in COMPARTS.items():
     L, R = d["length"], d["radius"]
     z1 = z0 + L
-
     theta = np.linspace(0, 2*np.pi, THETA_RES)
     z_lin = np.linspace(z0, z1, Z_RES)
     TH, ZZ = np.meshgrid(theta, z_lin)
-    X, Y = R*np.cos(TH), R*np.sin(TH)
+    X, Y = R * np.cos(TH), R * np.sin(TH)
 
     rv, Or, Hr = rad_data[comp]
-    surfvar = Or if var_map == "O2" else Hr
-    surfvar2d = np.tile(surfvar, (Z_RES, 1))
+    surf = Or if var_map == "O2" else Hr
+    surf2d = np.tile(surf, (Z_RES, 1))
 
     fig.add_trace(go.Surface(
         x=X, y=Y, z=ZZ,
-        surfacecolor=surfvar2d,
-        cmin=surfvar.min(), cmax=surfvar.max(),
+        surfacecolor=surf2d,
+        cmin=surf.min(), cmax=surf.max(),
         colorscale="Viridis",
         showscale=(comp == "P1"),
         name=comp, opacity=0.8, hoverinfo="none"
@@ -77,26 +72,31 @@ for comp, d in COMPARTS.items():
     z0 = z1
 
 fig.update_layout(
-    scene=dict(xaxis=dict(visible=False), yaxis=dict(visible=False),
-               zaxis=dict(title="Axial (mm)")),
-    margin=dict(l=0,r=0,t=30,b=0), height=550
+    scene=dict(xaxis_visible=False, yaxis_visible=False, zaxis_title="Axial (mm)"),
+    margin=dict(l=0, r=0, t=30, b=0), height=600
 )
-st.header(f"3D Gut Cylinders — Radial {var_map} Gradient")
+st.header(f"3D Gut – Radial {var_map}")
 st.plotly_chart(fig, use_container_width=True)
 
-# Radial slice for middle compartment (P3)
-st.subheader("2D Radial slice (compartment P3)")
+# 2D Radial slice (P3)
+st.subheader("2D Radial slice – P3")
 rv, Or, Hr = rad_data["P3"]
-radial_df = pd.DataFrame({"r_mm": rv, "O2": Or, "H2": Hr})
+radial_df = pd.DataFrame({"r_mm": rv, "O₂": Or, "H₂": Hr})
+chart_o2 = alt.Chart(radial_df).mark_line(color="blue").encode(x="r_mm", y="O₂")
+chart_h2 = alt.Chart(radial_df).mark_line(color="red").encode(x="r_mm", y="H₂")
+st.altair_chart(chart_o2 + chart_h2, use_container_width=True)
 
-o2_line = alt.Chart(radial_df).mark_line(color="blue").encode(x="r_mm", y="O2")
-h2_line = alt.Chart(radial_df).mark_line(color="red").encode(x="r_mm", y="H2")
-st.altair_chart(o2_line + h2_line, use_container_width=True)
+# Individual axial profiles — no transforms
+st.subheader("Axial Profiles")
+def plot_line(y, col, title, ylab):
+    df = pd.DataFrame({"Position": x, title: y})
+    return alt.Chart(df).mark_line(color=col).encode(x="Position", y=alt.Y(title, title=ylab))
 
-# Full axial profiles
-st.subheader("Axial profiles")
-df_ax = pd.DataFrame({"Position": x, "pH": pH, "O₂": O2_ax, "H₂": H2_ax, "Eh": Eh_ax})
-multi = alt.Chart(df_ax).transform_fold(
-    ["pH", "O₂", "H₂", "Eh"], as_=["Param", "Value"]
-).mark_line().encode(x="Position", y="Value", color="Param")
-st.altair_chart(multi, use_container_width=True)
+charts = [
+    plot_line(pH, "green", "pH", "pH"),
+    plot_line(O2_ax, "blue", "O₂", "O₂"),
+    plot_line(H2_ax, "red", "H₂", "H₂"),
+    plot_line(Eh_ax, "gray", "Eh", "Eh")
+]
+for ch in charts:
+    st.altair_chart(ch, use_container_width=True)
