@@ -33,18 +33,18 @@ def adjust_compartments(recalcitrance, selection_pressure):
 # Function to compute axial profiles
 def axial_profiles(recalcitrance, selection_pressure, comparts):
     x = np.linspace(0, 1, 200)
-    enzyme_activity = 1 + 0.5 * recalcitrance * selection_pressure  # Enzyme activity scales with diet
-    pH = 7 + 3.5 * recalcitrance * np.exp(-4 * x) * selection_pressure  # pH rises with recalcitrance
-    O2 = 100 * np.exp(-5 * x) / (1 + 0.2 * comparts["P3"]["volume"])  # O₂ reduced by gut volume
-    H2 = 2 * enzyme_activity * np.maximum(0, 1 - np.exp(-6 * (x - 0.2)))  # H₂ tied to enzyme activity
-    Eh = -100 - 59 * (pH - 7) + 0.3 * O2 - 40 * H2  # Redox potential
+    enzyme_activity = 1 + 0.5 * recalcitrance * selection_pressure
+    pH = 7 + 3.5 * recalcitrance * np.exp(-4 * x) * selection_pressure
+    O2 = 100 * np.exp(-5 * x) / (1 + 0.2 * comparts["P3"]["volume"])
+    H2 = 2 * enzyme_activity * np.maximum(0, 1 - np.exp(-6 * (x - 0.2)))
+    Eh = -100 - 59 * (pH - 7) + 0.3 * O2 - 40 * H2
     return x, pH, O2, H2, Eh, enzyme_activity
 
-# Function to compute radial gradients (emphasizing microoxic periphery)
+# Function to compute radial gradients
 def radial_grad(radius, volume, enzyme_activity):
     r_rel = np.linspace(0, 1, 50)
-    O2 = 100 * np.exp(-5 * (1 - r_rel)) / (1 + 0.3 * volume)  # O₂ high at periphery
-    H2 = 2 * enzyme_activity * (1 - np.exp(-5 * r_rel))  # H₂ high at center
+    O2 = 100 * np.exp(-5 * (1 - r_rel)) / (1 + 0.3 * volume)
+    H2 = 2 * enzyme_activity * (1 - np.exp(-5 * r_rel))
     return r_rel * radius, O2, H2
 
 # Sidebar inputs
@@ -62,7 +62,7 @@ comparts = adjust_compartments(recalcitrance, selection_pressure)
 x, pH, O2_ax, H2_ax, Eh_ax, enzyme_activity = axial_profiles(recalcitrance, selection_pressure, comparts)
 rad_data = {comp: radial_grad(d["radius"], d["volume"], enzyme_activity) for comp, d in comparts.items()}
 
-# 3D Gut Visualization (corrected annotations)
+# 3D Gut Visualization
 fig = go.Figure()
 z0 = 0
 for comp, d in comparts.items():
@@ -72,7 +72,6 @@ for comp, d in comparts.items():
     z_lin = np.linspace(z0, z1, Z_RES)
     TH, ZZ = np.meshgrid(theta, z_lin)
     X, Y = R * np.cos(TH), R * np.sin(TH)
-    # Color by selected variable
     surf = {"pH": pH, "O2": O2_ax, "H2": H2_ax, "Eh": Eh_ax}[var_map]
     surf2d = np.tile(surf[:Z_RES], (THETA_RES, 1)).T
     fig.add_trace(go.Surface(
@@ -86,31 +85,32 @@ for comp, d in comparts.items():
         hovertemplate=f"{comp}<br>{var_map}: %{{surfacecolor:.2f}}<extra></extra>"
     ))
     z0 = z1
+
 fig.update_layout(
     scene=dict(
         xaxis_visible=False,
         yaxis_visible=False,
         zaxis_title="Axial Position (mm)",
-        aspectratio=dict(x=1, y=1, z=3),
-        annotations=[
-            dict(
-                text=f"Diet Recalcitrance: {recalcitrance:.2f}",
-                xref="paper",
-                yref="paper",
-                x=0.5,
-                y=0.95,
-                showarrow=False,
-                font=dict(size=12, color="black")
-            )
-        ]
+        aspectratio=dict(x=1, y=1, z=3)
     ),
+    annotations=[
+        dict(
+            text=f"Diet Recalcitrance: {recalcitrance:.2f}",
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=0.95,
+            showarrow=False,
+            font=dict(size=12, color="black")
+        )
+    ],
     margin=dict(l=0, r=0, t=50, b=0),
     height=600
 )
 st.header(f"3D Gut Model – {var_map}")
 st.plotly_chart(fig, use_container_width=True)
 
-# 2D Radial Profile for P3 (Brune-style with microoxic periphery)
+# 2D Radial Profile for P3
 st.subheader("Radial Profile in P3 (Paunch)")
 rv, O2_rad, H2_rad = rad_data["P3"]
 radial_df = pd.DataFrame({"Radius (mm)": rv, "O₂ (µM)": O2_rad, "H₂ (µM)": H2_rad})
@@ -121,13 +121,12 @@ chart_o2 = alt.Chart(radial_df).mark_line(color="blue").encode(
 chart_h2 = alt.Chart(radial_df).mark_line(color="red").encode(
     x="Radius (mm)", y="H₂ (µM)"
 )
-# Add microoxic periphery shading
 microoxic = alt.Chart(pd.DataFrame({"x": [0, comparts["P3"]["radius"]]})).mark_rect(opacity=0.2, color="blue").encode(
     x="x", x2=alt.value(comparts["P3"]["radius"]), y=alt.value(0), y2=alt.value(O2_rad.max())
 )
 st.altair_chart(microoxic + chart_o2 + chart_h2, use_container_width=True)
 
-# 2D Axial Profiles (Brune-style)
+# 2D Axial Profiles
 st.subheader("Axial Profiles")
 def plot_line(y, col, title, ylab):
     df = pd.DataFrame({"Position": x, title: y})
