@@ -77,7 +77,7 @@ def build_field(R, humification, selection_pressure, n=220):
     H2 = H2_max * np.exp(-decay_rate * (r / R))  # H2_max at core, 0 µM at periphery
     H2[~mask] = np.nan
 
-    # Clip to realistic ranges
+    # Clip to realistic ranges (based on numbers from the Brune lab) 
     O2 = np.clip(O2, 0, 50)
     H2 = np.clip(H2, 0, 300)
 
