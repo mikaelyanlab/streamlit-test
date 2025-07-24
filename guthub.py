@@ -95,7 +95,7 @@ for ax, compartment in zip(axes, ["P1", "P3", "P4", "P5"]):
     field = O2_field if var == "O₂" else H2_field
     plot_field = np.ma.array(field, mask=~mask)
 
-    cmap = "viridis" if var == "O₂" else "magma"
+    cmap = "viridis_r" if var == "O₂" else "magma"  # Reversed viridis for O₂
     im = ax.imshow(
         plot_field,
         extent=(-R, R, -R, R),
@@ -114,7 +114,7 @@ for ax, compartment in zip(axes, ["P1", "P3", "P4", "P5"]):
 
     ax.set_title(f"{compartment}\nR = {R:.2f} mm\nArea = {np.pi*R**2:.3f} mm²")
     ax.set_xticks([])
-    ax.set_yticks([])
+    set_yticks([])
     ax.set_aspect("equal")
     ax.set_xlim(-R - 0.1, R + 0.1)
     ax.set_ylim(-R - 0.1, R + 0.1)
