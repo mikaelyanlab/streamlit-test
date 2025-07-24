@@ -28,15 +28,15 @@ var = st.sidebar.selectbox("Radial gradient to display", ["O₂", "H₂"])
 
 # ------------------------------------------------------------------
 # Morphological response to humification
-# (differential scaling for realistic volume changes)
+# (differential scaling based on literature)
 # ------------------------------------------------------------------
 def adjust_radii(humification, selection_pressure):
     comparts = BASE.copy()
-    H_sq = humification ** 2  # Quadratic scaling for area effect
-    comparts["P1"]["radius"] *= (1 + 0.10 * H_sq * selection_pressure)  # Modest increase
-    comparts["P3"]["radius"] *= (1 + 0.60 * H_sq * selection_pressure)  # Large increase for paunch
-    comparts["P4"]["radius"] *= (1 + 0.20 * H_sq * selection_pressure)  # Moderate increase
-    comparts["P5"]["radius"] *= (1 - 0.40 * H_sq * selection_pressure)  # Significant decrease
+    H_sq = humification ** 2
+    comparts["P1"]["radius"] *= (1 + 0.10 * H_sq * selection_pressure)
+    comparts["P3"]["radius"] *= (1 + 0.70 * H_sq * selection_pressure)  # Increased for P3
+    comparts["P4"]["radius"] *= (1 + 0.20 * H_sq * selection_pressure)
+    comparts["P5"]["radius"] *= (1 - 0.50 * H_sq * selection_pressure)  # Increased decrease for P5
     # Prevent collapse
     for k in comparts:
         comparts[k]["radius"] = max(comparts[k]["radius"], 0.05)
@@ -61,46 +61,45 @@ def build_field(R, n=220):
 
     band_thickness = microoxic_frac * R
     core_limit = R - band_thickness
-    if core_limit < 0:  # degenerate case if annulus swallows core
+    if core_limit < 0:
         core_limit = 0.0
 
-    # O2 high only in microoxic annulus; H2 inverse (high in core)
-    O2 = np.zeros_like(r)
-    annulus = (r >= core_limit) & (r <= R)
-    O2[annulus] = 1.0
-    # Slight decay right at the wall (optional aesthetic)
-    wall_zone = (r > 0.98 * R) & annulus
-    O2[wall_zone] *= 0.6
+    # Smooth gradient for O2 (high at periphery, decaying inward)
+    O2 = np.exp(-5 * (r / R))  # Exponential decay from periphery
+    O2[~mask] = np.nan  # Mask outside region
+    # Adjust O2 near wall for microoxic effect
+    wall_zone = r > (1 - 0.02) * R
+    O2[wall_zone] *= 0.6  # Slight decay at wall
 
-    H2 = 1.0 - O2  # perfect inverse for clarity
+    # H2 inverse gradient (high in core, low at periphery)
+    H2 = 1 - O2
+    H2[~mask] = np.nan
+
     return X, Y, mask, r, core_limit, O2, H2
 
 # ------------------------------------------------------------------
 # Plot four circles with selected gradient
 # ------------------------------------------------------------------
-# Fixed figsize with individual subplot scaling
-fig, axes = plt.subplots(1, 4, figsize=(14, 3))  # Increased width for clarity
-plt.subplots_adjust(wspace=0.3)  # Increased spacing for better distinction
+fig, axes = plt.subplots(1, 4, figsize=(16, 3))  # Increased width for clarity
+plt.subplots_adjust(wspace=0.4)  # Increased spacing
 
 for ax, compartment in zip(axes, ["P1", "P3", "P4", "P5"]):
     R = scaled_radii[compartment]["radius"]
     X, Y, mask, r, core_limit, O2_field, H2_field = build_field(R)
 
     field = O2_field if var == "O₂" else H2_field
-    # Mask outside region
     plot_field = np.ma.array(field, mask=~mask)
 
     cmap = "viridis" if var == "O₂" else "magma"
     im = ax.imshow(
         plot_field,
-        extent=(-R, R, -R, R),  # Scale extent with adjusted radius
+        extent=(-R, R, -R, R),
         origin="lower",
         cmap=cmap,
         vmin=0,
         vmax=1,
     )
 
-    # Draw boundaries: core + outer wall
     circ_outer = plt.Circle((0, 0), R, edgecolor="black", facecolor="none", linewidth=1)
     ax.add_patch(circ_outer)
     if core_limit > 0:
@@ -112,11 +111,9 @@ for ax, compartment in zip(axes, ["P1", "P3", "P4", "P5"]):
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_aspect("equal")
-    # Adjust subplot limits to fit the circle
-    ax.set_xlim(-R - 0.1, R + 0.1)  # Add padding for visibility
+    ax.set_xlim(-R - 0.1, R + 0.1)
     ax.set_ylim(-R - 0.1, R + 0.1)
 
-# Shared colorbar
 cbar = fig.colorbar(im, ax=axes, fraction=0.025, pad=0.04)
 cbar.set_label(f"{var} (relative units)")
 
@@ -127,6 +124,6 @@ st.markdown(
 **Humification:** {humification:.2f}  
 **Selection Pressure:** {selection_pressure:.2f}  
 Microoxic annulus thickness = {microoxic_frac*100:.1f}% of radius (dashed circle = anoxic core boundary).  
-Selected gradient: **{var}** (O₂ high only in annulus; H₂ inverse).
+Selected gradient: **{var}** (O₂ high at periphery, H₂ high in core).
 """
 )
