@@ -88,7 +88,7 @@ expression_percent = st.sidebar.slider("pMMO Expression (% of total cell protein
 baseline_vmax_at_10_percent = 0.001  # mmol/L/s at 10% expression, from Schmider et al. (2024)
 # Source: https://www.nature.com/articles/s41467-024-48197-1
 Vmax_ref = baseline_vmax_at_10_percent * (expression_percent / 10.0)
-Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 1e-5, 0.1, 5e-5)
+Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 1e-5, 0.1, 5e-5, step=1e-6)
 # Updated range/default for pMMO high affinity: 0.00001-0.1 mmol/L (~0.01-100 µM)
 # Source: Hakobyan et al. (2005) and Schmider et al. (2024): links above
 
@@ -123,13 +123,14 @@ sol_ivp = solve_ivp(
 
 sol = sol_ivp.y.T
 
-# Plot concentration dynamics with log scale for visibility
+# Plot concentration dynamics with linear scale for better visibility of differences
 fig, ax = plt.subplots()
-ax.semilogy(time, sol[:, 0], label="Cytosolic CH₄")
-ax.semilogy(time, sol[:, 1], label="Methanol (CH₃OH)")
-ax.semilogy(time, sol[:, 2], label="Cytosolic O₂")
+ax.plot(time, sol[:, 0], label="Cytosolic CH₄")
+ax.plot(time, sol[:, 1], label="Methanol (CH₃OH)")
+ax.plot(time, sol[:, 2], label="Cytosolic O₂")
 ax.set_xlabel("Time (s)")
-ax.set_ylabel("Concentration (mmol/L) [log scale]")
+ax.set_ylabel("Concentration (mmol/L)")
+ax.set_ylim(0, max(np.max(sol[:, 2]), 1))  # Dynamic ylim focused on visible range
 ax.legend()
 
 # Final MMO rate
@@ -144,12 +145,12 @@ V_MMO_final = Vmax_osm * (C_cyt_final / (Km_T + C_cyt_final)) * (O2_cyt_final / 
 fig_gauge = go.Figure(go.Indicator(
     mode="gauge+number",
     value=V_MMO_final,
-    number={'suffix': " mmol/L/s"},
+    number={'suffix': " mmol/L/s", 'precision': 10},  # Higher precision for small values
     title={'text': "Final CH₄ Oxidation Rate"},
     gauge={
-        'axis': {'range': [0, 0.001]},  # Adjusted range for lower realistic rates
+        'axis': {'range': [0, 1e-6]},  # Finer range to capture small rates
         'bar': {'color': "#ffcc00"},
-        'steps': [{'range': [i*0.0001, (i+1)*0.0001], 'color': f"rgba(255,0,0,{0.1 + 0.1*i})"} for i in range(10)],
+        'steps': [{'range': [i*1e-7, (i+1)*1e-7], 'color': f"rgba(255,0,0,{0.1 + 0.1*i})"} for i in range(10)],
         'threshold': {'line': {'color': "black", 'width': 4}, 'value': V_MMO_final}
     }
 ))
