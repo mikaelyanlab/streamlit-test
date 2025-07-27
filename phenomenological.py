@@ -145,7 +145,7 @@ V_MMO_final = Vmax_osm * (C_cyt_final / (Km_T + C_cyt_final)) * (O2_cyt_final / 
 fig_gauge = go.Figure(go.Indicator(
     mode="gauge+number",
     value=V_MMO_final,
-    number={'suffix': " mmol/L/s", 'precision': 10},  # Higher precision for small values
+    number={'suffix': " mmol/L/s", 'valueformat': '.10g'},  # Use valueformat for precision
     title={'text': "Final CH₄ Oxidation Rate"},
     gauge={
         'axis': {'range': [0, 1e-6]},  # Finer range to capture small rates
