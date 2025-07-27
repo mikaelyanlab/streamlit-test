@@ -122,6 +122,7 @@ elif T < -273.15:  # Absolute zero check, though slider min is 5
 
 if error_message:
     st.error(error_message)
+    st.stop()
 else:
     # Time and initial conditions
     time = np.linspace(0, 100, 5000)
