@@ -123,74 +123,74 @@ elif T < -273.15:  # Absolute zero check, though slider min is 5
 if error_message:
     st.error(error_message)
     st.stop()
-else:
-    # Time and initial conditions
-    time = np.linspace(0, 100, 5000)
-    O2_init = H_0_O2 * np.exp(-0.02 * (T - 25)) * (1 - 0.01 * Pi) * (O2_atm / 100.0)
-    C0 = [0.0001, 0.0001, O2_init]  # Lowered initials for ambient realism (mmol/L)
 
-    # Solve ODEs
-    def wrapped_ode(t, C):
-        return methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
-                                 k_L_CH4, k_L_O2, V_cell, scaling_factor, photosynthesis_on)
+# Time and initial conditions
+time = np.linspace(0, 100, 5000)
+O2_init = H_0_O2 * np.exp(-0.02 * (T - 25)) * (1 - 0.01 * Pi) * (O2_atm / 100.0)
+C0 = [0.0001, 0.0001, O2_init]  # Lowered initials for ambient realism (mmol/L)
 
-    sol_ivp = solve_ivp(
-        fun=wrapped_ode,
-        t_span=(time[0], time[-1]),
-        y0=C0,
-        t_eval=time,
-        method='LSODA',
-        rtol=1e-6,
-        atol=1e-9
-    )
+# Solve ODEs
+def wrapped_ode(t, C):
+    return methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
+                             k_L_CH4, k_L_O2, V_cell, scaling_factor, photosynthesis_on)
 
-    sol = sol_ivp.y.T
+sol_ivp = solve_ivp(
+    fun=wrapped_ode,
+    t_span=(time[0], time[-1]),
+    y0=C0,
+    t_eval=time,
+    method='LSODA',
+    rtol=1e-6,
+    atol=1e-9
+)
 
-    # Create three separate subplots with Plotly for interactive viewing
-    fig_plots = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.1,
-                              subplot_titles=("Cytosolic CH₄", "Methanol (CH₃OH)", "Cytosolic O₂"))
+sol = sol_ivp.y.T
 
-    # Add traces
-    fig_plots.add_trace(go.Scatter(x=time, y=sol[:, 0], mode='lines', name="Cytosolic CH₄"), row=1, col=1)
-    fig_plots.add_trace(go.Scatter(x=time, y=sol[:, 1], mode='lines', name="Methanol (CH₃OH)"), row=2, col=1)
-    fig_plots.add_trace(go.Scatter(x=time, y=sol[:, 2], mode='lines', name="Cytosolic O₂"), row=3, col=1)
+# Create three separate subplots with Plotly for interactive viewing
+fig_plots = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.1,
+                          subplot_titles=("Cytosolic CH₄", "Methanol (CH₃OH)", "Cytosolic O₂"))
 
-    # Update layout
-    fig_plots.update_layout(height=800, title_text="Concentration Dynamics Over Time", showlegend=False)
-    fig_plots.update_xaxes(title_text="Time (s)", row=3, col=1)
-    fig_plots.update_yaxes(title_text="Concentration (mmol/L)", row=1, col=1)
-    fig_plots.update_yaxes(title_text="Concentration (mmol/L)", row=2, col=1)
-    fig_plots.update_yaxes(title_text="Concentration (mmol/L)", row=3, col=1)
+# Add traces
+fig_plots.add_trace(go.Scatter(x=time, y=sol[:, 0], mode='lines', name="Cytosolic CH₄"), row=1, col=1)
+fig_plots.add_trace(go.Scatter(x=time, y=sol[:, 1], mode='lines', name="Methanol (CH₃OH)"), row=2, col=1)
+fig_plots.add_trace(go.Scatter(x=time, y=sol[:, 2], mode='lines', name="Cytosolic O₂"), row=3, col=1)
 
-    # Final MMO rate
-    C_cyt_final = sol[-1, 0]
-    Km_T = Km_ref * (1 + 0.02 * (T - 25))
-    Vmax_T = Vmax_ref * scaling_factor * np.exp(-E_a / R * (1/(T + 273.15) - 1/T_ref))
-    Vmax_osm = Vmax_T * np.exp(-0.02 * (Pi / 100))
-    O2_cyt_final = sol[-1, 2]
-    Km_O2 = 0.001
-    V_MMO_final = Vmax_osm * (C_cyt_final / (Km_T + C_cyt_final)) * (O2_cyt_final / (Km_O2 + O2_cyt_final))
+# Update layout
+fig_plots.update_layout(height=800, title_text="Concentration Dynamics Over Time", showlegend=False)
+fig_plots.update_xaxes(title_text="Time (s)", row=3, col=1)
+fig_plots.update_yaxes(title_text="Concentration (mmol/L)", row=1, col=1)
+fig_plots.update_yaxes(title_text="Concentration (mmol/L)", row=2, col=1)
+fig_plots.update_yaxes(title_text="Concentration (mmol/L)", row=3, col=1)
 
-    fig_gauge = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=V_MMO_final,
-        number={'suffix': " mmol/L/s", 'valueformat': '.10g'},  # Use valueformat for precision
-        title={'text': "Final CH₄ Oxidation Rate"},
-        gauge={
-            'axis': {'range': [0, 1e-6]},  # Finer range to capture small rates
-            'bar': {'color': "#ffcc00"},
-            'steps': [{'range': [i*1e-7, (i+1)*1e-7], 'color': f"rgba(255,0,0,{0.1 + 0.1*i})"} for i in range(10)],
-            'threshold': {'line': {'color': "black", 'width': 4}, 'value': V_MMO_final}
-        }
-    ))
+# Final MMO rate
+C_cyt_final = sol[-1, 0]
+Km_T = Km_ref * (1 + 0.02 * (T - 25))
+Vmax_T = Vmax_ref * scaling_factor * np.exp(-E_a / R * (1/(T + 273.15) - 1/T_ref))
+Vmax_osm = Vmax_T * np.exp(-0.02 * (Pi / 100))
+O2_cyt_final = sol[-1, 2]
+Km_O2 = 0.001
+V_MMO_final = Vmax_osm * (C_cyt_final / (Km_T + C_cyt_final)) * (O2_cyt_final / (Km_O2 + O2_cyt_final))
 
-    col1, col2 = st.columns(2)
+fig_gauge = go.Figure(go.Indicator(
+    mode="gauge+number",
+    value=V_MMO_final,
+    number={'suffix': " mmol/L/s", 'valueformat': '.10g'},  # Use valueformat for precision
+    title={'text': "Final CH₄ Oxidation Rate"},
+    gauge={
+        'axis': {'range': [0, 1e-6]},  # Finer range to capture small rates
+        'bar': {'color': "#ffcc00"},
+        'steps': [{'range': [i*1e-7, (i+1)*1e-7], 'color': f"rgba(255,0,0,{0.1 + 0.1*i})"} for i in range(10)],
+        'threshold': {'line': {'color': "black", 'width': 4}, 'value': V_MMO_final}
+    }
+))
 
-    with col1:
-        st.plotly_chart(fig_plots, use_container_width=True)
+col1, col2 = st.columns(2)
 
-    with col2:
-        st.plotly_chart(fig_gauge, use_container_width=True)
+with col1:
+    st.plotly_chart(fig_plots, use_container_width=True)
+
+with col2:
+    st.plotly_chart(fig_gauge, use_container_width=True)
 
 # Add list of constants and equations for transparency
 st.header("Model Constants and Equations")
