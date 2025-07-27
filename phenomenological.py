@@ -123,13 +123,13 @@ sol_ivp = solve_ivp(
 
 sol = sol_ivp.y.T
 
-# Plot concentration dynamics
+# Plot concentration dynamics with log scale for visibility
 fig, ax = plt.subplots()
-ax.plot(time, sol[:, 0], label="Cytosolic CH₄")
-ax.plot(time, sol[:, 1], label="Methanol (CH₃OH)")
-ax.plot(time, sol[:, 2], label="Cytosolic O₂")
+ax.semilogy(time, sol[:, 0], label="Cytosolic CH₄")
+ax.semilogy(time, sol[:, 1], label="Methanol (CH₃OH)")
+ax.semilogy(time, sol[:, 2], label="Cytosolic O₂")
 ax.set_xlabel("Time (s)")
-ax.set_ylabel("Concentration (mmol/L)")
+ax.set_ylabel("Concentration (mmol/L) [log scale]")
 ax.legend()
 
 # Final MMO rate
