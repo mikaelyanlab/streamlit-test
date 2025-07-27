@@ -1,10 +1,9 @@
 # Aram Mikaelyan, NCSU | Streamlit App: Methane Oxidation Model with Photosynthesis
 import streamlit as st
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
-import math
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 # --- Constants ---
 E_a = 50e3         # J/mol for MMO; activation energy from typical enzyme kinetics
@@ -123,23 +122,21 @@ sol_ivp = solve_ivp(
 
 sol = sol_ivp.y.T
 
-# Plot concentration dynamics with secondary axis for low concentrations
-fig, ax1 = plt.subplots()
-ax1.plot(time, sol[:, 2], label="Cytosolic O₂", color="green")
-ax1.set_xlabel("Time (s)")
-ax1.set_ylabel("O₂ Concentration (mmol/L)", color="green")
-ax1.set_ylim(0, max(np.max(sol[:, 2]), 1))
-ax1.tick_params(axis='y', labelcolor="green")
-ax1.legend(loc='upper left')
+# Create three separate subplots with Plotly for interactive viewing
+fig_plots = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.1,
+                          subplot_titles=("Cytosolic CH₄", "Methanol (CH₃OH)", "Cytosolic O₂"))
 
-ax2 = ax1.twinx()  # Secondary axis for CH4 and CH3OH
-ax2.plot(time, sol[:, 0], label="Cytosolic CH₄", color="blue")
-ax2.plot(time, sol[:, 1], label="Methanol (CH₃OH)", color="orange")
-ax2.set_ylabel("CH₄ & CH₃OH Concentration (mmol/L)", color="blue")
-ax2.set_ylim(0, 1.5 * max(np.max(sol[:, 0]), np.max(sol[:, 1]), 1e-6))  # Tighter dynamic scale for visibility
-ax2.tick_params(axis='y', labelcolor="blue")
-ax2.grid(which='minor', linestyle=':', linewidth='0.5', color='gray')  # Add minor grid for contrast
-ax2.legend(loc='upper right')
+# Add traces
+fig_plots.add_trace(go.Scatter(x=time, y=sol[:, 0], mode='lines', name="Cytosolic CH₄"), row=1, col=1)
+fig_plots.add_trace(go.Scatter(x=time, y=sol[:, 1], mode='lines', name="Methanol (CH₃OH)"), row=2, col=1)
+fig_plots.add_trace(go.Scatter(x=time, y=sol[:, 2], mode='lines', name="Cytosolic O₂"), row=3, col=1)
+
+# Update layout
+fig_plots.update_layout(height=800, title_text="Concentration Dynamics Over Time", showlegend=False)
+fig_plots.update_xaxes(title_text="Time (s)", row=3, col=1)
+fig_plots.update_yaxes(title_text="Concentration (mmol/L)", row=1, col=1)
+fig_plots.update_yaxes(title_text="Concentration (mmol/L)", row=2, col=1)
+fig_plots.update_yaxes(title_text="Concentration (mmol/L)", row=3, col=1)
 
 # Final MMO rate
 C_cyt_final = sol[-1, 0]
@@ -166,8 +163,7 @@ fig_gauge = go.Figure(go.Indicator(
 col1, col2 = st.columns(2)
 
 with col1:
-    st.markdown("<div style='height:100px'></div>", unsafe_allow_html=True)
-    st.pyplot(fig)
+    st.plotly_chart(fig_plots, use_container_width=True)
 
 with col2:
     st.plotly_chart(fig_gauge, use_container_width=True)
