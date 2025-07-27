@@ -76,8 +76,9 @@ Pi = st.sidebar.slider("Cytosolic Osmolarity (%)", 0, 100, 50)
 photosynthesis_on = st.sidebar.checkbox("Photosynthetic O₂ Production", value=True)
 
 st.sidebar.header("Enzyme Parameters")
-log_vmax = st.sidebar.slider("log₁₀(Max sMMO Activity, mmol/L/s)", -3.0, math.log10(2.0), -1.0, step=0.1)
-Vmax_ref = 10 ** log_vmax
+expression_percent = st.sidebar.slider("pMMO Expression (% of total cell protein)", 0.1, 5.0, 1.0, step=0.1)
+baseline_vmax_at_10_percent = 0.001  # mmol/L/s, equivalent to 1 µmol/L/s based on feedback
+Vmax_ref = baseline_vmax_at_10_percent * (expression_percent / 10.0)
 Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.1, 2.0, 0.5)
 
 st.sidebar.header("Biomass Settings")
@@ -112,10 +113,6 @@ sol_ivp = solve_ivp(
 
 sol = sol_ivp.y.T  # Transpose to match shape from odeint
 
-
-# sol = odeint(methane_oxidation, C0, time,
-#             args=(C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
-#                   k_L_CH4, k_L_O2, V_cell, scaling_factor, photosynthesis_on))
 
 # Plot concentration dynamics
 fig, ax = plt.subplots()
