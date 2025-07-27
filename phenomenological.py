@@ -87,8 +87,8 @@ expression_percent = st.sidebar.slider("pMMO Expression (% of total cell protein
 baseline_vmax_at_10_percent = 0.001  # mmol/L/s at 10% expression, from Schmider et al. (2024)
 # Source: https://www.nature.com/articles/s41467-024-48197-1
 Vmax_ref = baseline_vmax_at_10_percent * (expression_percent / 10.0)
-Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 1e-5, 0.1, 5e-5, step=1e-6)
-# Updated range/default for pMMO high affinity: 0.00001-0.1 mmol/L (~0.01-100 µM)
+Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.0, 0.1, 5e-5, step=1e-6)
+# Updated range/default for pMMO high affinity: 0.0-0.1 mmol/L (allowing 0 for testing)
 # Source: Hakobyan et al. (2005) and Schmider et al. (2024): links above
 
 st.sidebar.header("Biomass Settings")
