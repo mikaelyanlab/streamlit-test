@@ -95,7 +95,7 @@ Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 1e-5, 0.1, 5e-5)
 st.sidebar.header("Biomass Settings")
 cellular_material = st.sidebar.slider("Cellular Material (g/L)", 0.1, 200.0, 1.0)
 baseline_cell_density = 0.7
-cytosol_fraction = 0.03  # 3% of cell volume; 3% fixed for simplicity, but pMMO is membrane-bound
+cytosol_fraction = 0.03  # 3% of cell volume; fixed for simplicity, but pMMO is membrane-bound
 active_volume = cellular_material * cytosol_fraction  # g/L
 scaling_factor = active_volume / baseline_cell_density
 
@@ -186,20 +186,17 @@ st.markdown("""
 """)
 
 st.subheader("Key Equations")
-st.markdown("""
-- **Temperature-adjusted Vmax**: \( Vmax_T = Vmax_{ref} \times scaling_factor \times \exp\left(-\frac{E_a}{R} \left(\frac{1}{T_K} - \frac{1}{T_{ref}}\right)\right) \)
-- **Osmolarity-adjusted Vmax**: \( Vmax = Vmax_T \times \exp(-0.02 \times (Pi / 100)) \)
-- **Temperature-adjusted Km**: \( Km_T = Km_{ref} \times (1 + 0.02 \times (T - 25)) \)
-- **Henry's constants adjustment**: \( H = H_0 \times \exp(-\alpha \times (T - 25)) \times (1 - \beta \times Pi) \)
-- **Partial pressures**: \( P_{CH4} = g_s \times (C_{atm} / 10^6) \), \( P_{O2} = g_s \times (O2_{atm} / 100) \)
-- **Equilibrium concentrations**: \( C_{eq} = H \times P \)
-- **Fluxes**: \( J = k_L \times (C_{eq} - C) \)
-- **MMO rate**: \( V_{MMO} = Vmax \times \frac{C_{cyt}}{Km_T + C_{cyt}} \times \frac{O2_{cyt}}{Km_{O2} + O2_{cyt}} \)
-- **ODEs**:
-  - \( \frac{dC_{cyt}}{dt} = J_{CH4} - V_{MMO} \)
-  - \( \frac{dCH3OH}{dt} = V_{MMO} - k_{MeOH} \times CH3OH \)
-  - \( \frac{dO2_{cyt}}{dt} = J_{O2} - V_{MMO} + O2_{prod} \)
-""")
+st.latex(r"Vmax_T = Vmax_{ref} \times scaling_factor \times \exp\left(-\frac{E_a}{R} \left(\frac{1}{T_K} - \frac{1}{T_{ref}}\right)\right)")
+st.latex(r"Vmax = Vmax_T \times \exp(-0.02 \times (Pi / 100))")
+st.latex(r"Km_T = Km_{ref} \times (1 + 0.02 \times (T - 25))")
+st.latex(r"H = H_0 \times \exp(-\alpha \times (T - 25)) \times (1 - \beta \times Pi)")
+st.latex(r"P_{CH4} = g_s \times (C_{atm} / 10^6), \quad P_{O2} = g_s \times (O2_{atm} / 100)")
+st.latex(r"C_{eq} = H \times P")
+st.latex(r"J = k_L \times (C_{eq} - C)")
+st.latex(r"V_{MMO} = Vmax \times \frac{C_{cyt}}{Km_T + C_{cyt}} \times \frac{O2_{cyt}}{Km_{O2} + O2_{cyt}}")
+st.latex(r"\frac{dC_{cyt}}{dt} = J_{CH4} - V_{MMO}")
+st.latex(r"\frac{dCH3OH}{dt} = V_{MMO} - k_{MeOH} \times CH3OH")
+st.latex(r"\frac{dO2_{cyt}}{dt} = J_{O2} - V_{MMO} + O2_{prod}")
 
 # Debug output
 k_MeOH_scaled = k_MeOH_ref * np.exp(-E_a_MeOH / R * (1/(T + 273.15) - 1/T_ref))
