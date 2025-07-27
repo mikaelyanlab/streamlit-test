@@ -123,15 +123,23 @@ sol_ivp = solve_ivp(
 
 sol = sol_ivp.y.T
 
-# Plot concentration dynamics with linear scale for better visibility of differences
-fig, ax = plt.subplots()
-ax.plot(time, sol[:, 0], label="Cytosolic CH₄")
-ax.plot(time, sol[:, 1], label="Methanol (CH₃OH)")
-ax.plot(time, sol[:, 2], label="Cytosolic O₂")
-ax.set_xlabel("Time (s)")
-ax.set_ylabel("Concentration (mmol/L)")
-ax.set_ylim(0, max(np.max(sol[:, 2]), 1))  # Dynamic ylim focused on visible range
-ax.legend()
+# Plot concentration dynamics with secondary axis for low concentrations
+fig, ax1 = plt.subplots()
+ax1.plot(time, sol[:, 2], label="Cytosolic O₂", color="green")
+ax1.set_xlabel("Time (s)")
+ax1.set_ylabel("O₂ Concentration (mmol/L)", color="green")
+ax1.set_ylim(0, max(np.max(sol[:, 2]), 1))
+ax1.tick_params(axis='y', labelcolor="green")
+ax1.legend(loc='upper left')
+
+ax2 = ax1.twinx()  # Secondary axis for CH4 and CH3OH
+ax2.plot(time, sol[:, 0], label="Cytosolic CH₄", color="blue")
+ax2.plot(time, sol[:, 1], label="Methanol (CH₃OH)", color="orange")
+ax2.set_ylabel("CH₄ & CH₃OH Concentration (mmol/L)", color="blue")
+ax2.set_ylim(0, 1.5 * max(np.max(sol[:, 0]), np.max(sol[:, 1]), 1e-6))  # Tighter dynamic scale for visibility
+ax2.tick_params(axis='y', labelcolor="blue")
+ax2.grid(which='minor', linestyle=':', linewidth='0.5', color='gray')  # Add minor grid for contrast
+ax2.legend(loc='upper right')
 
 # Final MMO rate
 C_cyt_final = sol[-1, 0]
