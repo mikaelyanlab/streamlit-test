@@ -93,7 +93,7 @@ Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.0, 0.1, 5e-5, 
 
 st.sidebar.header("Biomass Settings")
 cellular_material = st.sidebar.slider("Cellular Material (g/L)", 0.1, 200.0, 1.0)
-baseline_cell_density = 0.7
+baseline_cell_density = 10
 cytosol_fraction = 0.03  # 3% of cell volume; fixed for simplicity, but pMMO is membrane-bound
 active_volume = cellular_material * cytosol_fraction  # g/L
 scaling_factor = active_volume / baseline_cell_density
@@ -210,7 +210,7 @@ st.markdown("""
 - **O2_prod**: 0.005 mmol/L/s (Photosynthetic O2 production rate, if enabled)
 - **cytosol_fraction**: 0.03 (Fraction of cell volume that is cytosol)
 - **baseline_vmax_at_10_percent**: 0.001 mmol/L/s (Baseline Vmax at 10% protein expression)
-- **baseline_cell_density**: 0.7 g/L (Baseline cell density for scaling)
+- **baseline_cell_density**: 10 g/L (Baseline cell density for scaling)
 - **V_cell**: 1e-15 L (Typical plant cell volume, currently unused)
 """)
 
