@@ -58,6 +58,9 @@ gdf = gdf.merge(df, on='county', how='left')
 gdf['report_count'] = gdf['report_count'].fillna(0)
 gdf['reports'] = gdf['reports'].apply(lambda x: x if isinstance(x, list) else [])
 
+# Create species summary column
+gdf['species_summary'] = gdf['reports'].apply(lambda reports: ', '.join(sorted(set(r['species'] for r in reports))) if reports else 'None')
+
 # Create popup HTML column
 def generate_popup_html(row):
     html = f"<b>{row['county']}</b><br>Reports: {int(row['report_count'])}<br><ul>"
@@ -98,6 +101,8 @@ def trawl_for_reports():
                         idx = gdf[gdf['county'] == county].index[0]
                         gdf.at[idx, 'report_count'] += 1
                         gdf.at[idx, 'reports'].append({'link': actual_url, 'species': species_str})
+                        # Update species_summary
+                        gdf.at[idx, 'species_summary'] = ', '.join(sorted(set(r['species'] for r in gdf.at[idx, 'reports']))) if gdf.at[idx, 'reports'] else 'None'
                         # Update popup_html
                         gdf.at[idx, 'popup_html'] = generate_popup_html(gdf.iloc[idx])
         st.write(f"Updated at {datetime.now()}: Found {len(new_links)} potential new links.")
@@ -144,8 +149,8 @@ folium.GeoJson(
     style_function=style_function,
     highlight_function=highlight_function,
     tooltip=folium.GeoJsonTooltip(
-        fields=['county', 'report_count'],
-        aliases=['County:', 'Reports:'],
+        fields=['county', 'report_count', 'species_summary'],
+        aliases=['County:', 'Reports:', 'Species:'],
         localize=True
     ),
     popup=folium.GeoJsonPopup(
