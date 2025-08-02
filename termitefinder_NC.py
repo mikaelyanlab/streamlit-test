@@ -32,63 +32,27 @@ known_species = [
     'kalotermes approximatus', 'dampwood termite', 'neotermes castaneus'
 ]
 
-# Sample initial data with pre-assigned species based on source analysis
-data = {
-    'county': ['Alamance', 'Alexander', 'Beaufort', 'Brunswick', 'Buncombe', 'Burke', 'Cumberland', 'Dare', 'Durham', 'Gaston', 'Guilford', 'Mecklenburg', 'New Hanover', 'Rutherford', 'Sampson', 'Wake'],
-    'report_count': [1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 3],
-    'reports': [
-        [{'link': 'https://www.youtube.com/watch?v=iGTUmm5AydI', 'species': 'Unknown'}],  # Alamance
-        [{'link': 'https://qualitycontrolinc.com/termite-control-alexander-county-nc/termite-reports/', 'species': 'Unknown'}],  # Alexander
-        [{'link': 'https://www.researchgate.net/publication/23233402', 'species': 'Reticulitermes flavipes, Reticulitermes hageni, Reticulitermes virginicus'}],  # Beaufort (using central NC proxy)
-        [{'link': 'https://www.ncagr.gov/divisions/structural-pest-control-and-pesticides/structural/consumer-information/homeowners-guide-wood-destroying-insect-report', 'species': 'Unknown'},
-         {'link': 'https://pmc.ncbi.nlm.nih.gov/articles/PMC9316241/', 'species': 'Reticulitermes malletei, Reticulitermes flavipes'}],  # Brunswick
-        [{'link': 'https://egrove.olemiss.edu/cgi/viewcontent.cgi?article=1023&context=biology_facpubs', 'species': 'Unknown'}],  # Buncombe
-        [{'link': 'https://www.trustterminix.com/nc-termites-what-every-north-carolina-homeowner-needs-to-know/', 'species': 'Unknown'},
-         {'link': 'https://egrove.olemiss.edu/cgi/viewcontent.cgi?article=1023&context=biology_facpubs', 'species': 'Unknown'}],  # Burke
-        [{'link': 'https://www.researchgate.net/publication/23233402', 'species': 'Reticulitermes flavipes, Reticulitermes hageni, Reticulitermes virginicus'}],  # Cumberland
-        [{'link': 'https://outerbanks-pestcontrol.com/category/termites/', 'species': 'Unknown'}],  # Dare
-        [{'link': 'https://neusetermiteandpest.com/termite-treatment-in-durham-nc', 'species': 'Unknown'}],  # Durham
-        [{'link': 'https://www.trustterminix.com/nc-termites-what-every-north-carolina-homeowner-needs-to-know/', 'species': 'Unknown'}],  # Gaston
-        [{'link': 'https://www.go-forth.com/resource-center/let-s-chat-about-termites-in-greensboro/', 'species': 'Unknown'}],  # Guilford
-        [{'link': 'https://www.trustterminix.com/nc-termites-what-every-north-carolina-homeowner-needs-to-know/', 'species': 'Unknown'}],  # Mecklenburg
-        [{'link': 'https://www.researchgate.net/publication/23233402', 'species': 'Reticulitermes flavipes, Reticulitermes hageni, Reticulitermes virginicus'}],  # New Hanover
-        [{'link': 'https://pmc.ncbi.nlm.nih.gov/articles/PMC9316241/', 'species': 'Reticulitermes malletei, Reticulitermes flavipes'},
-         {'link': 'https://egrove.olemiss.edu/cgi/viewcontent.cgi?article=1023&context=biology_facpubs', 'species': 'Unknown'}],  # Rutherford
-        [{'link': 'https://www.researchgate.net/publication/23233402', 'species': 'Reticulitermes flavipes, Reticulitermes hageni, Reticulitermes virginicus'}],  # Sampson
-        [{'link': 'https://www.reddit.com/r/raleigh/comments/58ajs6/termites/', 'species': 'Unknown'},
-         {'link': 'https://urbanentomology.tamu.edu/wp-content/uploads/sites/19/2018/07/Parman_and_Vargo_JEE_2008.pdf', 'species': 'Unknown'},
-         {'link': 'https://content.ces.ncsu.edu/monitoring-management-of-eastern-subterranean-termites', 'species': 'Eastern Subterranean Termite (Reticulitermes flavipes)'}]  # Wake
-    ]
-}
-df = pd.DataFrame(data)
-
 # Load US counties GeoJSON from URL and filter for NC (STATEFP == '37')
 geojson_url = 'https://gist.githubusercontent.com/sdwfrost/d1c73f91dd9d175998ed166eb216994a/raw/e89c35f308cee7e2e5a784e1d3afc5d449e9e4bb/counties.geojson'
 if 'gdf' not in st.session_state:
     gdf = gpd.read_file(geojson_url)
     gdf = gdf[gdf['STATEFP'] == '37']  # Filter to North Carolina
     gdf['county'] = gdf['NAME']  # Use the county name as is (title case)
-
-    # Merge data with GeoDataFrame
-    gdf = gdf.merge(df, on='county', how='left')
-
-    # Handle NaNs separately
-    gdf['report_count'] = gdf['report_count'].fillna(0)
-    gdf['reports'] = gdf['reports'].apply(lambda x: x if isinstance(x, list) else [])
-    gdf['species_summary'] = gdf['reports'].apply(lambda reports: ', '.join(sorted(set(r['species'] for r in reports if r['species'] != 'Unknown'))) if reports else 'None')
-
-    # Create popup HTML column
-    def generate_popup_html(row):
-        html = f"<b>{row['county']}</b><br>Reports: {int(row['report_count'])}<br><ul>"
-        for report in row['reports']:
-            html += f"<li><a href='{report['link']}' target='_blank'>{report['link']}</a> ({report['species']})</li>"
-        html += "</ul>"
-        return html
-
-    gdf['popup_html'] = gdf.apply(generate_popup_html, axis=1)
+    gdf['report_count'] = 0
+    gdf['reports'] = [[] for _ in range(len(gdf))]
+    gdf['species_summary'] = 'None'
+    gdf['popup_html'] = gdf.apply(lambda row: f"<b>{row['county']}</b><br>Reports: 0<br><ul></ul>", axis=1)
     st.session_state.gdf = gdf
 else:
     gdf = st.session_state.gdf
+
+# Create popup HTML column
+def generate_popup_html(row):
+    html = f"<b>{row['county']}</b><br>Reports: {int(row['report_count'])}<br><ul>"
+    for report in row['reports']:
+        html += f"<li><a href='{report['link']}' target='_blank'>{report['link']}</a> ({report['species']})</li>"
+    html += "</ul>"
+    return html
 
 # Function to search web for new reports and extract species using Bing with rotation and delay
 def trawl_for_reports():
@@ -132,21 +96,6 @@ def trawl_for_reports():
         st.session_state.gdf = gdf  # Save updates back to session_state
     except Exception as e:
         st.session_state.logs.append(f"Search error at {datetime.now()}: {e}")
-
-# Background thread for daily trawling (after initial run)
-def background_trawler():
-    while True:
-        time.sleep(86400)  # 24 hours
-        trawl_for_reports()
-
-# Start trawler thread and run initial trawl
-if 'trawler_started' not in st.session_state:
-    st.session_state['trawler_started'] = True
-    # Run initial trawl immediately
-    trawl_for_reports()
-    # Start the background thread for subsequent daily trawls
-    thread = threading.Thread(target=background_trawler, daemon=True)
-    thread.start()
 
 # Sidebar for trawling status (enhanced console)
 st.sidebar.title("Trawling Console (Debug Logs)")
