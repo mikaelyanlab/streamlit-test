@@ -77,35 +77,37 @@ def generate_popup_html(row):
 
 gdf['popup_html'] = gdf.apply(generate_popup_html, axis=1)
 
-# Function to search web for new reports and extract species using Bing
+# Function to search web for new reports and extract species using Google with enhanced headers
 def trawl_for_reports():
     if 'logs' not in st.session_state:
         st.session_state.logs = []
     st.session_state.logs.append(f"Starting trawl at {datetime.now()}")
     global gdf
     query = "termite infestation North Carolina site:gov OR site:edu OR site:com -site:wikipedia.org"
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Referer': 'https://www.google.com/'
+    }
     try:
-        response = requests.get(f"https://www.bing.com/search?q={requests.utils.quote(query)}&count=20", headers=headers)
+        response = requests.get(f"https://www.google.com/search?q={requests.utils.quote(query)}&num=20&hl=en", headers=headers)
         st.session_state.logs.append(f"Response Status: {response.status_code}")
         st.session_state.logs.append(f"Response Length: {len(response.text)}")
-        st.session_state.logs.append(f"Response Preview: {response.text[:500]}...")  # Preview HTML for debug
+        st.session_state.logs.append(f"Response Preview: {response.text[:500]}...")
         soup = BeautifulSoup(response.text, 'html.parser')
-        results = soup.find_all('li', class_='b_algo')
-        st.session_state.logs.append(f"Found {len(results)} raw 'b_algo' elements")
         new_links = []
-        for result in results:
-            h2 = result.find('h2')
-            if h2:
-                link_tag = h2.find('a')
-                if link_tag:
-                    actual_url = link_tag['href']
+        for g in soup.find_all('div', class_='g'):
+            link = g.find('a')
+            if link and 'href' in link.attrs:
+                actual_url = link['href']
+                if actual_url.startswith('http') and 'termite' in actual_url.lower():
                     new_links.append(actual_url)
                     st.session_state.logs.append(f"Found link: {actual_url}")
-                    snippet_tag = result.find('p')
-                    snippet = snippet_tag.text.lower() if snippet_tag else ''
-                    title = h2.text.lower()
-                    found_species = [s for s in known_species if s in snippet or s in title]
+                    # Fetch snippet or title for species and county
+                    title = g.find('h3').text.lower() if g.find('h3') else ''
+                    snippet = g.find('span', class_='st').text.lower() if g.find('span', class_='st') else ''
+                    found_species = [s for s in known_species if s in title or s in snippet]
                     species_str = ', '.join(found_species) if found_species else 'Unknown'
                     for county in gdf['county'].unique():
                         if county.lower() in actual_url.lower() or county.lower() in title or county.lower() in snippet:
