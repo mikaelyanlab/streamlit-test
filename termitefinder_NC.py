@@ -43,7 +43,11 @@ gdf = gdf[gdf['STATEFP'] == '37']  # Filter to North Carolina
 gdf['county'] = gdf['NAME']  # Use the county name as is (title case)
 
 # Merge data with GeoDataFrame
-gdf = gdf.merge(df, on='county', how='left').fillna({'report_count': 0, 'links': []})
+gdf = gdf.merge(df, on='county', how='left')
+
+# Handle NaNs separately
+gdf['report_count'] = gdf['report_count'].fillna(0)
+gdf['links'] = [x if not pd.isnull(x) else [] for x in gdf['links']]
 
 # Create popup HTML column
 gdf['popup_html'] = gdf.apply(
