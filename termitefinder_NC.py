@@ -75,9 +75,6 @@ gdf['popup_html'] = gdf.apply(generate_popup_html, axis=1)
 
 # Function to search web for new reports and extract species
 def trawl_for_reports():
-    if 'logs' not in st.session_state:
-        st.session_state.logs = []
-    st.session_state.logs.append(f"Starting trawl at {datetime.now()}")
     global gdf
     query = "termite infestation North Carolina site:gov OR site:edu OR site:com -site:wikipedia.org"
     headers = {'User-Agent': 'Mozilla/5.0'}
@@ -110,10 +107,9 @@ def trawl_for_reports():
                         gdf.at[idx, 'species_summary'] = ', '.join(sorted(set(r['species'] for r in gdf.at[idx, 'reports'] if r['species'] != 'Unknown'))) if gdf.at[idx, 'reports'] else 'None'
                         # Update popup_html
                         gdf.at[idx, 'popup_html'] = generate_popup_html(gdf.iloc[idx])
-                        st.session_state.logs.append(f"Added report to {county}: {actual_url}")
-        st.session_state.logs.append(f"Finished trawl at {datetime.now()}: Found {len(new_links)} potential new links.")
+        st.write(f"Updated at {datetime.now()}: Found {len(new_links)} potential new links.")
     except Exception as e:
-        st.session_state.logs.append(f"Search error at {datetime.now()}: {e}")
+        st.write(f"Search error: {e}")
 
 # Background thread for daily trawling (after initial run)
 def background_trawler():
@@ -129,17 +125,6 @@ if 'trawler_started' not in st.session_state:
     # Start the background thread for subsequent daily trawls
     thread = threading.Thread(target=background_trawler, daemon=True)
     thread.start()
-
-# Sidebar for trawling status
-st.sidebar.title("Trawling Status")
-if 'logs' not in st.session_state:
-    st.session_state.logs = []
-for log in st.session_state.logs[-10:]:  # Show last 10 logs to avoid overflow
-    st.sidebar.write(log)
-
-# Manual trawl button
-if st.sidebar.button("Manual Trawl Now"):
-    trawl_for_reports()
 
 # Streamlit app
 st.title("NC Termite Infestation Heatmap")
