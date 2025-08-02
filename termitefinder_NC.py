@@ -64,36 +64,37 @@ df = pd.DataFrame(data)
 
 # Load US counties GeoJSON from URL and filter for NC (STATEFP == '37')
 geojson_url = 'https://gist.githubusercontent.com/sdwfrost/d1c73f91dd9d175998ed166eb216994a/raw/e89c35f308cee7e2e5a784e1d3afc5d449e9e4bb/counties.geojson'
-gdf = gpd.read_file(geojson_url)
-gdf = gdf[gdf['STATEFP'] == '37']  # Filter to North Carolina
-gdf['county'] = gdf['NAME']  # Use the county name as is (title case)
+if 'gdf' not in st.session_state:
+    gdf = gpd.read_file(geojson_url)
+    gdf = gdf[gdf['STATEFP'] == '37']  # Filter to North Carolina
+    gdf['county'] = gdf['NAME']  # Use the county name as is (title case)
 
-# Merge data with GeoDataFrame
-gdf = gdf.merge(df, on='county', how='left')
+    # Merge data with GeoDataFrame
+    gdf = gdf.merge(df, on='county', how='left')
 
-# Handle NaNs separately
-gdf['report_count'] = gdf['report_count'].fillna(0)
-gdf['reports'] = gdf['reports'].apply(lambda x: x if isinstance(x, list) else [])
+    # Handle NaNs separately
+    gdf['report_count'] = gdf['report_count'].fillna(0)
+    gdf['reports'] = gdf['reports'].apply(lambda x: x if isinstance(x, list) else [])
+    gdf['species_summary'] = gdf['reports'].apply(lambda reports: ', '.join(sorted(set(r['species'] for r in reports if r['species'] != 'Unknown'))) if reports else 'None')
 
-# Create species summary column
-gdf['species_summary'] = gdf['reports'].apply(lambda reports: ', '.join(sorted(set(r['species'] for r in reports if r['species'] != 'Unknown'))) if reports else 'None')
+    # Create popup HTML column
+    def generate_popup_html(row):
+        html = f"<b>{row['county']}</b><br>Reports: {int(row['report_count'])}<br><ul>"
+        for report in row['reports']:
+            html += f"<li><a href='{report['link']}' target='_blank'>{report['link']}</a> ({report['species']})</li>"
+        html += "</ul>"
+        return html
 
-# Create popup HTML column
-def generate_popup_html(row):
-    html = f"<b>{row['county']}</b><br>Reports: {int(row['report_count'])}<br><ul>"
-    for report in row['reports']:
-        html += f"<li><a href='{report['link']}' target='_blank'>{report['link']}</a> ({report['species']})</li>"
-    html += "</ul>"
-    return html
-
-gdf['popup_html'] = gdf.apply(generate_popup_html, axis=1)
+    gdf['popup_html'] = gdf.apply(generate_popup_html, axis=1)
+    st.session_state.gdf = gdf
+else:
+    gdf = st.session_state.gdf
 
 # Function to search web for new reports and extract species using Bing with rotation and delay
 def trawl_for_reports():
     if 'logs' not in st.session_state:
         st.session_state.logs = []
     st.session_state.logs.append(f"Starting trawl at {datetime.now()}")
-    global gdf
     query = "termite infestation North Carolina site:gov OR site:edu OR site:com -site:wikipedia.org"
     headers = {'User-Agent': random.choice(user_agents)}
     try:
@@ -128,6 +129,7 @@ def trawl_for_reports():
                             gdf.at[idx, 'popup_html'] = generate_popup_html(gdf.iloc[idx])
                             st.session_state.logs.append(f"Added report to {county}: {actual_url} (Species: {species_str})")
         st.session_state.logs.append(f"Finished trawl at {datetime.now()}: Found {len(new_links)} potential new links.")
+        st.session_state.gdf = gdf  # Save updates back to session_state
     except Exception as e:
         st.session_state.logs.append(f"Search error at {datetime.now()}: {e}")
 
