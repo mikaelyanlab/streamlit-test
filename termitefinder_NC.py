@@ -47,7 +47,7 @@ gdf = gdf.merge(df, on='county', how='left')
 
 # Handle NaNs separately
 gdf['report_count'] = gdf['report_count'].fillna(0)
-gdf['links'] = [x if not pd.isnull(x) else [] for x in gdf['links']]
+gdf['links'] = gdf['links'].apply(lambda x: x if isinstance(x, list) else [])
 
 # Create popup HTML column
 gdf['popup_html'] = gdf.apply(
