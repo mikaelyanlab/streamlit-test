@@ -87,33 +87,34 @@ def trawl_for_reports():
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
     try:
         response = requests.get(f"https://www.bing.com/search?q={requests.utils.quote(query)}&count=20", headers=headers)
+        st.session_state.logs.append(f"Response Status: {response.status_code}")
+        st.session_state.logs.append(f"Response Length: {len(response.text)}")
+        st.session_state.logs.append(f"Response Preview: {response.text[:500]}...")  # Preview HTML for debug
         soup = BeautifulSoup(response.text, 'html.parser')
+        results = soup.find_all('li', class_='b_algo')
+        st.session_state.logs.append(f"Found {len(results)} raw 'b_algo' elements")
         new_links = []
-        for result in soup.find_all('li', class_='b_algo'):
+        for result in results:
             h2 = result.find('h2')
             if h2:
                 link_tag = h2.find('a')
                 if link_tag:
                     actual_url = link_tag['href']
-                    title = link_tag.text
+                    new_links.append(actual_url)
+                    st.session_state.logs.append(f"Found link: {actual_url}")
                     snippet_tag = result.find('p')
                     snippet = snippet_tag.text.lower() if snippet_tag else ''
-                    new_links.append(actual_url)
-                    # Extract species from snippet
-                    found_species = [s for s in known_species if s in snippet]
+                    title = h2.text.lower()
+                    found_species = [s for s in known_species if s in snippet or s in title]
                     species_str = ', '.join(found_species) if found_species else 'Unknown'
-                    # Parse for county from title/snippet/url
                     for county in gdf['county'].unique():
-                        if county.lower() in actual_url.lower() or county.lower() in title.lower() or county.lower() in snippet:
-                            # Update GDF
+                        if county.lower() in actual_url.lower() or county.lower() in title or county.lower() in snippet:
                             idx = gdf[gdf['county'] == county].index[0]
                             gdf.at[idx, 'report_count'] += 1
                             gdf.at[idx, 'reports'].append({'link': actual_url, 'species': species_str})
-                            # Update species_summary
                             gdf.at[idx, 'species_summary'] = ', '.join(sorted(set(r['species'] for r in gdf.at[idx, 'reports'] if r['species'] != 'Unknown'))) if gdf.at[idx, 'reports'] else 'None'
-                            # Update popup_html
                             gdf.at[idx, 'popup_html'] = generate_popup_html(gdf.iloc[idx])
-                            st.session_state.logs.append(f"Added report to {county}: {actual_url}")
+                            st.session_state.logs.append(f"Added report to {county}: {actual_url} (Species: {species_str})")
         st.session_state.logs.append(f"Finished trawl at {datetime.now()}: Found {len(new_links)} potential new links.")
     except Exception as e:
         st.session_state.logs.append(f"Search error at {datetime.now()}: {e}")
@@ -133,11 +134,11 @@ if 'trawler_started' not in st.session_state:
     thread = threading.Thread(target=background_trawler, daemon=True)
     thread.start()
 
-# Sidebar for trawling status
-st.sidebar.title("Trawling Status")
+# Sidebar for trawling status (enhanced console)
+st.sidebar.title("Trawling Console (Debug Logs)")
 if 'logs' not in st.session_state:
     st.session_state.logs = []
-for log in st.session_state.logs[-10:]:  # Show last 10 logs to avoid overflow
+for log in st.session_state.logs[-20:]:  # Show last 20 logs for more detail
     st.sidebar.write(log)
 
 # Manual trawl button
