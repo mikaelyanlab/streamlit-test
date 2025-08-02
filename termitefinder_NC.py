@@ -9,6 +9,12 @@ import threading
 import time
 from datetime import datetime
 
+# Known termite species for extraction
+known_species = [
+    'eastern subterranean', 'formosan', 'west indian drywood',
+    'dark southern subterranean', 'light southern subterranean', 'southeastern drywood'
+]
+
 # Sample initial data (compiled from web searches; county, report_count, links as comma-separated string)
 # Counties in title case to match GeoJSON
 data = {
@@ -35,6 +41,9 @@ data = {
 }
 df = pd.DataFrame(data)
 df['links'] = df['links'].apply(lambda x: x.split(','))  # Convert to lists
+# Convert to reports with 'Unknown' species initially
+df['reports'] = df['links'].apply(lambda links: [{'link': link.strip(), 'species': 'Unknown'} for link in links])
+df = df.drop(columns=['links'])  # Drop old links column
 
 # Load US counties GeoJSON from URL and filter for NC (STATEFP == '37')
 geojson_url = 'https://gist.githubusercontent.com/sdwfrost/d1c73f91dd9d175998ed166eb216994a/raw/e89c35f308cee7e2e5a784e1d3afc5d449e9e4bb/counties.geojson'
@@ -47,16 +56,19 @@ gdf = gdf.merge(df, on='county', how='left')
 
 # Handle NaNs separately
 gdf['report_count'] = gdf['report_count'].fillna(0)
-gdf['links'] = gdf['links'].apply(lambda x: x if isinstance(x, list) else [])
+gdf['reports'] = gdf['reports'].apply(lambda x: x if isinstance(x, list) else [])
 
 # Create popup HTML column
-gdf['popup_html'] = gdf.apply(
-    lambda row: f"<b>{row['county']}</b><br>Reports: {int(row['report_count'])}<br><ul>" + 
-    "".join([f'<li><a href="{link.strip()}" target="_blank">{link.strip()}</a></li>' for link in row['links']]) + "</ul>",
-    axis=1
-)
+def generate_popup_html(row):
+    html = f"<b>{row['county']}</b><br>Reports: {int(row['report_count'])}<br><ul>"
+    for report in row['reports']:
+        html += f"<li><a href='{report['link']}' target='_blank'>{report['link']}</a> ({report['species']})</li>"
+    html += "</ul>"
+    return html
 
-# Function to search web for new reports (placeholder; enhance with API or better parsing)
+gdf['popup_html'] = gdf.apply(generate_popup_html, axis=1)
+
+# Function to search web for new reports and extract species
 def trawl_for_reports():
     global gdf
     query = "termite infestation North Carolina site:gov OR site:edu OR site:com -site:wikipedia.org"
@@ -71,16 +83,23 @@ def trawl_for_reports():
                 # Extract actual URL from Google redirect
                 actual_url = href.split('url=')[1].split('&')[0]
                 new_links.append(actual_url)
+                # Fetch page content to extract species
+                try:
+                    page_response = requests.get(actual_url, headers=headers, timeout=5)
+                    content = page_response.text.lower()
+                    found_species = [s for s in known_species if s in content]
+                    species_str = ', '.join(found_species) if found_species else 'Unknown'
+                except Exception:
+                    species_str = 'Unknown'
                 # Parse for county (simple keyword match; improve with NLP)
                 for county in gdf['county'].unique():
                     if county.lower() in actual_url.lower() or county.lower() in link.text.lower():
                         # Update GDF
                         idx = gdf[gdf['county'] == county].index[0]
                         gdf.at[idx, 'report_count'] += 1
-                        gdf.at[idx, 'links'].append(actual_url)
+                        gdf.at[idx, 'reports'].append({'link': actual_url, 'species': species_str})
                         # Update popup_html
-                        gdf.at[idx, 'popup_html'] = f"<b>{county}</b><br>Reports: {int(gdf.at[idx, 'report_count'])}<br><ul>" + \
-                            "".join([f'<li><a href="{l.strip()}" target="_blank">{l.strip()}</a></li>' for l in gdf.at[idx, 'links']]) + "</ul>"
+                        gdf.at[idx, 'popup_html'] = generate_popup_html(gdf.iloc[idx])
         st.write(f"Updated at {datetime.now()}: Found {len(new_links)} potential new links.")
     except Exception as e:
         st.write(f"Search error: {e}")
