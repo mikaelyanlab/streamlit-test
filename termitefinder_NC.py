@@ -12,38 +12,40 @@ from datetime import datetime
 # Known termite species for extraction
 known_species = [
     'eastern subterranean', 'formosan', 'west indian drywood',
-    'dark southern subterranean', 'light southern subterranean', 'southeastern drywood'
+    'dark southern subterranean', 'light southern subterranean', 'southeastern drywood',
+    'reticulitermes flavipes', 'reticulitermes virginicus', 'reticulitermes hageni',
+    'reticulitermes malletei', 'reticulitermes nelsonae'
 ]
 
-# Sample initial data (compiled from web searches; county, report_count, links as comma-separated string)
-# Counties in title case to match GeoJSON
+# Sample initial data with pre-assigned species based on source analysis
 data = {
     'county': ['Alamance', 'Alexander', 'Beaufort', 'Brunswick', 'Buncombe', 'Burke', 'Cumberland', 'Dare', 'Durham', 'Gaston', 'Guilford', 'Mecklenburg', 'New Hanover', 'Rutherford', 'Sampson', 'Wake'],
-    'report_count': [1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 3],  # Example counts
-    'links': [
-        'https://www.youtube.com/watch?v=iGTUmm5AydI',  # Alamance (Burlington video)
-        'https://qualitycontrolinc.com/termite-control-alexander-county-nc/termite-reports/',  # Alexander
-        'https://www.researchgate.net/publication/23233402',  # Beaufort (drywood mention)
-        'https://www.ncagr.gov/divisions/structural-pest-control-and-pesticides/structural/consumer-information/homeowners-guide-wood-destroying-insect-report,https://pmc.ncbi.nlm.nih.gov/articles/PMC9316241/',  # Brunswick
-        'https://egrove.olemiss.edu/cgi/viewcontent.cgi?article=1023&context=biology_facpubs',  # Buncombe
-        'https://www.trustterminix.com/nc-termites-what-every-north-carolina-homeowner-needs-to-know/,https://egrove.olemiss.edu/cgi/viewcontent.cgi?article=1023&context=biology_facpubs',  # Burke
-        'https://www.researchgate.net/publication/23233402',  # Cumberland
-        'https://outerbanks-pestcontrol.com/category/termites/',  # Dare
-        'https://neusetermiteandpest.com/termite-treatment-in-durham-nc',  # Durham
-        'https://www.trustterminix.com/nc-termites-what-every-north-carolina-homeowner-needs-to-know/',  # Gaston
-        'https://www.go-forth.com/resource-center/let-s-chat-about-termites-in-greensboro/',  # Guilford (Greensboro)
-        'https://www.trustterminix.com/nc-termites-what-every-north-carolina-homeowner-needs-to-know/',  # Mecklenburg (Huntersville)
-        'https://www.researchgate.net/publication/23233402',  # New Hanover
-        'https://pmc.ncbi.nlm.nih.gov/articles/PMC9316241/,https://egrove.olemiss.edu/cgi/viewcontent.cgi?article=1023&context=biology_facpubs',  # Rutherford
-        'https://www.researchgate.net/publication/23233402',  # Sampson
-        'https://www.reddit.com/r/raleigh/comments/58ajs6/termites/,https://urbanentomology.tamu.edu/wp-content/uploads/sites/19/2018/07/Parman_and_Vargo_JEE_2008.pdf,https://content.ces.ncsu.edu/monitoring-management-of-eastern-subterranean-termites'  # Wake
+    'report_count': [1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 3],
+    'reports': [
+        [{'link': 'https://www.youtube.com/watch?v=iGTUmm5AydI', 'species': 'Unknown'}],  # Alamance
+        [{'link': 'https://qualitycontrolinc.com/termite-control-alexander-county-nc/termite-reports/', 'species': 'Unknown'}],  # Alexander
+        [{'link': 'https://www.researchgate.net/publication/23233402', 'species': 'Reticulitermes flavipes, Reticulitermes hageni, Reticulitermes virginicus'}],  # Beaufort (using central NC proxy)
+        [{'link': 'https://www.ncagr.gov/divisions/structural-pest-control-and-pesticides/structural/consumer-information/homeowners-guide-wood-destroying-insect-report', 'species': 'Unknown'},
+         {'link': 'https://pmc.ncbi.nlm.nih.gov/articles/PMC9316241/', 'species': 'Reticulitermes malletei, Reticulitermes flavipes'}],  # Brunswick
+        [{'link': 'https://egrove.olemiss.edu/cgi/viewcontent.cgi?article=1023&context=biology_facpubs', 'species': 'Unknown'}],  # Buncombe
+        [{'link': 'https://www.trustterminix.com/nc-termites-what-every-north-carolina-homeowner-needs-to-know/', 'species': 'Unknown'},
+         {'link': 'https://egrove.olemiss.edu/cgi/viewcontent.cgi?article=1023&context=biology_facpubs', 'species': 'Unknown'}],  # Burke
+        [{'link': 'https://www.researchgate.net/publication/23233402', 'species': 'Reticulitermes flavipes, Reticulitermes hageni, Reticulitermes virginicus'}],  # Cumberland
+        [{'link': 'https://outerbanks-pestcontrol.com/category/termites/', 'species': 'Unknown'}],  # Dare
+        [{'link': 'https://neusetermiteandpest.com/termite-treatment-in-durham-nc', 'species': 'Unknown'}],  # Durham
+        [{'link': 'https://www.trustterminix.com/nc-termites-what-every-north-carolina-homeowner-needs-to-know/', 'species': 'Unknown'}],  # Gaston
+        [{'link': 'https://www.go-forth.com/resource-center/let-s-chat-about-termites-in-greensboro/', 'species': 'Unknown'}],  # Guilford
+        [{'link': 'https://www.trustterminix.com/nc-termites-what-every-north-carolina-homeowner-needs-to-know/', 'species': 'Unknown'}],  # Mecklenburg
+        [{'link': 'https://www.researchgate.net/publication/23233402', 'species': 'Reticulitermes flavipes, Reticulitermes hageni, Reticulitermes virginicus'}],  # New Hanover
+        [{'link': 'https://pmc.ncbi.nlm.nih.gov/articles/PMC9316241/', 'species': 'Reticulitermes malletei, Reticulitermes flavipes'},
+         {'link': 'https://egrove.olemiss.edu/cgi/viewcontent.cgi?article=1023&context=biology_facpubs', 'species': 'Unknown'}],  # Rutherford
+        [{'link': 'https://www.researchgate.net/publication/23233402', 'species': 'Reticulitermes flavipes, Reticulitermes hageni, Reticulitermes virginicus'}],  # Sampson
+        [{'link': 'https://www.reddit.com/r/raleigh/comments/58ajs6/termites/', 'species': 'Unknown'},
+         {'link': 'https://urbanentomology.tamu.edu/wp-content/uploads/sites/19/2018/07/Parman_and_Vargo_JEE_2008.pdf', 'species': 'Unknown'},
+         {'link': 'https://content.ces.ncsu.edu/monitoring-management-of-eastern-subterranean-termites', 'species': 'Eastern Subterranean Termite (Reticulitermes flavipes)'}]  # Wake
     ]
 }
 df = pd.DataFrame(data)
-df['links'] = df['links'].apply(lambda x: x.split(','))  # Convert to lists
-# Convert to reports with 'Unknown' species initially
-df['reports'] = df['links'].apply(lambda links: [{'link': link.strip(), 'species': 'Unknown'} for link in links])
-df = df.drop(columns=['links'])  # Drop old links column
 
 # Load US counties GeoJSON from URL and filter for NC (STATEFP == '37')
 geojson_url = 'https://gist.githubusercontent.com/sdwfrost/d1c73f91dd9d175998ed166eb216994a/raw/e89c35f308cee7e2e5a784e1d3afc5d449e9e4bb/counties.geojson'
@@ -59,7 +61,7 @@ gdf['report_count'] = gdf['report_count'].fillna(0)
 gdf['reports'] = gdf['reports'].apply(lambda x: x if isinstance(x, list) else [])
 
 # Create species summary column
-gdf['species_summary'] = gdf['reports'].apply(lambda reports: ', '.join(sorted(set(r['species'] for r in reports))) if reports else 'None')
+gdf['species_summary'] = gdf['reports'].apply(lambda reports: ', '.join(sorted(set(r['species'] for r in reports if r['species'] != 'Unknown'))) if reports else 'None')
 
 # Create popup HTML column
 def generate_popup_html(row):
@@ -102,7 +104,7 @@ def trawl_for_reports():
                         gdf.at[idx, 'report_count'] += 1
                         gdf.at[idx, 'reports'].append({'link': actual_url, 'species': species_str})
                         # Update species_summary
-                        gdf.at[idx, 'species_summary'] = ', '.join(sorted(set(r['species'] for r in gdf.at[idx, 'reports']))) if gdf.at[idx, 'reports'] else 'None'
+                        gdf.at[idx, 'species_summary'] = ', '.join(sorted(set(r['species'] for r in gdf.at[idx, 'reports'] if r['species'] != 'Unknown'))) if gdf.at[idx, 'reports'] else 'None'
                         # Update popup_html
                         gdf.at[idx, 'popup_html'] = generate_popup_html(gdf.iloc[idx])
         st.write(f"Updated at {datetime.now()}: Found {len(new_links)} potential new links.")
