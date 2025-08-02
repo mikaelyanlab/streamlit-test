@@ -1,6 +1,6 @@
 import streamlit as st
 import folium
-from streamlit_folium import folium_static
+from streamlit_folium import st_folium
 import pandas as pd
 import geopandas as gpd
 import requests
@@ -77,35 +77,31 @@ def generate_popup_html(row):
 
 gdf['popup_html'] = gdf.apply(generate_popup_html, axis=1)
 
-# Function to search web for new reports and extract species
+# Function to search web for new reports and extract species using DuckDuckGo
 def trawl_for_reports():
     if 'logs' not in st.session_state:
         st.session_state.logs = []
     st.session_state.logs.append(f"Starting trawl at {datetime.now()}")
     global gdf
     query = "termite infestation North Carolina site:gov OR site:edu OR site:com -site:wikipedia.org"
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
     try:
-        response = requests.get(f"https://www.google.com/search?q={query}&num=20", headers=headers)
+        response = requests.get(f"https://duckduckgo.com/html/?q={query}", headers=headers)
         soup = BeautifulSoup(response.text, 'html.parser')
         new_links = []
-        for link in soup.find_all('a'):
-            href = link.get('href')
-            if href and 'url=' in href and 'termite' in href.lower():
-                # Extract actual URL from Google redirect
-                actual_url = href.split('url=')[1].split('&')[0]
+        for result in soup.find_all('div', class_='result'):
+            link_tag = result.find('a', class_='result__a')
+            if link_tag:
+                actual_url = link_tag['href']
+                snippet = result.find('a', class_='result__snippet').text.lower() if result.find('a', class_='result__snippet') else ''
                 new_links.append(actual_url)
-                # Fetch page content to extract species
-                try:
-                    page_response = requests.get(actual_url, headers=headers, timeout=5)
-                    content = page_response.text.lower()
-                    found_species = [s for s in known_species if s in content]
-                    species_str = ', '.join(found_species) if found_species else 'Unknown'
-                except Exception:
-                    species_str = 'Unknown'
-                # Parse for county (simple keyword match; improve with NLP)
+                # Extract species from snippet (or fetch full if needed, but to save time use snippet)
+                found_species = [s for s in known_species if s in snippet]
+                species_str = ', '.join(found_species) if found_species else 'Unknown'
+                # Parse for county from title/snippet
+                title = link_tag.text.lower()
                 for county in gdf['county'].unique():
-                    if county.lower() in actual_url.lower() or county.lower() in link.text.lower():
+                    if county.lower() in actual_url.lower() or county.lower() in title or county.lower() in snippet:
                         # Update GDF
                         idx = gdf[gdf['county'] == county].index[0]
                         gdf.at[idx, 'report_count'] += 1
@@ -184,7 +180,7 @@ folium.GeoJson(
 ).add_to(m)
 
 # Display map
-folium_static(m, width=800, height=600)
+st_folium(m, width=800, height=600, returned_objects=[])
 
 # Auto-refresh every 60 seconds
 time.sleep(60)
