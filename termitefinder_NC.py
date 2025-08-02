@@ -77,7 +77,7 @@ def generate_popup_html(row):
 
 gdf['popup_html'] = gdf.apply(generate_popup_html, axis=1)
 
-# Function to search web for new reports and extract species using DuckDuckGo
+# Function to search web for new reports and extract species using Bing
 def trawl_for_reports():
     if 'logs' not in st.session_state:
         st.session_state.logs = []
@@ -86,31 +86,34 @@ def trawl_for_reports():
     query = "termite infestation North Carolina site:gov OR site:edu OR site:com -site:wikipedia.org"
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
     try:
-        response = requests.get(f"https://duckduckgo.com/html/?q={query}", headers=headers)
+        response = requests.get(f"https://www.bing.com/search?q={requests.utils.quote(query)}&count=20", headers=headers)
         soup = BeautifulSoup(response.text, 'html.parser')
         new_links = []
-        for result in soup.find_all('div', class_='result'):
-            link_tag = result.find('a', class_='result__a')
-            if link_tag:
-                actual_url = link_tag['href']
-                snippet = result.find('a', class_='result__snippet').text.lower() if result.find('a', class_='result__snippet') else ''
-                new_links.append(actual_url)
-                # Extract species from snippet (or fetch full if needed, but to save time use snippet)
-                found_species = [s for s in known_species if s in snippet]
-                species_str = ', '.join(found_species) if found_species else 'Unknown'
-                # Parse for county from title/snippet
-                title = link_tag.text.lower()
-                for county in gdf['county'].unique():
-                    if county.lower() in actual_url.lower() or county.lower() in title or county.lower() in snippet:
-                        # Update GDF
-                        idx = gdf[gdf['county'] == county].index[0]
-                        gdf.at[idx, 'report_count'] += 1
-                        gdf.at[idx, 'reports'].append({'link': actual_url, 'species': species_str})
-                        # Update species_summary
-                        gdf.at[idx, 'species_summary'] = ', '.join(sorted(set(r['species'] for r in gdf.at[idx, 'reports'] if r['species'] != 'Unknown'))) if gdf.at[idx, 'reports'] else 'None'
-                        # Update popup_html
-                        gdf.at[idx, 'popup_html'] = generate_popup_html(gdf.iloc[idx])
-                        st.session_state.logs.append(f"Added report to {county}: {actual_url}")
+        for result in soup.find_all('li', class_='b_algo'):
+            h2 = result.find('h2')
+            if h2:
+                link_tag = h2.find('a')
+                if link_tag:
+                    actual_url = link_tag['href']
+                    title = link_tag.text
+                    snippet_tag = result.find('p')
+                    snippet = snippet_tag.text.lower() if snippet_tag else ''
+                    new_links.append(actual_url)
+                    # Extract species from snippet
+                    found_species = [s for s in known_species if s in snippet]
+                    species_str = ', '.join(found_species) if found_species else 'Unknown'
+                    # Parse for county from title/snippet/url
+                    for county in gdf['county'].unique():
+                        if county.lower() in actual_url.lower() or county.lower() in title.lower() or county.lower() in snippet:
+                            # Update GDF
+                            idx = gdf[gdf['county'] == county].index[0]
+                            gdf.at[idx, 'report_count'] += 1
+                            gdf.at[idx, 'reports'].append({'link': actual_url, 'species': species_str})
+                            # Update species_summary
+                            gdf.at[idx, 'species_summary'] = ', '.join(sorted(set(r['species'] for r in gdf.at[idx, 'reports'] if r['species'] != 'Unknown'))) if gdf.at[idx, 'reports'] else 'None'
+                            # Update popup_html
+                            gdf.at[idx, 'popup_html'] = generate_popup_html(gdf.iloc[idx])
+                            st.session_state.logs.append(f"Added report to {county}: {actual_url}")
         st.session_state.logs.append(f"Finished trawl at {datetime.now()}: Found {len(new_links)} potential new links.")
     except Exception as e:
         st.session_state.logs.append(f"Search error at {datetime.now()}: {e}")
