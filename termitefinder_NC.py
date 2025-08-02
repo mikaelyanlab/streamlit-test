@@ -111,15 +111,18 @@ def trawl_for_reports():
     except Exception as e:
         st.write(f"Search error: {e}")
 
-# Background thread for constant trawling (every 30 minutes)
+# Background thread for daily trawling (after initial run)
 def background_trawler():
     while True:
+        time.sleep(86400)  # 24 hours
         trawl_for_reports()
-        time.sleep(1800)  # 30 minutes
 
-# Start trawler thread
+# Start trawler thread and run initial trawl
 if 'trawler_started' not in st.session_state:
     st.session_state['trawler_started'] = True
+    # Run initial trawl immediately
+    trawl_for_reports()
+    # Start the background thread for subsequent daily trawls
     thread = threading.Thread(target=background_trawler, daemon=True)
     thread.start()
 
