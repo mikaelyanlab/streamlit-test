@@ -5,3 +5,9 @@ matplotlib
 streamlit
 networkx
 plotly
+folium
+streamlit-folium
+pandas
+geopandas
+requests
+beautifulsoup4
