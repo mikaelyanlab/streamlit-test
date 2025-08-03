@@ -51,23 +51,27 @@ city_to_county = {
 # Species detection
 # ------------------------------
 def detect_species(text):
-    text_lower = text.lower().replace("termites", "termite")  # normalize plural
+    text_lower = text.lower()
+    text_norm = text_lower.replace("termites", "termite")  # normalize plural
 
     found = []
     for sci_name, aliases in species_aliases.items():
-        if any(alias.lower() in text_lower for alias in aliases):
+        if any(alias.lower() in text_norm for alias in aliases):
             found.append(sci_name)
 
-    # Generic fallback if no explicit species found
-    if "drywood termite" in text_lower and not any(
+    # Generic fallback cases
+    if "drywood termite" in text_norm and not any(
         "cryptotermes" in s.lower() or "incisitermes" in s.lower() for s in found
     ):
         return ["Drywood termite (Genus/species unknown)"]
 
-    if "subterranean termite" in text_lower and not any(
+    if "subterranean termite" in text_norm and not any(
         "reticulitermes" in s.lower() or "coptotermes" in s.lower() for s in found
     ):
         return ["Subterranean termite (Genus/species unknown)"]
+
+    if not found and "termite" in text_norm:
+        return ["Termite (Genus/species unknown)"]
 
     return found if found else ["Unknown"]
 
