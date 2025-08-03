@@ -228,8 +228,8 @@ for log in st.session_state.logs[-20:]:
 if datetime.now() - st.session_state.last_trawl > timedelta(hours=24):
     trawl_for_reports()
 
-# Auto-refresh every 60s
-st.markdown("<meta http-equiv='refresh' content='60'>", unsafe_allow_html=True)
+# Auto-refresh every 30m
+st.markdown("<meta http-equiv='refresh' content='1800'>", unsafe_allow_html=True)
 
 # ------------------------------
 # Map Display
