@@ -54,10 +54,10 @@ def trawl_for_reports():
     if 'logs' not in st.session_state:
         st.session_state.logs = []
     st.session_state.logs.append(f"Starting trawl at {datetime.now()}")
-    query = "termite infestation North Carolina \"county\" site:gov OR site:edu OR site:com -site:wikipedia.org -game -grounded -waft -emitter -\"termite king\" -GroundedGame"
+    query = "termite infestation North Carolina pest control site:gov OR site:edu OR site:com -site:wikipedia.org -site:reddit.com -site:fandom.com -site:steamcommunity.com -site:ign.com -site:thegamer.com -site:gamerant.com -site:screenrant.com -game -grounded -waft -emitter -\"termite king\" -GroundedGame -\"grounded game\""
     headers = {'User-Agent': random.choice(user_agents)}
     try:
-        response = requests.get(f"https://www.bing.com/search?q={requests.utils.quote(query)}&count=20", headers=headers)
+        response = requests.get(f"https://www.bing.com/search?q={requests.utils.quote(query)}&count=50", headers=headers)
         st.session_state.logs.append(f"Response Status: {response.status_code}")
         st.session_state.logs.append(f"Response Length: {len(response.text)}")
         st.session_state.logs.append(f"Response Preview: {response.text[:500]}...")
@@ -77,8 +77,11 @@ def trawl_for_reports():
                     snippet_tag = result.find('p')
                     snippet = snippet_tag.text.lower() if snippet_tag else ''
                     title = h2.text.lower()
+                    st.session_state.logs.append(f"Title for {actual_url}: {title}")
+                    st.session_state.logs.append(f"Snippet for {actual_url}: {snippet}")
                     found_species = [s for s in known_species if s in snippet or s in title]
                     species_str = ', '.join(found_species) if found_species else 'Unknown'
+                    county_matched = False
                     for county in gdf['county'].unique():
                         county_lower = county.lower()
                         if (re.search(r'\b' + re.escape(county_lower) + r'\b', actual_url.lower()) or
@@ -96,8 +99,9 @@ def trawl_for_reports():
                                 gdf.at[idx, 'species_summary'] = ', '.join(sorted(all_species)) if all_species else 'None'
                                 gdf.at[idx, 'popup_html'] = generate_popup_html(gdf.loc[idx])
                                 st.session_state.logs.append(f"Added report to {county}: {actual_url} (Species: {species_str})")
-                            else:
-                                st.session_state.logs.append(f"Skipped non-matching county: {county}")
+                                county_matched = True
+                    if not county_matched:
+                        st.session_state.logs.append(f"No county matched for {actual_url}")
         st.session_state.logs.append(f"Finished trawl at {datetime.now()}: Found {len(new_links)} potential new links.")
         st.session_state.gdf = gdf # Save updates back to session_state
     except Exception as e:
@@ -115,7 +119,10 @@ if st.sidebar.button("Manual Trawl Now"):
 st.title("NC Termite Infestation Heatmap")
 # Create Folium map
 m = folium.Map(location=[35.5, -79.5], zoom_start=7) # Center on NC
-# Add choropleth
+# Compute max report count, ensure scale starts at 0 and goes to at least 1 to avoid legend artifacts
+max_count = gdf['report_count'].max()
+colormap = folium.colormap.linear.YlOrRd_09.scale(0, max(1, max_count))
+# Add choropleth with custom colormap
 folium.Choropleth(
     geo_data=gdf,
     data=gdf,
