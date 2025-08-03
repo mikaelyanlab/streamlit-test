@@ -18,9 +18,18 @@ species_aliases = {
     "Reticulitermes malletei": ["reticulitermes malletei", "malletei subterranean termite", "r. malletei"],
     "Reticulitermes nelsonae": ["reticulitermes nelsonae", "nelsonae subterranean termite", "r. nelsonae"],
     "Coptotermes formosanus": ["coptotermes formosanus", "formosan termite", "formosan subterranean termite"],
-    "Cryptotermes brevis": ["cryptotermes brevis", "west indian drywood termite", "powderpost termite"],
-    "Incisitermes minor": ["incisitermes minor", "western drywood termite"],
-    "Incisitermes snyderi": ["incisitermes snyderi", "eastern drywood termite"],
+    "Cryptotermes brevis": [
+        "cryptotermes brevis", "west indian drywood termite",
+        "powderpost termite", "drywood termite"  # generic drywood
+    ],
+    "Incisitermes minor": [
+        "incisitermes minor", "western drywood termite",
+        "drywood termite"  # generic drywood
+    ],
+    "Incisitermes snyderi": [
+        "incisitermes snyderi", "eastern drywood termite",
+        "drywood termite"  # generic drywood
+    ],
     "Kalotermes approximatus": ["kalotermes approximatus", "dampwood termite"],
     "Neotermes castaneus": ["neotermes castaneus", "neotermes", "castaneus termite"]
 }
@@ -53,13 +62,18 @@ def detect_species(text):
     for sci_name, aliases in species_aliases.items():
         if any(alias.lower() in text_lower for alias in aliases):
             found.append(sci_name)
+
+    # If generic "drywood termite" found but no explicit species, default to Cryptotermes brevis
+    if "drywood termite" in text_lower and not any("cryptotermes" in s.lower() or "incisitermes" in s.lower() for s in found):
+        return ["Cryptotermes brevis"]
+
     return found if found else ["Unknown"]
 
 def fetch_species_from_page(url):
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
         page = requests.get(url, headers=headers, timeout=5)
-        text = re.sub(r"<[^>]*>", " ", page.text)  # remove HTML tags
+        text = re.sub(r"<[^>]*>", " ", page.text)  # strip HTML
         return detect_species(text)
     except:
         return ["Unknown"]
@@ -106,7 +120,7 @@ def update_species_summary(df):
     return df
 
 # ------------------------------
-# Re-check all reports for species names
+# Update species for all reports
 # ------------------------------
 def update_species_for_all_reports(df):
     for idx, reports in df["reports"].items():
@@ -148,7 +162,7 @@ def trawl_for_reports():
                 st.session_state.gdf.at[idx, "reports"].append({"link": url, "species": None})
                 new_links += 1
 
-        # After adding new links, re-check species for all reports
+        # Update all reports with species detection
         st.session_state.gdf = update_species_for_all_reports(st.session_state.gdf)
         st.session_state.logs.append(f"Trawl finished at {datetime.now()} – {new_links} new links added.")
         st.session_state.last_trawl = datetime.now()
@@ -183,7 +197,7 @@ initial_data = {
 }
 
 # ------------------------------
-# Session State Init
+# Session State Initialization
 # ------------------------------
 if "logs" not in st.session_state:
     st.session_state.logs = []
