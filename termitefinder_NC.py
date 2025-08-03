@@ -52,7 +52,7 @@ city_to_county = {
 # ------------------------------
 def detect_species(text):
     text_lower = text.lower()
-    text_norm = text_lower.replace("termites", "termite")  # normalize plural
+    text_norm = text_lower.replace("termites", "termite")
 
     found = []
     for sci_name, aliases in species_aliases.items():
@@ -75,7 +75,7 @@ def detect_species(text):
     return found if found else ["Unknown"]
 
 # ------------------------------
-# Updated fetch_species_from_page
+# Fetch species from an article
 # ------------------------------
 def fetch_species_from_page(url):
     try:
@@ -83,35 +83,10 @@ def fetch_species_from_page(url):
         page = requests.get(url, headers=headers, timeout=5)
         soup = BeautifulSoup(page.text, "html.parser")
 
-        # Find potential post links if it's a category/archive page
-        post_links = [
-            a["href"] for a in soup.find_all("a", href=True)
-            if "/termites/" in a["href"] and not a["href"].endswith("/category/termites/")
+        text_parts = [
+            t.get_text(separator=" ", strip=True)
+            for t in soup.find_all(["p", "h1", "h2", "h3", "h4"])
         ]
-        post_links = list(set(post_links))[:5]  # limit to 5 links for speed
-
-        text_parts = []
-
-        # If we found article links, scrape each one
-        if post_links:
-            for link in post_links:
-                try:
-                    sub_page = requests.get(link, headers=headers, timeout=5)
-                    sub_soup = BeautifulSoup(sub_page.text, "html.parser")
-                    text_parts.extend(
-                        t.get_text(separator=" ", strip=True)
-                        for t in sub_soup.find_all(["p", "h1", "h2", "h3", "h4"])
-                    )
-                except:
-                    continue
-
-        # If no post links found, just parse current page
-        if not text_parts:
-            text_parts = [
-                t.get_text(separator=" ", strip=True)
-                for t in soup.find_all(["p", "h1", "h2", "h3", "h4"])
-            ]
-
         text = " ".join(text_parts)
         return detect_species(text)
 
@@ -160,20 +135,7 @@ def update_species_summary(df):
     return df
 
 # ------------------------------
-# Species updater
-# ------------------------------
-def update_species_for_all_reports(df):
-    for idx, reports in df["reports"].items():
-        updated_reports = []
-        for r in reports:
-            if not r.get("species") or r["species"] in [None, "Unknown"]:
-                r["species"] = ", ".join(fetch_species_from_page(r["link"]))
-            updated_reports.append(r)
-        df.at[idx, "reports"] = updated_reports
-    return update_species_summary(df)
-
-# ------------------------------
-# Web trawler
+# Updated trawler (fetch species immediately)
 # ------------------------------
 def trawl_for_reports():
     st.session_state.logs.append(f"Trawl started at {datetime.now()}")
@@ -197,11 +159,19 @@ def trawl_for_reports():
             county_match = find_county(snippet, url)
             if county_match:
                 idx = st.session_state.gdf[st.session_state.gdf["county"] == county_match].index[0]
+
+                # Fetch species immediately
+                species_found = ", ".join(fetch_species_from_page(url))
+
                 st.session_state.gdf.at[idx, "report_count"] += 1
-                st.session_state.gdf.at[idx, "reports"].append({"link": url, "species": None})
+                st.session_state.gdf.at[idx, "reports"].append({
+                    "link": url,
+                    "species": species_found
+                })
                 new_links += 1
 
-        st.session_state.gdf = update_species_for_all_reports(st.session_state.gdf)
+        st.session_state.gdf = update_species_summary(st.session_state.gdf)
+
         st.session_state.logs.append(f"Trawl finished at {datetime.now()} – {new_links} new links added.")
         st.session_state.last_trawl = datetime.now()
 
@@ -209,7 +179,7 @@ def trawl_for_reports():
         st.session_state.logs.append(f"Error during trawl: {e}")
 
 # ------------------------------
-# Initial data & session state
+# Initial data
 # ------------------------------
 initial_data = {
     "county": ["Alamance", "Alexander", "Beaufort", "Brunswick", "Buncombe", "Burke", "Cumberland", "Dare", "Durham", "Gaston", "Guilford", "Mecklenburg", "New Hanover", "Rutherford", "Sampson", "Wake"],
@@ -243,13 +213,13 @@ if "gdf" not in st.session_state:
     gdf_merged = gdf_base.merge(df_init, on="county", how="left")
     gdf_merged["report_count"] = gdf_merged["report_count"].fillna(0)
     gdf_merged["reports"] = gdf_merged["reports"].apply(lambda x: x if isinstance(x, list) else [])
-    st.session_state.gdf = update_species_for_all_reports(gdf_merged)
+    st.session_state.gdf = update_species_summary(gdf_merged)
 
 if "last_trawl" not in st.session_state:
     st.session_state.last_trawl = datetime.min
 
 # ------------------------------
-# Sidebar & Map
+# Sidebar
 # ------------------------------
 st.sidebar.title("Trawling Console")
 if st.sidebar.button("Manual Trawl Now"):
@@ -264,6 +234,9 @@ if datetime.now() - st.session_state.last_trawl > timedelta(hours=24):
 
 st.markdown("<meta http-equiv='refresh' content='600'>", unsafe_allow_html=True)
 
+# ------------------------------
+# Map
+# ------------------------------
 st.title("NC Termite Infestation Heatmap")
 m = folium.Map(location=[35.5, -79.5], zoom_start=7)
 
