@@ -8,7 +8,6 @@ from bs4 import BeautifulSoup
 import time
 from datetime import datetime
 import random
-
 # List of User-Agents for rotation to avoid blocking
 user_agents = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -18,7 +17,6 @@ user_agents = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.864.48 Safari/537.36 Edg/91.0.864.48',
     'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Mobile/15E148 Safari/604.1'
 ]
-
 # Known termite species for extraction (expanded to include more genera and species)
 known_species = [
     'eastern subterranean', 'formosan', 'west indian drywood',
@@ -30,13 +28,12 @@ known_species = [
     'incisitermes snyderi', 'incisitermes minor', 'eastern drywood termite',
     'kalotermes approximatus', 'dampwood termite', 'neotermes castaneus'
 ]
-
 # Load US counties GeoJSON from URL and filter for NC (STATEFP == '37')
 geojson_url = 'https://gist.githubusercontent.com/sdwfrost/d1c73f91dd9d175998ed166eb216994a/raw/e89c35f308cee7e2e5a784e1d3afc5d449e9e4bb/counties.geojson'
 if 'gdf' not in st.session_state:
     gdf = gpd.read_file(geojson_url)
-    gdf = gdf[gdf['STATEFP'] == '37']  # Filter to North Carolina
-    gdf['county'] = gdf['NAME']  # Use the county name as is (title case)
+    gdf = gdf[gdf['STATEFP'] == '37'] # Filter to North Carolina
+    gdf['county'] = gdf['NAME'] # Use the county name as is (title case)
     gdf['report_count'] = 0
     gdf['reports'] = [[] for _ in range(len(gdf))]
     gdf['species_summary'] = 'None'
@@ -44,7 +41,6 @@ if 'gdf' not in st.session_state:
     st.session_state.gdf = gdf
 else:
     gdf = st.session_state.gdf
-
 # Create popup HTML column
 def generate_popup_html(row):
     html = f"<b>{row['county']}</b><br>Reports: {int(row['report_count'])}<br><ul>"
@@ -52,7 +48,6 @@ def generate_popup_html(row):
         html += f"<li><a href='{report['link']}' target='_blank'>{report['link']}</a> ({report['species']})</li>"
     html += "</ul>"
     return html
-
 # Function to search web for new reports and extract species using Bing with rotation and delay
 def trawl_for_reports():
     if 'logs' not in st.session_state:
@@ -70,7 +65,7 @@ def trawl_for_reports():
         st.session_state.logs.append(f"Found {len(results)} raw 'b_algo' elements")
         new_links = []
         for result in results:
-            time.sleep(1)  # Delay to avoid rate limiting
+            time.sleep(1) # Delay to avoid rate limiting
             h2 = result.find('h2')
             if h2:
                 link_tag = h2.find('a')
@@ -90,33 +85,32 @@ def trawl_for_reports():
                                 idx = match.index[0]
                                 gdf.at[idx, 'report_count'] += 1
                                 gdf.at[idx, 'reports'].append({'link': actual_url, 'species': species_str})
-                                gdf.at[idx, 'species_summary'] = ', '.join(sorted(set(r['species'] for r in gdf.at[idx, 'reports'] if r['species'] != 'Unknown'))) if gdf.at[idx, 'reports'] else 'None'
-                                gdf.at[idx, 'popup_html'] = generate_popup_html(gdf.iloc[idx])
+                                all_species = set()
+                                for r in gdf.at[idx, 'reports']:
+                                    if r['species'] != 'Unknown':
+                                        all_species.update([s.strip() for s in r['species'].split(',')])
+                                gdf.at[idx, 'species_summary'] = ', '.join(sorted(all_species)) if all_species else 'None'
+                                gdf.at[idx, 'popup_html'] = generate_popup_html(gdf.loc[idx])
                                 st.session_state.logs.append(f"Added report to {county}: {actual_url} (Species: {species_str})")
                             else:
                                 st.session_state.logs.append(f"Skipped non-matching county: {county}")
         st.session_state.logs.append(f"Finished trawl at {datetime.now()}: Found {len(new_links)} potential new links.")
-        st.session_state.gdf = gdf  # Save updates back to session_state
+        st.session_state.gdf = gdf # Save updates back to session_state
     except Exception as e:
         st.session_state.logs.append(f"Search error at {datetime.now()}: {e}")
-
 # Sidebar for trawling status (enhanced console)
 st.sidebar.title("Trawling Console (Debug Logs)")
 if 'logs' not in st.session_state:
     st.session_state.logs = []
-for log in st.session_state.logs[-20:]:  # Show last 20 logs for more detail
+for log in st.session_state.logs[-20:]: # Show last 20 logs for more detail
     st.sidebar.write(log)
-
 # Manual trawl button
 if st.sidebar.button("Manual Trawl Now"):
     trawl_for_reports()
-
 # Streamlit app
 st.title("NC Termite Infestation Heatmap")
-
 # Create Folium map
-m = folium.Map(location=[35.5, -79.5], zoom_start=7)  # Center on NC
-
+m = folium.Map(location=[35.5, -79.5], zoom_start=7) # Center on NC
 # Add choropleth
 folium.Choropleth(
     geo_data=gdf,
@@ -129,11 +123,9 @@ folium.Choropleth(
     legend_name='Report Count',
     nan_fill_color='white'
 ).add_to(m)
-
 # Add tooltips (hover) and popups (click)
 style_function = lambda x: {'fillOpacity': 0.0, 'weight': 0.1}
 highlight_function = lambda x: {'fillColor': '#0000ff', 'color': '#0000ff', 'fillOpacity': 0.50, 'weight': 0.1}
-
 folium.GeoJson(
     gdf,
     style_function=style_function,
@@ -148,10 +140,8 @@ folium.GeoJson(
         parse_html=True
     )
 ).add_to(m)
-
 # Display map
 st_folium(m, width=800, height=600, returned_objects=[])
-
 # Auto-refresh every 60 seconds
 time.sleep(60)
 st.rerun()
