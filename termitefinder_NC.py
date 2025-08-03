@@ -54,7 +54,7 @@ def trawl_for_reports():
     if 'logs' not in st.session_state:
         st.session_state.logs = []
     st.session_state.logs.append(f"Starting trawl at {datetime.now()}")
-    query = "termite infestation North Carolina site:gov OR site:edu OR site:com -site:wikipedia.org -game -grounded -waft -emitter -\"termite king\" -GroundedGame"
+    query = "termite infestation North Carolina \"county\" site:gov OR site:edu OR site:com -site:wikipedia.org -game -grounded -waft -emitter -\"termite king\" -GroundedGame"
     headers = {'User-Agent': random.choice(user_agents)}
     try:
         response = requests.get(f"https://www.bing.com/search?q={requests.utils.quote(query)}&count=20", headers=headers)
