@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 import time
 from datetime import datetime
 import random
+import re
 # List of User-Agents for rotation to avoid blocking
 user_agents = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -53,7 +54,7 @@ def trawl_for_reports():
     if 'logs' not in st.session_state:
         st.session_state.logs = []
     st.session_state.logs.append(f"Starting trawl at {datetime.now()}")
-    query = "termite infestation North Carolina site:gov OR site:edu OR site:com -site:wikipedia.org -game -grounded"
+    query = "termite infestation North Carolina site:gov OR site:edu OR site:com -site:wikipedia.org -game -grounded -waft -emitter -\"termite king\" -GroundedGame"
     headers = {'User-Agent': random.choice(user_agents)}
     try:
         response = requests.get(f"https://www.bing.com/search?q={requests.utils.quote(query)}&count=20", headers=headers)
@@ -79,7 +80,10 @@ def trawl_for_reports():
                     found_species = [s for s in known_species if s in snippet or s in title]
                     species_str = ', '.join(found_species) if found_species else 'Unknown'
                     for county in gdf['county'].unique():
-                        if county.lower() in actual_url.lower() or county.lower() in title or county.lower() in snippet:
+                        county_lower = county.lower()
+                        if (re.search(r'\b' + re.escape(county_lower) + r'\b', actual_url.lower()) or
+                            re.search(r'\b' + re.escape(county_lower) + r'\b', title) or
+                            re.search(r'\b' + re.escape(county_lower) + r'\b', snippet)):
                             match = gdf[gdf['county'] == county]
                             if not match.empty:
                                 idx = match.index[0]
