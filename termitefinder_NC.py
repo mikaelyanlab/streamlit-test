@@ -21,18 +21,9 @@ species_aliases = {
     "Reticulitermes malletei": ["reticulitermes malletei", "malletei subterranean termite", "r. malletei"],
     "Reticulitermes nelsonae": ["reticulitermes nelsonae", "nelsonae subterranean termite", "r. nelsonae"],
     "Coptotermes formosanus": ["coptotermes formosanus", "formosan termite", "formosan subterranean termite"],
-    "Cryptotermes brevis": [
-        "cryptotermes brevis", "west indian drywood termite",
-        "powderpost termite", "drywood termite"  # generic drywood
-    ],
-    "Incisitermes minor": [
-        "incisitermes minor", "western drywood termite",
-        "drywood termite"  # generic drywood
-    ],
-    "Incisitermes snyderi": [
-        "incisitermes snyderi", "eastern drywood termite",
-        "drywood termite"  # generic drywood
-    ],
+    "Cryptotermes brevis": ["cryptotermes brevis", "west indian drywood termite", "powderpost termite", "drywood termite"],
+    "Incisitermes minor": ["incisitermes minor", "western drywood termite", "drywood termite"],
+    "Incisitermes snyderi": ["incisitermes snyderi", "eastern drywood termite", "drywood termite"],
     "Kalotermes approximatus": ["kalotermes approximatus", "dampwood termite"],
     "Neotermes castaneus": ["neotermes castaneus", "neotermes", "castaneus termite"]
 }
@@ -57,18 +48,26 @@ city_to_county = {
 }
 
 # ------------------------------
-# Species detection helpers
+# Species detection
 # ------------------------------
 def detect_species(text):
-    text_lower = text.lower()
+    text_lower = text.lower().replace("termites", "termite")  # normalize plural
+
     found = []
     for sci_name, aliases in species_aliases.items():
         if any(alias.lower() in text_lower for alias in aliases):
             found.append(sci_name)
 
-    # If generic "drywood termite" found but no explicit species, default to Cryptotermes brevis
-    if "drywood termite" in text_lower and not any("cryptotermes" in s.lower() or "incisitermes" in s.lower() for s in found):
-        return ["Cryptotermes brevis"]
+    # Generic fallback if no explicit species found
+    if "drywood termite" in text_lower and not any(
+        "cryptotermes" in s.lower() or "incisitermes" in s.lower() for s in found
+    ):
+        return ["Drywood termite (Genus/species unknown)"]
+
+    if "subterranean termite" in text_lower and not any(
+        "reticulitermes" in s.lower() or "coptotermes" in s.lower() for s in found
+    ):
+        return ["Subterranean termite (Genus/species unknown)"]
 
     return found if found else ["Unknown"]
 
@@ -76,7 +75,7 @@ def fetch_species_from_page(url):
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
         page = requests.get(url, headers=headers, timeout=5)
-        text = re.sub(r"<[^>]*>", " ", page.text)  # strip HTML
+        text = re.sub(r"<[^>]*>", " ", page.text)
         return detect_species(text)
     except:
         return ["Unknown"]
@@ -106,7 +105,7 @@ def load_geojson():
     return gdf
 
 # ------------------------------
-# Popup and summary updates
+# Popup & summary
 # ------------------------------
 def generate_popup_html(row):
     html = f"<b>{row['county']}</b><br>Reports: {int(row['report_count'])}<br><ul>"
@@ -123,15 +122,14 @@ def update_species_summary(df):
     return df
 
 # ------------------------------
-# Update species for all reports
+# Species updater
 # ------------------------------
 def update_species_for_all_reports(df):
     for idx, reports in df["reports"].items():
         updated_reports = []
         for r in reports:
             if not r.get("species") or r["species"] in [None, "Unknown"]:
-                species_found = fetch_species_from_page(r["link"])
-                r["species"] = ", ".join(species_found)
+                r["species"] = ", ".join(fetch_species_from_page(r["link"]))
             updated_reports.append(r)
         df.at[idx, "reports"] = updated_reports
     return update_species_summary(df)
@@ -165,7 +163,6 @@ def trawl_for_reports():
                 st.session_state.gdf.at[idx, "reports"].append({"link": url, "species": None})
                 new_links += 1
 
-        # Update all reports with species detection
         st.session_state.gdf = update_species_for_all_reports(st.session_state.gdf)
         st.session_state.logs.append(f"Trawl finished at {datetime.now()} – {new_links} new links added.")
         st.session_state.last_trawl = datetime.now()
@@ -200,7 +197,7 @@ initial_data = {
 }
 
 # ------------------------------
-# Session State Initialization
+# Session state initialization
 # ------------------------------
 if "logs" not in st.session_state:
     st.session_state.logs = []
@@ -231,8 +228,8 @@ for log in st.session_state.logs[-20:]:
 if datetime.now() - st.session_state.last_trawl > timedelta(hours=24):
     trawl_for_reports()
 
-# Auto-refresh every 30m
-st.markdown("<meta http-equiv='refresh' content='1800'>", unsafe_allow_html=True)
+# Optional: Change refresh frequency (e.g., 600 = 10 minutes)
+st.markdown("<meta http-equiv='refresh' content='600'>", unsafe_allow_html=True)
 
 # ------------------------------
 # Map Display
