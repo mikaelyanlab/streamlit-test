@@ -75,11 +75,21 @@ def detect_species(text):
 
     return found if found else ["Unknown"]
 
+# ------------------------------
+# Updated fetch_species_from_page
+# ------------------------------
 def fetch_species_from_page(url):
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
         page = requests.get(url, headers=headers, timeout=5)
-        text = re.sub(r"<[^>]*>", " ", page.text)
+        soup = BeautifulSoup(page.text, "html.parser")
+
+        # Extract only visible text from <p> and heading tags
+        text_parts = [
+            t.get_text(separator=" ", strip=True)
+            for t in soup.find_all(["p", "h1", "h2", "h3", "h4"])
+        ]
+        text = " ".join(text_parts)
         return detect_species(text)
     except:
         return ["Unknown"]
@@ -264,6 +274,7 @@ folium.GeoJson(
 ).add_to(m)
 
 st_folium(m, width=800, height=600, returned_objects=[])
+
 st.sidebar.markdown("---")
 st.sidebar.markdown(
     "**Created by [Mikaelyan Lab](https://mikaelyanlab.com)**  \n"
