@@ -11,3 +11,4 @@ pandas
 geopandas
 requests
 beautifulsoup4
+streamlit-autorefresh
