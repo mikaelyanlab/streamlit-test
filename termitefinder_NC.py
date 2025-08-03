@@ -9,6 +9,7 @@ import time
 from datetime import datetime
 import random
 import re
+import branca.colormap as cm
 # List of User-Agents for rotation to avoid blocking
 user_agents = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -121,14 +122,14 @@ st.title("NC Termite Infestation Heatmap")
 m = folium.Map(location=[35.5, -79.5], zoom_start=7) # Center on NC
 # Compute max report count, ensure scale starts at 0 and goes to at least 1 to avoid legend artifacts
 max_count = gdf['report_count'].max()
-colormap = folium.colormap.linear.YlOrRd_09.scale(0, max(1, max_count))
+colormap = cm.linear.YlOrRd_09.scale(0, max(1, max_count))
 # Add choropleth with custom colormap
 folium.Choropleth(
     geo_data=gdf,
     data=gdf,
     columns=['county', 'report_count'],
     key_on='feature.properties.NAME',
-    fill_color='YlOrRd',
+    fill_color=colormap,
     fill_opacity=0.7,
     line_opacity=0.2,
     legend_name='Report Count',
