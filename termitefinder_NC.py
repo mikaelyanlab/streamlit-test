@@ -9,7 +9,6 @@ import geopandas as gpd
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
-import re
 
 # ------------------------------
 # Species aliases
@@ -48,7 +47,7 @@ city_to_county = {
 }
 
 # ------------------------------
-# Species detection
+# Detect species in text
 # ------------------------------
 def detect_species(text):
     text_lower = text.lower()
@@ -70,9 +69,9 @@ def detect_species(text):
         return ["Subterranean termite (Genus/species unknown)"]
 
     if not found and "termite" in text_norm:
-        return ["Termite (Genus/species unknown)"]
+        return ["Unknown species (not mentioned in text)"]
 
-    return found if found else ["Unknown"]
+    return found if found else ["Unknown species (not mentioned in text)"]
 
 # ------------------------------
 # Fetch species from a page
@@ -81,19 +80,28 @@ def fetch_species_from_page(url):
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
         page = requests.get(url, headers=headers, timeout=5)
-        soup = BeautifulSoup(page.text, "html.parser")
 
+        if page.status_code != 200:
+            return ["Unable to extract species (scraping failed)"]
+
+        soup = BeautifulSoup(page.text, "html.parser")
         text_parts = [
             t.get_text(separator=" ", strip=True)
             for t in soup.find_all(["p", "h1", "h2", "h3", "h4"])
         ]
-        text = " ".join(text_parts)
-        return detect_species(text)
+        text = " ".join(text_parts).strip()
+
+        if not text:
+            return ["Unable to extract species (scraping failed)"]
+
+        species_found = detect_species(text)
+        return species_found
+
     except:
-        return ["Unknown"]
+        return ["Unable to extract species (scraping failed)"]
 
 # ------------------------------
-# County detection
+# Find county from text/url
 # ------------------------------
 def find_county(text, url):
     text_lower = (text + " " + url).lower()
@@ -106,7 +114,7 @@ def find_county(text, url):
     return None
 
 # ------------------------------
-# GeoJSON loader
+# Load GeoJSON
 # ------------------------------
 @st.cache_data
 def load_geojson():
@@ -117,7 +125,7 @@ def load_geojson():
     return gdf
 
 # ------------------------------
-# Popup & summary
+# Popup and summary
 # ------------------------------
 def generate_popup_html(row):
     html = f"<b>{row['county']}</b><br>Reports: {int(row['report_count'])}<br><ul>"
@@ -128,7 +136,7 @@ def generate_popup_html(row):
 
 def update_species_summary(df):
     df["species_summary"] = df["reports"].apply(
-        lambda r: ", ".join(sorted(set(x["species"] for x in r if x["species"] not in [None, "Unknown"]))) if r else "None"
+        lambda r: ", ".join(sorted(set(x["species"] for x in r if x["species"]))) if r else "None"
     )
     df["popup_html"] = df.apply(generate_popup_html, axis=1)
     return df
@@ -137,14 +145,14 @@ def update_species_for_all_reports(df):
     for idx, reports in df["reports"].items():
         updated_reports = []
         for r in reports:
-            if not r.get("species") or r["species"] in [None, "Unknown"]:
+            if not r.get("species") or r["species"] in [None, ""]:
                 r["species"] = ", ".join(fetch_species_from_page(r["link"]))
             updated_reports.append(r)
         df.at[idx, "reports"] = updated_reports
     return update_species_summary(df)
 
 # ------------------------------
-# Trawler (fetch species immediately for new links)
+# Web trawler
 # ------------------------------
 def trawl_for_reports():
     st.session_state.logs.append(f"Trawl started at {datetime.now()}")
@@ -185,7 +193,7 @@ def trawl_for_reports():
         st.session_state.logs.append(f"Error during trawl: {e}")
 
 # ------------------------------
-# Initial data
+# Initial Data
 # ------------------------------
 initial_data = {
     "county": ["Alamance", "Alexander", "Beaufort", "Brunswick", "Buncombe", "Burke", "Cumberland", "Dare", "Durham", "Gaston", "Guilford", "Mecklenburg", "New Hanover", "Rutherford", "Sampson", "Wake"],
@@ -211,7 +219,7 @@ initial_data = {
 }
 
 # ------------------------------
-# Session state initialization
+# Session State Init
 # ------------------------------
 if "logs" not in st.session_state:
     st.session_state.logs = []
@@ -223,7 +231,6 @@ if "gdf" not in st.session_state:
     gdf_merged["report_count"] = gdf_merged["report_count"].fillna(0)
     gdf_merged["reports"] = gdf_merged["reports"].apply(lambda x: x if isinstance(x, list) else [])
 
-    # ✅ Fill species for initial reports
     st.session_state.gdf = update_species_for_all_reports(gdf_merged)
 
 if "last_trawl" not in st.session_state:
@@ -274,6 +281,7 @@ folium.GeoJson(
 ).add_to(m)
 
 st_folium(m, width=800, height=600, returned_objects=[])
+
 
 st.sidebar.markdown("---")
 st.sidebar.markdown(
