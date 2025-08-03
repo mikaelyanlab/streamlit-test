@@ -6,9 +6,10 @@ import geopandas as gpd
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
+import re
 
 # ------------------------------
-# Species aliases (scientific & common names)
+# Species aliases
 # ------------------------------
 species_aliases = {
     "Reticulitermes flavipes": ["reticulitermes flavipes", "eastern subterranean termite", "r. flavipes"],
@@ -25,7 +26,7 @@ species_aliases = {
 }
 
 # ------------------------------
-# City-to-county mapping (partial, add more if needed)
+# City-to-county mapping
 # ------------------------------
 city_to_county = {
     "wilmington": "New Hanover",
@@ -44,7 +45,7 @@ city_to_county = {
 }
 
 # ------------------------------
-# Functions
+# Species detection helpers
 # ------------------------------
 def detect_species(text):
     text_lower = text.lower()
@@ -54,6 +55,18 @@ def detect_species(text):
             found.append(sci_name)
     return found if found else ["Unknown"]
 
+def fetch_species_from_page(url):
+    try:
+        headers = {"User-Agent": "Mozilla/5.0"}
+        page = requests.get(url, headers=headers, timeout=5)
+        text = re.sub(r"<[^>]*>", " ", page.text)  # remove HTML tags
+        return detect_species(text)
+    except:
+        return ["Unknown"]
+
+# ------------------------------
+# County detection
+# ------------------------------
 def find_county(text, url):
     text_lower = (text + " " + url).lower()
     for county in st.session_state.gdf["county"]:
@@ -64,6 +77,9 @@ def find_county(text, url):
             return county
     return None
 
+# ------------------------------
+# GeoJSON loader
+# ------------------------------
 @st.cache_data
 def load_geojson():
     url = "https://gist.githubusercontent.com/sdwfrost/d1c73f91dd9d175998ed166eb216994a/raw/e89c35f308cee7e2e5a784e1d3afc5d449e9e4bb/counties.geojson"
@@ -72,6 +88,9 @@ def load_geojson():
     gdf["county"] = gdf["NAME"]
     return gdf
 
+# ------------------------------
+# Popup and summary updates
+# ------------------------------
 def generate_popup_html(row):
     html = f"<b>{row['county']}</b><br>Reports: {int(row['report_count'])}<br><ul>"
     for report in row["reports"]:
@@ -81,11 +100,28 @@ def generate_popup_html(row):
 
 def update_species_summary(df):
     df["species_summary"] = df["reports"].apply(
-        lambda r: ", ".join(sorted(set(x["species"] for x in r if x["species"] != "Unknown"))) if r else "None"
+        lambda r: ", ".join(sorted(set(x["species"] for x in r if x["species"] not in [None, "Unknown"]))) if r else "None"
     )
     df["popup_html"] = df.apply(generate_popup_html, axis=1)
     return df
 
+# ------------------------------
+# Re-check all reports for species names
+# ------------------------------
+def update_species_for_all_reports(df):
+    for idx, reports in df["reports"].items():
+        updated_reports = []
+        for r in reports:
+            if not r.get("species") or r["species"] in [None, "Unknown"]:
+                species_found = fetch_species_from_page(r["link"])
+                r["species"] = ", ".join(species_found)
+            updated_reports.append(r)
+        df.at[idx, "reports"] = updated_reports
+    return update_species_summary(df)
+
+# ------------------------------
+# Web trawler
+# ------------------------------
 def trawl_for_reports():
     st.session_state.logs.append(f"Trawl started at {datetime.now()}")
     query = "termite infestation North Carolina site:gov OR site:edu OR site:com -site:wikipedia.org"
@@ -105,16 +141,15 @@ def trawl_for_reports():
             url = h2.find("a")["href"]
             snippet = (result.find("p").text if result.find("p") else "") + " " + h2.text
 
-            species_found = detect_species(snippet)
             county_match = find_county(snippet, url)
-
             if county_match:
                 idx = st.session_state.gdf[st.session_state.gdf["county"] == county_match].index[0]
                 st.session_state.gdf.at[idx, "report_count"] += 1
-                st.session_state.gdf.at[idx, "reports"].append({"link": url, "species": ", ".join(species_found)})
+                st.session_state.gdf.at[idx, "reports"].append({"link": url, "species": None})
                 new_links += 1
 
-        st.session_state.gdf = update_species_summary(st.session_state.gdf)
+        # After adding new links, re-check species for all reports
+        st.session_state.gdf = update_species_for_all_reports(st.session_state.gdf)
         st.session_state.logs.append(f"Trawl finished at {datetime.now()} – {new_links} new links added.")
         st.session_state.last_trawl = datetime.now()
 
@@ -122,33 +157,33 @@ def trawl_for_reports():
         st.session_state.logs.append(f"Error during trawl: {e}")
 
 # ------------------------------
-# Initial Data
+# Initial sample data
 # ------------------------------
 initial_data = {
     "county": ["Alamance", "Alexander", "Beaufort", "Brunswick", "Buncombe", "Burke", "Cumberland", "Dare", "Durham", "Gaston", "Guilford", "Mecklenburg", "New Hanover", "Rutherford", "Sampson", "Wake"],
     "report_count": [1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 3],
     "reports": [
-        [{"link": "https://www.youtube.com/watch?v=iGTUmm5AydI", "species": "Unknown"}],
-        [{"link": "https://qualitycontrolinc.com/termite-control-alexander-county-nc/termite-reports/", "species": "Unknown"}],
-        [{"link": "https://www.researchgate.net/publication/23233402", "species": "Reticulitermes flavipes, Reticulitermes hageni, Reticulitermes virginicus"}],
-        [{"link": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9316241/", "species": "Reticulitermes malletei, Reticulitermes flavipes"}],
-        [{"link": "https://egrove.olemiss.edu/cgi/viewcontent.cgi?article=1023&context=biology_facpubs", "species": "Unknown"}],
-        [{"link": "https://www.trustterminix.com/nc-termites-what-every-north-carolina-homeowner-needs-to-know/", "species": "Unknown"}],
-        [{"link": "https://www.researchgate.net/publication/23233402", "species": "Reticulitermes flavipes, Reticulitermes hageni, Reticulitermes virginicus"}],
-        [{"link": "https://outerbanks-pestcontrol.com/category/termites/", "species": "Unknown"}],
-        [{"link": "https://neusetermiteandpest.com/termite-treatment-in-durham-nc", "species": "Unknown"}],
-        [{"link": "https://www.trustterminix.com/nc-termites-what-every-north-carolina-homeowner-needs-to-know/", "species": "Unknown"}],
-        [{"link": "https://www.go-forth.com/resource-center/let-s-chat-about-termites-in-greensboro/", "species": "Unknown"}],
-        [{"link": "https://www.trustterminix.com/nc-termites-what-every-north-carolina-homeowner-needs-to-know/", "species": "Unknown"}],
-        [{"link": "https://www.researchgate.net/publication/23233402", "species": "Reticulitermes flavipes, Reticulitermes hageni, Reticulitermes virginicus"}],
-        [{"link": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9316241/", "species": "Reticulitermes malletei, Reticulitermes flavipes"}],
-        [{"link": "https://www.researchgate.net/publication/23233402", "species": "Reticulitermes flavipes, Reticulitermes hageni, Reticulitermes virginicus"}],
-        [{"link": "https://www.reddit.com/r/raleigh/comments/58ajs6/termites/", "species": "Unknown"}]
+        [{"link": "https://www.youtube.com/watch?v=iGTUmm5AydI", "species": None}],
+        [{"link": "https://qualitycontrolinc.com/termite-control-alexander-county-nc/termite-reports/", "species": None}],
+        [{"link": "https://www.researchgate.net/publication/23233402", "species": None}],
+        [{"link": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9316241/", "species": None}],
+        [{"link": "https://egrove.olemiss.edu/cgi/viewcontent.cgi?article=1023&context=biology_facpubs", "species": None}],
+        [{"link": "https://www.trustterminix.com/nc-termites-what-every-north-carolina-homeowner-needs-to-know/", "species": None}],
+        [{"link": "https://www.researchgate.net/publication/23233402", "species": None}],
+        [{"link": "https://outerbanks-pestcontrol.com/category/termites/", "species": None}],
+        [{"link": "https://neusetermiteandpest.com/termite-treatment-in-durham-nc", "species": None}],
+        [{"link": "https://www.trustterminix.com/nc-termites-what-every-north-carolina-homeowner-needs-to-know/", "species": None}],
+        [{"link": "https://www.go-forth.com/resource-center/let-s-chat-about-termites-in-greensboro/", "species": None}],
+        [{"link": "https://www.trustterminix.com/nc-termites-what-every-north-carolina-homeowner-needs-to-know/", "species": None}],
+        [{"link": "https://www.researchgate.net/publication/23233402", "species": None}],
+        [{"link": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9316241/", "species": None}],
+        [{"link": "https://www.researchgate.net/publication/23233402", "species": None}],
+        [{"link": "https://www.reddit.com/r/raleigh/comments/58ajs6/termites/", "species": None}]
     ]
 }
 
 # ------------------------------
-# Session State Initialization
+# Session State Init
 # ------------------------------
 if "logs" not in st.session_state:
     st.session_state.logs = []
@@ -159,13 +194,13 @@ if "gdf" not in st.session_state:
     gdf_merged = gdf_base.merge(df_init, on="county", how="left")
     gdf_merged["report_count"] = gdf_merged["report_count"].fillna(0)
     gdf_merged["reports"] = gdf_merged["reports"].apply(lambda x: x if isinstance(x, list) else [])
-    st.session_state.gdf = update_species_summary(gdf_merged)
+    st.session_state.gdf = update_species_for_all_reports(gdf_merged)
 
 if "last_trawl" not in st.session_state:
     st.session_state.last_trawl = datetime.min
 
 # ------------------------------
-# Sidebar Console
+# Sidebar
 # ------------------------------
 st.sidebar.title("Trawling Console")
 if st.sidebar.button("Manual Trawl Now"):
@@ -179,7 +214,7 @@ for log in st.session_state.logs[-20:]:
 if datetime.now() - st.session_state.last_trawl > timedelta(hours=24):
     trawl_for_reports()
 
-# Auto-refresh every 60s (HTML-based)
+# Auto-refresh every 60s
 st.markdown("<meta http-equiv='refresh' content='60'>", unsafe_allow_html=True)
 
 # ------------------------------
