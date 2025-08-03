@@ -59,7 +59,6 @@ def detect_species(text):
         if any(alias.lower() in text_norm for alias in aliases):
             found.append(sci_name)
 
-    # Generic fallback cases
     if "drywood termite" in text_norm and not any(
         "cryptotermes" in s.lower() or "incisitermes" in s.lower() for s in found
     ):
@@ -84,13 +83,38 @@ def fetch_species_from_page(url):
         page = requests.get(url, headers=headers, timeout=5)
         soup = BeautifulSoup(page.text, "html.parser")
 
-        # Extract only visible text from <p> and heading tags
-        text_parts = [
-            t.get_text(separator=" ", strip=True)
-            for t in soup.find_all(["p", "h1", "h2", "h3", "h4"])
+        # Find potential post links if it's a category/archive page
+        post_links = [
+            a["href"] for a in soup.find_all("a", href=True)
+            if "/termites/" in a["href"] and not a["href"].endswith("/category/termites/")
         ]
+        post_links = list(set(post_links))[:5]  # limit to 5 links for speed
+
+        text_parts = []
+
+        # If we found article links, scrape each one
+        if post_links:
+            for link in post_links:
+                try:
+                    sub_page = requests.get(link, headers=headers, timeout=5)
+                    sub_soup = BeautifulSoup(sub_page.text, "html.parser")
+                    text_parts.extend(
+                        t.get_text(separator=" ", strip=True)
+                        for t in sub_soup.find_all(["p", "h1", "h2", "h3", "h4"])
+                    )
+                except:
+                    continue
+
+        # If no post links found, just parse current page
+        if not text_parts:
+            text_parts = [
+                t.get_text(separator=" ", strip=True)
+                for t in soup.find_all(["p", "h1", "h2", "h3", "h4"])
+            ]
+
         text = " ".join(text_parts)
         return detect_species(text)
+
     except:
         return ["Unknown"]
 
@@ -185,7 +209,7 @@ def trawl_for_reports():
         st.session_state.logs.append(f"Error during trawl: {e}")
 
 # ------------------------------
-# Initial sample data
+# Initial data & session state
 # ------------------------------
 initial_data = {
     "county": ["Alamance", "Alexander", "Beaufort", "Brunswick", "Buncombe", "Burke", "Cumberland", "Dare", "Durham", "Gaston", "Guilford", "Mecklenburg", "New Hanover", "Rutherford", "Sampson", "Wake"],
@@ -210,9 +234,6 @@ initial_data = {
     ]
 }
 
-# ------------------------------
-# Session state initialization
-# ------------------------------
 if "logs" not in st.session_state:
     st.session_state.logs = []
 
@@ -228,7 +249,7 @@ if "last_trawl" not in st.session_state:
     st.session_state.last_trawl = datetime.min
 
 # ------------------------------
-# Sidebar
+# Sidebar & Map
 # ------------------------------
 st.sidebar.title("Trawling Console")
 if st.sidebar.button("Manual Trawl Now"):
@@ -238,16 +259,11 @@ st.sidebar.write(f"Last trawl: {st.session_state.last_trawl}")
 for log in st.session_state.logs[-20:]:
     st.sidebar.write(log)
 
-# Auto-trawl every 24h
 if datetime.now() - st.session_state.last_trawl > timedelta(hours=24):
     trawl_for_reports()
 
-# Optional: Change refresh frequency (e.g., 600 = 10 minutes)
 st.markdown("<meta http-equiv='refresh' content='600'>", unsafe_allow_html=True)
 
-# ------------------------------
-# Map Display
-# ------------------------------
 st.title("NC Termite Infestation Heatmap")
 m = folium.Map(location=[35.5, -79.5], zoom_start=7)
 
