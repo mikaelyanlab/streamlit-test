@@ -1,3 +1,6 @@
+#######################################################################################################################
+# Created by Aram Mikaelyan (amikael@ncsu.edu), Department of Entomology and Plant Pathology, NCSU (mikaelyanlab.com) #
+#######################################################################################################################
 import streamlit as st
 import folium
 from streamlit_folium import st_folium
