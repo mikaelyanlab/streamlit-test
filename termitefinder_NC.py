@@ -263,3 +263,8 @@ folium.GeoJson(
 ).add_to(m)
 
 st_folium(m, width=800, height=600, returned_objects=[])
+st.sidebar.markdown("---")
+st.sidebar.markdown(
+    "**Created by [Mikaelyan Lab](https://mikaelyanlab.com)**  \n"
+    "Digest. Cooperate. Decompose."
+)
