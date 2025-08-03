@@ -58,7 +58,7 @@ def trawl_for_reports():
     if 'logs' not in st.session_state:
         st.session_state.logs = []
     st.session_state.logs.append(f"Starting trawl at {datetime.now()}")
-    query = "termite infestation North Carolina site:gov OR site:edu OR site:com -site:wikipedia.org"
+    query = "termite infestation North Carolina site:gov OR site:edu OR site:com -site:wikipedia.org -game -grounded"
     headers = {'User-Agent': random.choice(user_agents)}
     try:
         response = requests.get(f"https://www.bing.com/search?q={requests.utils.quote(query)}&count=20", headers=headers)
@@ -93,6 +93,8 @@ def trawl_for_reports():
                                 gdf.at[idx, 'species_summary'] = ', '.join(sorted(set(r['species'] for r in gdf.at[idx, 'reports'] if r['species'] != 'Unknown'))) if gdf.at[idx, 'reports'] else 'None'
                                 gdf.at[idx, 'popup_html'] = generate_popup_html(gdf.iloc[idx])
                                 st.session_state.logs.append(f"Added report to {county}: {actual_url} (Species: {species_str})")
+                            else:
+                                st.session_state.logs.append(f"Skipped non-matching county: {county}")
         st.session_state.logs.append(f"Finished trawl at {datetime.now()}: Found {len(new_links)} potential new links.")
         st.session_state.gdf = gdf  # Save updates back to session_state
     except Exception as e:
