@@ -122,7 +122,13 @@ if "logs" not in st.session_state:
 if "gdf" not in st.session_state:
     gdf_base = load_geojson()
     df_init = pd.DataFrame(initial_data)
-    gdf_merged = gdf_base.merge(df_init, on="county", how="left").fillna({"report_count": 0, "reports": [[]]})
+    gdf_merged = gdf_base.merge(df_init, on="county", how="left")
+
+    # Fill numeric NaNs
+    gdf_merged['report_count'] = gdf_merged['report_count'].fillna(0)
+
+    # Replace NaNs in 'reports' column with empty lists
+    gdf_merged['reports'] = gdf_merged['reports'].apply(lambda x: x if isinstance(x, list) else [])
     gdf_merged['reports'] = gdf_merged['reports'].apply(lambda x: x if isinstance(x, list) else [])
     st.session_state.gdf = update_species_summary(gdf_merged)
 
