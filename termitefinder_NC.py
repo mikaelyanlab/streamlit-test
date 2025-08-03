@@ -75,7 +75,7 @@ def detect_species(text):
     return found if found else ["Unknown"]
 
 # ------------------------------
-# Fetch species from an article
+# Fetch species from a page
 # ------------------------------
 def fetch_species_from_page(url):
     try:
@@ -89,7 +89,6 @@ def fetch_species_from_page(url):
         ]
         text = " ".join(text_parts)
         return detect_species(text)
-
     except:
         return ["Unknown"]
 
@@ -134,8 +133,18 @@ def update_species_summary(df):
     df["popup_html"] = df.apply(generate_popup_html, axis=1)
     return df
 
+def update_species_for_all_reports(df):
+    for idx, reports in df["reports"].items():
+        updated_reports = []
+        for r in reports:
+            if not r.get("species") or r["species"] in [None, "Unknown"]:
+                r["species"] = ", ".join(fetch_species_from_page(r["link"]))
+            updated_reports.append(r)
+        df.at[idx, "reports"] = updated_reports
+    return update_species_summary(df)
+
 # ------------------------------
-# Updated trawler (fetch species immediately)
+# Trawler (fetch species immediately for new links)
 # ------------------------------
 def trawl_for_reports():
     st.session_state.logs.append(f"Trawl started at {datetime.now()}")
@@ -159,8 +168,6 @@ def trawl_for_reports():
             county_match = find_county(snippet, url)
             if county_match:
                 idx = st.session_state.gdf[st.session_state.gdf["county"] == county_match].index[0]
-
-                # Fetch species immediately
                 species_found = ", ".join(fetch_species_from_page(url))
 
                 st.session_state.gdf.at[idx, "report_count"] += 1
@@ -171,7 +178,6 @@ def trawl_for_reports():
                 new_links += 1
 
         st.session_state.gdf = update_species_summary(st.session_state.gdf)
-
         st.session_state.logs.append(f"Trawl finished at {datetime.now()} – {new_links} new links added.")
         st.session_state.last_trawl = datetime.now()
 
@@ -204,6 +210,9 @@ initial_data = {
     ]
 }
 
+# ------------------------------
+# Session state initialization
+# ------------------------------
 if "logs" not in st.session_state:
     st.session_state.logs = []
 
@@ -213,7 +222,9 @@ if "gdf" not in st.session_state:
     gdf_merged = gdf_base.merge(df_init, on="county", how="left")
     gdf_merged["report_count"] = gdf_merged["report_count"].fillna(0)
     gdf_merged["reports"] = gdf_merged["reports"].apply(lambda x: x if isinstance(x, list) else [])
-    st.session_state.gdf = update_species_summary(gdf_merged)
+
+    # ✅ Fill species for initial reports
+    st.session_state.gdf = update_species_for_all_reports(gdf_merged)
 
 if "last_trawl" not in st.session_state:
     st.session_state.last_trawl = datetime.min
@@ -235,7 +246,7 @@ if datetime.now() - st.session_state.last_trawl > timedelta(hours=24):
 st.markdown("<meta http-equiv='refresh' content='600'>", unsafe_allow_html=True)
 
 # ------------------------------
-# Map
+# Map Display
 # ------------------------------
 st.title("NC Termite Infestation Heatmap")
 m = folium.Map(location=[35.5, -79.5], zoom_start=7)
