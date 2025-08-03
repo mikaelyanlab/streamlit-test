@@ -123,20 +123,15 @@ m = folium.Map(location=[35.5, -79.5], zoom_start=7) # Center on NC
 # Compute max report count, ensure scale starts at 0 and goes to at least 1 to avoid legend artifacts
 max_count = gdf['report_count'].max()
 colormap = cm.linear.YlOrRd_09.scale(0, max(1, max_count))
-# Add choropleth with custom colormap
-folium.Choropleth(
-    geo_data=gdf,
-    data=gdf,
-    columns=['county', 'report_count'],
-    key_on='feature.properties.NAME',
-    fill_color=colormap,
-    fill_opacity=0.7,
-    line_opacity=0.2,
-    legend_name='Report Count',
-    nan_fill_color='white'
-).add_to(m)
-# Add tooltips (hover) and popups (click)
-style_function = lambda x: {'fillOpacity': 0.0, 'weight': 0.1}
+colormap.caption = 'Report Count'
+colormap.add_to(m)
+# Add tooltips (hover) and popups (click) with colored fill
+style_function = lambda feature: {
+    'fillColor': colormap(feature['properties']['report_count']) if 'report_count' in feature['properties'] else 'white',
+    'color': 'black',
+    'weight': 0.2,
+    'fillOpacity': 0.7
+}
 highlight_function = lambda x: {'fillColor': '#0000ff', 'color': '#0000ff', 'fillOpacity': 0.50, 'weight': 0.1}
 folium.GeoJson(
     gdf,
