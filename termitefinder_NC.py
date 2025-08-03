@@ -11,16 +11,15 @@ from streamlit_autorefresh import st_autorefresh
 # ------------------------------
 # Known termite species
 # ------------------------------
-known_species = [
-    'eastern subterranean', 'formosan', 'west indian drywood',
-    'dark southern subterranean', 'light southern subterranean', 'southeastern drywood',
-    'reticulitermes flavipes', 'reticulitermes virginicus', 'reticulitermes hageni',
-    'reticulitermes malletei', 'reticulitermes nelsonae',
-    'coptotermes formosanus', 'formosan subterranean termite',
-    'cryptotermes brevis', 'west indian powderpost termite',
-    'incisitermes snyderi', 'incisitermes minor', 'eastern drywood termite',
-    'kalotermes approximatus', 'dampwood termite', 'neotermes castaneus'
-]
+known_species = {
+    "reticulitermes flavipes": ["reticulitermes flavipes", "eastern subterranean termite", "r. flavipes"],
+    "reticulitermes virginicus": ["reticulitermes virginicus", "virginian subterranean termite", "r. virginicus"],
+    "coptotermes formosanus": ["coptotermes formosanus", "formosan termite", "formosan subterranean termite"],
+    "cryptotermes brevis": ["cryptotermes brevis", "west indian drywood termite", "powderpost termite"],
+    "incisitermes minor": ["incisitermes minor", "western drywood termite"],
+    "kalotermes approximatus": ["kalotermes approximatus", "dampwood termite"],
+    "neotermes castaneus": ["neotermes castaneus", "neotermes", "castaneus termite"]
+}
 
 # ------------------------------
 # Initial sample data
