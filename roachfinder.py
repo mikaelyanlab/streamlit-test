@@ -4,10 +4,10 @@ import folium
 from streamlit_folium import folium_static
 
 # Title of the app
-st.title("Cockroach Infestation Visualization in Raleigh (Wake County)")
+st.title("Pest Infestation Visualization in Raleigh (Wake County)")
 
 st.markdown("""
-This app visualizes cockroach-related violations from Wake County food inspection data on a map.
+This app visualizes violations related to cockroaches, termites, or bedbugs from Wake County food inspection data on a map.
 Data is sourced from local files. It focuses on commercial facilities like restaurants.
 For residential data, HUD AHS provides metro-level stats: ~18-20% of Raleigh metro households reported cockroach sightings in recent surveys.
 """)
@@ -51,11 +51,7 @@ if restaurants_upload and violations_upload and st.session_state.merged_df is No
                                       on='HSISID', how='left')
         st.write("Merged DataFrame columns:", merged_df.columns.tolist())
 
-        # Filter for cockroach-related violations
-        keywords = ['cockroach', 'roaches', 'pest', 'insect']
-        mask = merged_df['SHORTDESC'].str.contains('|'.join(keywords), case=False, na=False) | \
-               merged_df['COMMENTS'].str.contains('|'.join(keywords), case=False, na=False)
-        st.session_state.merged_df = merged_df[mask].copy()
+        st.session_state.merged_df = merged_df.copy()
 
         st.success("Data uploaded and processed successfully.")
     except Exception as e:
@@ -64,25 +60,55 @@ if restaurants_upload and violations_upload and st.session_state.merged_df is No
 # Use cached/processed data
 merged_df = st.session_state.merged_df
 
+# Pest selection switches
+st.subheader("Select Pests")
+select_cockroaches = st.checkbox("Cockroaches", value=True)
+select_termites = st.checkbox("Termites")
+select_bedbugs = st.checkbox("Bedbugs")
+
+# Define keywords for each pest
+pest_keywords = {
+    'cockroaches': ['cockroach', 'roaches', 'pest', 'insect'],
+    'termites': ['termite', 'termites', 'wood-destroying', 'wood destroying'],
+    'bedbugs': ['bedbug', 'bed bug', 'bed bugs', 'bedbug infestation']
+}
+
+# Build the combined keywords based on selections
+keywords = []
+if select_cockroaches:
+    keywords += pest_keywords['cockroaches']
+if select_termites:
+    keywords += pest_keywords['termites']
+if select_bedbugs:
+    keywords += pest_keywords['bedbugs']
+
+# Filter for selected pest-related violations
+if merged_df is not None and keywords:
+    mask = merged_df['SHORTDESC'].str.contains('|'.join(keywords), case=False, na=False) | \
+           merged_df['COMMENTS'].str.contains('|'.join(keywords), case=False, na=False)
+    filtered_df = merged_df[mask].copy()
+else:
+    filtered_df = pd.DataFrame()
+
 # Display summary
 st.subheader("Summary")
-if merged_df is not None and not merged_df.empty:
-    st.write(f"Number of cockroach-related violations: {len(merged_df)}")
-    st.dataframe(merged_df[['NAME', 'ADDRESS1', 'CITY', 'INSPECTDATE', 'SHORTDESC', 'COMMENTS']].head(10))
+if not filtered_df.empty:
+    st.write(f"Number of selected pest-related violations: {len(filtered_df)}")
+    st.dataframe(filtered_df[['NAME', 'ADDRESS1', 'CITY', 'INSPECTDATE', 'SHORTDESC', 'COMMENTS']].head(10))
 else:
-    st.warning("No cockroach-related violations found or data not uploaded yet. Please upload both files to proceed.")
+    st.warning("No selected pest-related violations found or data not uploaded yet. Please upload both files and select pests.")
 
 # Create map
-if merged_df is not None and not merged_df.empty:
+if not filtered_df.empty:
     # Drop rows with invalid coordinates
-    merged_df = merged_df.dropna(subset=['X', 'Y'])
-    merged_df = merged_df[(merged_df['X'] != 0) & (merged_df['Y'] != 0)]
+    map_df = filtered_df.dropna(subset=['X', 'Y'])
+    map_df = map_df[(map_df['X'] != 0) & (map_df['Y'] != 0)]
 
     # Initialize map centered on Raleigh
     m = folium.Map(location=[35.7796, -78.6382], zoom_start=11)
 
     # Add markers
-    for idx, row in merged_df.iterrows():
+    for idx, row in map_df.iterrows():
         popup_text = f"<b>{row['NAME']}</b><br>Address: {row['ADDRESS1']}, {row['CITY']}<br>Date: {row['INSPECTDATE']}<br>Violation: {row['SHORTDESC']}<br>Comments: {row['COMMENTS']}"
         try:
             folium.Marker(
@@ -96,23 +122,25 @@ if merged_df is not None and not merged_df.empty:
     st.subheader("Map of Infestations")
     folium_static(m)
 else:
-    st.write("No data available for mapping. Please upload both files to proceed.")
+    st.write("No data available for mapping. Please upload both files and select pests.")
 
 # Date filter
 st.subheader("Filters")
-if merged_df is not None and 'INSPECTDATE' in merged_df.columns:
+if not filtered_df.empty and 'INSPECTDATE' in filtered_df.columns:
     try:
-        merged_df['INSPECTDATE'] = pd.to_datetime(merged_df['INSPECTDATE'], errors='coerce')
-        min_date = merged_df['INSPECTDATE'].min().date()
-        max_date = merged_df['INSPECTDATE'].max().date()
+        filtered_df['INSPECTDATE'] = pd.to_datetime(filtered_df['INSPECTDATE'], errors='coerce')
+        min_date = filtered_df['INSPECTDATE'].min().date()
+        max_date = filtered_df['INSPECTDATE'].max().date()
         if pd.notna(min_date) and pd.notna(max_date):
             date_range = st.date_input("Select date range", [min_date, max_date])
-            filtered_df = merged_df[(merged_df['INSPECTDATE'].dt.date >= date_range[0]) & 
-                                  (merged_df['INSPECTDATE'].dt.date <= date_range[1])]
-            st.write(f"Filtered violations: {len(filtered_df)}")
-            if not filtered_df.empty:
+            date_filtered_df = filtered_df[(filtered_df['INSPECTDATE'].dt.date >= date_range[0]) & 
+                                           (filtered_df['INSPECTDATE'].dt.date <= date_range[1])]
+            st.write(f"Filtered violations: {len(date_filtered_df)}")
+            if not date_filtered_df.empty:
+                map_df = date_filtered_df.dropna(subset=['X', 'Y'])
+                map_df = map_df[(map_df['X'] != 0) & (map_df['Y'] != 0)]
                 m = folium.Map(location=[35.7796, -78.6382], zoom_start=11)
-                for idx, row in filtered_df.iterrows():
+                for idx, row in map_df.iterrows():
                     popup_text = f"<b>{row['NAME']}</b><br>Address: {row['ADDRESS1']}, {row['CITY']}<br>Date: {row['INSPECTDATE']}<br>Violation: {row['SHORTDESC']}<br>Comments: {row['COMMENTS']}"
                     try:
                         folium.Marker(
