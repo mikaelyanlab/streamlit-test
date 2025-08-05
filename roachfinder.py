@@ -18,8 +18,8 @@ if 'merged_df' not in st.session_state:
 
 # Data upload section
 st.subheader("Upload Data")
-restaurants_upload = st.file_uploader("Upload Restaurants CSV/JSON (from https://opendata.arcgis.com/datasets/1b9a4c2f8bc74a1e8e0e8dd46a4b0bb6_0.csv)", type=["csv", "json"])
-violations_upload = st.file_uploader("Upload Violations (Food Inspections) CSV/JSON (from https://data-wake.opendata.arcgis.com/datasets/food-inspections)", type=["csv", "json"])
+restaurants_upload = st.file_uploader("Upload Restaurants CSV/JSON (download from https://data.townofcary.org/explore/dataset/wake-county-restaurants/export/ as CSV)", type=["csv", "json"])
+violations_upload = st.file_uploader("Upload Violations CSV/JSON (e.g., Food_Inspections.csv)", type=["csv", "json"])
 
 if restaurants_upload and violations_upload and st.session_state.merged_df is None:
     try:
@@ -29,6 +29,11 @@ if restaurants_upload and violations_upload and st.session_state.merged_df is No
         else:
             restaurants_df = pd.read_csv(restaurants_upload)
         st.write("Restaurants DataFrame columns:", restaurants_df.columns.tolist())
+        # Rename columns to match expected format
+        restaurants_df = restaurants_df.rename(columns={
+            'hsisid': 'HSISID', 'name': 'NAME', 'address': 'ADDRESS1', 'city': 'CITY', 
+            'zip': 'POSTALCODE', 'x': 'X', 'y': 'Y'
+        })
 
         # Load violations data
         if violations_upload.name.endswith('.json'):
@@ -36,15 +41,20 @@ if restaurants_upload and violations_upload and st.session_state.merged_df is No
         else:
             violations_df = pd.read_csv(violations_upload)
         st.write("Violations DataFrame columns:", violations_df.columns.tolist())
+        # Rename columns to match expected format
+        violations_df = violations_df.rename(columns={
+            'DATE_': 'INSPECTDATE', 'DESCRIPTION': 'SHORTDESC', 'TYPE': 'COMMENTS'
+        })
 
         # Merge data on HSISID
-        merged_df = violations_df.merge(restaurants_df[['HSISID', 'NAME', 'ADDRESS1', 'CITY', 'POSTALCODE', 'X', 'Y']], on='HSISID', how='left')
+        merged_df = violations_df.merge(restaurants_df[['HSISID', 'NAME', 'ADDRESS1', 'CITY', 'POSTALCODE', 'X', 'Y']], 
+                                      on='HSISID', how='left')
         st.write("Merged DataFrame columns:", merged_df.columns.tolist())
 
         # Filter for cockroach-related violations
         keywords = ['cockroach', 'roaches', 'pest', 'insect']
-        mask = merged_df['DESCRIPTION'].str.contains('|'.join(keywords), case=False, na=False) | \
-               merged_df['TYPE'].str.contains('|'.join(keywords), case=False, na=False)
+        mask = merged_df['SHORTDESC'].str.contains('|'.join(keywords), case=False, na=False) | \
+               merged_df['COMMENTS'].str.contains('|'.join(keywords), case=False, na=False)
         st.session_state.merged_df = merged_df[mask].copy()
 
         st.success("Data uploaded and processed successfully.")
@@ -58,9 +68,9 @@ merged_df = st.session_state.merged_df
 st.subheader("Summary")
 if merged_df is not None and not merged_df.empty:
     st.write(f"Number of cockroach-related violations: {len(merged_df)}")
-    st.dataframe(merged_df[['NAME', 'ADDRESS1', 'CITY', 'DATE_', 'DESCRIPTION', 'TYPE']].head(10))
+    st.dataframe(merged_df[['NAME', 'ADDRESS1', 'CITY', 'INSPECTDATE', 'SHORTDESC', 'COMMENTS']].head(10))
 else:
-    st.warning("No cockroach-related violations found or data not uploaded yet. Please upload the files to proceed.")
+    st.warning("No cockroach-related violations found or data not uploaded yet. Please upload both files to proceed.")
 
 # Create map
 if merged_df is not None and not merged_df.empty:
@@ -73,7 +83,7 @@ if merged_df is not None and not merged_df.empty:
 
     # Add markers
     for idx, row in merged_df.iterrows():
-        popup_text = f"<b>{row['NAME']}</b><br>Address: {row['ADDRESS1']}, {row['CITY']}<br>Date: {row['DATE_']}<br>Violation: {row['DESCRIPTION']}<br>Comments: {row['TYPE']}"
+        popup_text = f"<b>{row['NAME']}</b><br>Address: {row['ADDRESS1']}, {row['CITY']}<br>Date: {row['INSPECTDATE']}<br>Violation: {row['SHORTDESC']}<br>Comments: {row['COMMENTS']}"
         try:
             folium.Marker(
                 location=[row['Y'], row['X']],  # Y=latitude, X=longitude
@@ -86,24 +96,24 @@ if merged_df is not None and not merged_df.empty:
     st.subheader("Map of Infestations")
     folium_static(m)
 else:
-    st.write("No data available for mapping. Please upload the files to proceed.")
+    st.write("No data available for mapping. Please upload both files to proceed.")
 
 # Date filter
 st.subheader("Filters")
-if merged_df is not None and 'DATE_' in merged_df.columns:
+if merged_df is not None and 'INSPECTDATE' in merged_df.columns:
     try:
-        merged_df['DATE_'] = pd.to_datetime(merged_df['DATE_'], errors='coerce')
-        min_date = merged_df['DATE_'].min().date()
-        max_date = merged_df['DATE_'].max().date()
+        merged_df['INSPECTDATE'] = pd.to_datetime(merged_df['INSPECTDATE'], errors='coerce')
+        min_date = merged_df['INSPECTDATE'].min().date()
+        max_date = merged_df['INSPECTDATE'].max().date()
         if pd.notna(min_date) and pd.notna(max_date):
             date_range = st.date_input("Select date range", [min_date, max_date])
-            filtered_df = merged_df[(merged_df['DATE_'].dt.date >= date_range[0]) & 
-                                  (merged_df['DATE_'].dt.date <= date_range[1])]
+            filtered_df = merged_df[(merged_df['INSPECTDATE'].dt.date >= date_range[0]) & 
+                                  (merged_df['INSPECTDATE'].dt.date <= date_range[1])]
             st.write(f"Filtered violations: {len(filtered_df)}")
             if not filtered_df.empty:
                 m = folium.Map(location=[35.7796, -78.6382], zoom_start=11)
                 for idx, row in filtered_df.iterrows():
-                    popup_text = f"<b>{row['NAME']}</b><br>Address: {row['ADDRESS1']}, {row['CITY']}<br>Date: {row['DATE_']}<br>Violation: {row['DESCRIPTION']}<br>Comments: {row['TYPE']}"
+                    popup_text = f"<b>{row['NAME']}</b><br>Address: {row['ADDRESS1']}, {row['CITY']}<br>Date: {row['INSPECTDATE']}<br>Violation: {row['SHORTDESC']}<br>Comments: {row['COMMENTS']}"
                     try:
                         folium.Marker(
                             location=[row['Y'], row['X']],
