@@ -18,7 +18,7 @@ if 'merged_df' not in st.session_state:
 
 # Data upload section
 st.subheader("Upload Data")
-restaurants_upload = st.file_uploader("Upload Restaurants CSV/JSON (download from https://data.townofcary.org/explore/dataset/wake-county-restaurants/export/ as CSV)", type=["csv", "json"])
+restaurants_upload = st.file_uploader("Upload Restaurants CSV/JSON (e.g., wake-county-restaurants.csv)", type=["csv", "json"])
 violations_upload = st.file_uploader("Upload Violations CSV/JSON (e.g., Food_Inspections.csv)", type=["csv", "json"])
 
 if restaurants_upload and violations_upload and st.session_state.merged_df is None:
@@ -31,8 +31,8 @@ if restaurants_upload and violations_upload and st.session_state.merged_df is No
         st.write("Restaurants DataFrame columns:", restaurants_df.columns.tolist())
         # Rename columns to match expected format
         restaurants_df = restaurants_df.rename(columns={
-            'hsisid': 'HSISID', 'name': 'NAME', 'address': 'ADDRESS1', 'city': 'CITY', 
-            'zip': 'POSTALCODE', 'x': 'X', 'y': 'Y'
+            'HSISID': 'HSISID', 'Name': 'NAME', 'Address 1': 'ADDRESS1', 'City': 'CITY', 
+            'Postal Code': 'POSTALCODE', 'X': 'X', 'Y': 'Y'
         })
 
         # Load violations data
