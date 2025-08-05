@@ -161,7 +161,6 @@ if restaurants_df is None or violations_df is None:
 # Debug: Show available columns
 st.write("Restaurants DataFrame columns:", restaurants_df.columns.tolist())
 st.write("Violations DataFrame columns:", violations_df.columns.tolist())
-st.write("Merged DataFrame columns:", merged_df.columns.tolist())
 
 # Filter for cockroach-related violations incrementally
 keywords = ['cockroach', 'roaches', 'pest', 'insect']
@@ -172,6 +171,9 @@ cockroach_viol = violations_df[mask]
 # Merge with locations, selecting only necessary restaurant columns
 merged_df = cockroach_viol.merge(restaurants_df[['attributes.HSISID', 'attributes.X', 'attributes.Y', 'attributes.NAME', 'attributes.ADDRESS1', 'attributes.CITY', 'attributes.POSTALCODE']], 
                                 on='attributes.HSISID', how='left', suffixes=('_viol', '_rest'))
+
+# Debug: Show merged DataFrame columns
+st.write("Merged DataFrame columns:", merged_df.columns.tolist())
 
 # Drop rows without valid coordinates with error handling
 try:
