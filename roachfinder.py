@@ -68,21 +68,23 @@ merged_df = st.session_state.merged_df
 st.subheader("Summary")
 if merged_df is not None and not merged_df.empty:
     st.write(f"Number of cockroach-related violations: {len(merged_df)}")
+    valid_coords_count = len(merged_df.dropna(subset=['X', 'Y'])[(merged_df['X'] != 0) & (merged_df['Y'] != 0)])
+    st.write(f"Number of violations with valid coordinates: {valid_coords_count}")
     st.dataframe(merged_df[['NAME', 'ADDRESS1', 'CITY', 'INSPECTDATE', 'SHORTDESC', 'COMMENTS']].head(10))
 else:
     st.warning("No cockroach-related violations found or data not uploaded yet. Please upload both files to proceed.")
 
 # Create map
 if merged_df is not None and not merged_df.empty:
-    # Drop rows with invalid coordinates
-    merged_df = merged_df.dropna(subset=['X', 'Y'])
-    merged_df = merged_df[(merged_df['X'] != 0) & (merged_df['Y'] != 0)]
+    # Filter for valid coordinates
+    map_df = merged_df.dropna(subset=['X', 'Y'])
+    map_df = map_df[(map_df['X'] != 0) & (map_df['Y'] != 0)]
 
     # Initialize map centered on Raleigh
     m = folium.Map(location=[35.7796, -78.6382], zoom_start=11)
 
     # Add markers
-    for idx, row in merged_df.iterrows():
+    for idx, row in map_df.iterrows():
         popup_text = f"<b>{row['NAME']}</b><br>Address: {row['ADDRESS1']}, {row['CITY']}<br>Date: {row['INSPECTDATE']}<br>Violation: {row['SHORTDESC']}<br>Comments: {row['COMMENTS']}"
         try:
             folium.Marker(
@@ -95,6 +97,7 @@ if merged_df is not None and not merged_df.empty:
 
     st.subheader("Map of Infestations")
     folium_static(m)
+    st.write(f"Number of pins on map: {len(map_df)}")
 else:
     st.write("No data available for mapping. Please upload both files to proceed.")
 
@@ -111,8 +114,10 @@ if merged_df is not None and 'INSPECTDATE' in merged_df.columns:
                                   (merged_df['INSPECTDATE'].dt.date <= date_range[1])]
             st.write(f"Filtered violations: {len(filtered_df)}")
             if not filtered_df.empty:
+                map_df = filtered_df.dropna(subset=['X', 'Y'])
+                map_df = map_df[(map_df['X'] != 0) & (map_df['Y'] != 0)]
                 m = folium.Map(location=[35.7796, -78.6382], zoom_start=11)
-                for idx, row in filtered_df.iterrows():
+                for idx, row in map_df.iterrows():
                     popup_text = f"<b>{row['NAME']}</b><br>Address: {row['ADDRESS1']}, {row['CITY']}<br>Date: {row['INSPECTDATE']}<br>Violation: {row['SHORTDESC']}<br>Comments: {row['COMMENTS']}"
                     try:
                         folium.Marker(
@@ -124,6 +129,7 @@ if merged_df is not None and 'INSPECTDATE' in merged_df.columns:
                         st.warning(f"Skipping invalid marker for {row['NAME']}: {str(e)}")
                 st.subheader("Filtered Map")
                 folium_static(m)
+                st.write(f"Number of pins on filtered map: {len(map_df)}")
     except Exception as e:
         st.error(f"Error processing dates: {str(e)}")
 else:
