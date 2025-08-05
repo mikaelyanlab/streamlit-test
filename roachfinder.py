@@ -20,9 +20,10 @@ headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
 }
 
-# Cache data loading with pagination and error handling
+# Cache data loading with pagination and debugging
 @st.cache_data
 def load_data_from_api(base_url, layer_id, out_fields, token=None):
+    st.write(f"Attempting to load data from {base_url}{layer_id}/query")
     try:
         all_data = []
         offset = 0
@@ -42,26 +43,42 @@ def load_data_from_api(base_url, layer_id, out_fields, token=None):
             response = requests.get(base_url + str(layer_id) + '/query', params=params, headers=headers, timeout=10)
             response.raise_for_status()
             data = response.json()
+            st.write(f"API response status: Received data for offset {offset}")
 
-            if 'features' not in data or not data['features']:
+            if 'error' in data:
+                st.error(f"API error: {data['error']['message']}")
                 break
 
-            all_data.extend(data['features'])
+            if 'features' not in data:
+                st.write("No 'features' key in response, breaking loop.")
+                break
+
+            features = data['features']
+            if not features:
+                st.write("No more features found, breaking loop.")
+                break
+
+            all_data.extend(features)
             offset += max_records
 
-            if len(data['features']) < max_records:
+            # Check if the transfer limit is exceeded (indicates more data available)
+            if data.get('exceededTransferLimit', False):
+                st.write(f"Transfer limit exceeded at offset {offset}, continuing...")
+            else:
+                st.write("No more data to fetch.")
                 break
 
-        # Convert to DataFrame
         if all_data:
             df = pd.json_normalize(all_data)
+            st.write(f"Successfully loaded {len(df)} records.")
             return df
+        st.write("No data returned from API.")
         return None
     except requests.exceptions.HTTPError as http_err:
-        st.error(f"HTTP error occurred: {http_err}. Falling back to local data upload.")
+        st.error(f"HTTP error occurred: {http_err}. Check API parameters or obtain a token.")
         return None
     except Exception as e:
-        st.error(f"Error loading data from API: {str(e)}. Falling back to local data upload.")
+        st.error(f"Error loading data from API: {str(e)}")
         return None
 
 def load_local_data():
@@ -85,6 +102,7 @@ def load_local_data():
         except Exception as e:
             st.error(f"Error loading uploaded files: {str(e)}")
             return None, None
+    st.write("No local files uploaded.")
     return None, None
 
 # API URLs and fields
@@ -137,7 +155,7 @@ if not merged_df.empty:
         popup_text = f"<b>{row['attributes.NAME_rest']}</b><br>Address: {row['attributes.ADDRESS1_rest']}, {row['attributes.CITY_rest']}<br>Date: {row['attributes.INSPECTDATE_viol']}<br>Violation: {row['attributes.SHORTDESC_viol']}<br>Comments: {row['attributes.COMMENTS_viol']}"
         try:
             folium.Marker(
-                location=[row['Y'], row['X']],  # Y=latitude, X=longitude
+                location=[row['Y'], row['X']],  # Y=latitude, X=longitude (converted from State Plane to WGS84 if needed)
                 popup=popup_text,
                 tooltip=row['attributes.NAME_rest']
             ).add_to(m)
