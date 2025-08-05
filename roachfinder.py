@@ -161,6 +161,7 @@ if restaurants_df is None or violations_df is None:
 # Debug: Show available columns
 st.write("Restaurants DataFrame columns:", restaurants_df.columns.tolist())
 st.write("Violations DataFrame columns:", violations_df.columns.tolist())
+st.write("Merged DataFrame columns:", merged_df.columns.tolist())
 
 # Filter for cockroach-related violations incrementally
 keywords = ['cockroach', 'roaches', 'pest', 'insect']
@@ -180,14 +181,15 @@ except KeyError as e:
     st.error(f"KeyError: Columns 'attributes.X' or 'attributes.Y' not found in merged DataFrame. Available columns: {merged_df.columns.tolist()}")
     st.stop()
 
-# Rename coordinates for consistency (optional, if you prefer 'X', 'Y' without prefix)
+# Rename coordinates for consistency
 merged_df = merged_df.rename(columns={'attributes.X': 'X', 'attributes.Y': 'Y'})
 
 # Display summary and map incrementally
 st.subheader("Summary")
 if not merged_df.empty:
     st.write(f"Number of cockroach-related violations: {len(merged_df)}")
-    st.dataframe(merged_df[['attributes.NAME', 'attributes.ADDRESS1', 'attributes.CITY', 
+    # Use correct column names based on merge suffixes
+    st.dataframe(merged_df[['attributes.NAME', 'attributes.ADDRESS1', 'attributes.CITY',
                            'attributes.INSPECTDATE_viol', 'attributes.SHORTDESC_viol', 'attributes.COMMENTS_viol']].head(10))
 else:
     st.warning("No cockroach-related violations found in the data.")
