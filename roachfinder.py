@@ -73,7 +73,6 @@ if any([file1_upload, file2_upload, file3_upload, file4_upload]) and st.session_
 
         # Convert pest codes to text using recode if available
         if 'SHORTDESC' in merged_df.columns and recode_df is not None:
-            # Assume recode_df has VARIABLE, VALUE, LABEL columns
             pest_vars = ['ROACH', 'TERMITE', 'BEDBUG']  # Adjust based on actual variables
             for var in pest_vars:
                 if var in merged_df.columns:
