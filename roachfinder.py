@@ -95,8 +95,8 @@ if select_bedbugs:
 
 # Filter for selected pest-related violations
 if merged_df is not None and keywords:
-    mask = merged_df['SHORTDESC'].str.contains('|'.join(keywords), case=False, na=False, na=False) | \
-           merged_df['COMMENTS'].str.contains('|'.join(keywords), case=False, na=False, na=False)
+    mask = merged_df['SHORTDESC'].str.contains('|'.join(keywords), case=False, na=False) | \
+           merged_df['COMMENTS'].str.contains('|'.join(keywords), case=False, na=False)
     filtered_df = merged_df[mask].copy()
     # Debug: Show all violation texts
     if st.checkbox("Show all violation texts for debugging"):
