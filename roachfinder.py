@@ -168,32 +168,26 @@ mask = violations_df['attributes.COMMENTS'].str.contains('|'.join(keywords), cas
        violations_df['attributes.SHORTDESC'].str.contains('|'.join(keywords), case=False, na=False)
 cockroach_viol = violations_df[mask]
 
-# Merge with locations (using attributes prefix for JSON-normalized data)
-merged_df = cockroach_viol.merge(restaurants_df, on='attributes.HSISID', how='left', suffixes=('_viol', '_rest'))
-
-# Extract coordinates from geometry or attributes
-if 'geometry.x' in restaurants_df.columns and 'geometry.y' in restaurants_df.columns:
-    merged_df = merged_df.merge(restaurants_df[['attributes.HSISID', 'geometry.x', 'geometry.y']], on='attributes.HSISID', how='left')
-    merged_df = merged_df.rename(columns={'geometry.x': 'X', 'geometry.y': 'Y'})
-elif 'attributes.X' in restaurants_df.columns and 'attributes.Y' in restaurants_df.columns:
-    merged_df = merged_df.rename(columns={'attributes.X': 'X', 'attributes.Y': 'Y'})
-else:
-    st.error("No valid coordinate columns found in Restaurants data.")
-    st.stop()
+# Merge with locations, selecting only necessary restaurant columns
+merged_df = cockroach_viol.merge(restaurants_df[['attributes.HSISID', 'attributes.X', 'attributes.Y', 'attributes.NAME', 'attributes.ADDRESS1', 'attributes.CITY', 'attributes.POSTALCODE']], 
+                                on='attributes.HSISID', how='left', suffixes=('_viol', '_rest'))
 
 # Drop rows without valid coordinates with error handling
 try:
-    merged_df = merged_df.dropna(subset=['X', 'Y'])
-    merged_df = merged_df[(merged_df['X'] != 0) & (merged_df['Y'] != 0)]
+    merged_df = merged_df.dropna(subset=['attributes.X', 'attributes.Y'])
+    merged_df = merged_df[(merged_df['attributes.X'] != 0) & (merged_df['attributes.Y'] != 0)]
 except KeyError as e:
-    st.error(f"KeyError: Columns 'X' or 'Y' not found in merged DataFrame. Available columns: {merged_df.columns.tolist()}")
+    st.error(f"KeyError: Columns 'attributes.X' or 'attributes.Y' not found in merged DataFrame. Available columns: {merged_df.columns.tolist()}")
     st.stop()
+
+# Rename coordinates for consistency (optional, if you prefer 'X', 'Y' without prefix)
+merged_df = merged_df.rename(columns={'attributes.X': 'X', 'attributes.Y': 'Y'})
 
 # Display summary and map incrementally
 st.subheader("Summary")
 if not merged_df.empty:
     st.write(f"Number of cockroach-related violations: {len(merged_df)}")
-    st.dataframe(merged_df[['attributes.NAME_rest', 'attributes.ADDRESS1_rest', 'attributes.CITY_rest', 
+    st.dataframe(merged_df[['attributes.NAME', 'attributes.ADDRESS1', 'attributes.CITY', 
                            'attributes.INSPECTDATE_viol', 'attributes.SHORTDESC_viol', 'attributes.COMMENTS_viol']].head(10))
 else:
     st.warning("No cockroach-related violations found in the data.")
@@ -204,15 +198,15 @@ if not merged_df.empty:
 
     # Add markers
     for idx, row in merged_df.iterrows():
-        popup_text = f"<b>{row['attributes.NAME_rest']}</b><br>Address: {row['attributes.ADDRESS1_rest']}, {row['attributes.CITY_rest']}<br>Date: {row['attributes.INSPECTDATE_viol']}<br>Violation: {row['attributes.SHORTDESC_viol']}<br>Comments: {row['attributes.COMMENTS_viol']}"
+        popup_text = f"<b>{row['attributes.NAME']}</b><br>Address: {row['attributes.ADDRESS1']}, {row['attributes.CITY']}<br>Date: {row['attributes.INSPECTDATE_viol']}<br>Violation: {row['attributes.SHORTDESC_viol']}<br>Comments: {row['attributes.COMMENTS_viol']}"
         try:
             folium.Marker(
                 location=[row['Y'], row['X']],  # Y=latitude, X=longitude
                 popup=popup_text,
-                tooltip=row['attributes.NAME_rest']
+                tooltip=row['attributes.NAME']
             ).add_to(m)
         except Exception as e:
-            st.warning(f"Skipping invalid marker for {row['attributes.NAME_rest']}: {str(e)}")
+            st.warning(f"Skipping invalid marker for {row['attributes.NAME']}: {str(e)}")
 
     st.subheader("Map of Infestations")
     folium_static(m)
@@ -234,15 +228,15 @@ if 'attributes.INSPECTDATE_viol' in merged_df.columns:
             if not filtered_df.empty:
                 m = folium.Map(location=[35.7796, -78.6382], zoom_start=11)
                 for idx, row in filtered_df.iterrows():
-                    popup_text = f"<b>{row['attributes.NAME_rest']}</b><br>Address: {row['attributes.ADDRESS1_rest']}, {row['attributes.CITY_rest']}<br>Date: {row['attributes.INSPECTDATE_viol']}<br>Violation: {row['attributes.SHORTDESC_viol']}<br>Comments: {row['attributes.COMMENTS_viol']}"
+                    popup_text = f"<b>{row['attributes.NAME']}</b><br>Address: {row['attributes.ADDRESS1']}, {row['attributes.CITY']}<br>Date: {row['attributes.INSPECTDATE_viol']}<br>Violation: {row['attributes.SHORTDESC_viol']}<br>Comments: {row['attributes.COMMENTS_viol']}"
                     try:
                         folium.Marker(
                             location=[row['Y'], row['X']],
                             popup=popup_text,
-                            tooltip=row['attributes.NAME_rest']
+                            tooltip=row['attributes.NAME']
                         ).add_to(m)
                     except Exception as e:
-                        st.warning(f"Skipping invalid marker for {row['attributes.NAME_rest']}: {str(e)}")
+                        st.warning(f"Skipping invalid marker for {row['attributes.NAME']}: {str(e)}")
                 st.subheader("Filtered Map")
                 folium_static(m)
     except Exception as e:
