@@ -71,4 +71,55 @@ else:
 if merged_df is not None and not merged_df.empty:
     # Drop rows with invalid coordinates
     merged_df = merged_df.dropna(subset=['attributes.X', 'attributes.Y'])
-    merged_df = merged_df[(merged_df['attributes.X'] != 0
+    merged_df = merged_df[(merged_df['attributes.X'] != 0) & (merged_df['attributes.Y'] != 0)]
+
+    # Initialize map centered on Raleigh
+    m = folium.Map(location=[35.7796, -78.6382], zoom_start=11)
+
+    # Add markers
+    for idx, row in merged_df.iterrows():
+        popup_text = f"<b>{row['attributes.NAME']}</b><br>Address: {row['attributes.ADDRESS1']}, {row['attributes.CITY']}<br>Date: {row['attributes.INSPECTDATE']}<br>Violation: {row['attributes.SHORTDESC']}<br>Comments: {row['attributes.COMMENTS']}"
+        try:
+            folium.Marker(
+                location=[row['attributes.Y'], row['attributes.X']],  # Y=latitude, X=longitude
+                popup=popup_text,
+                tooltip=row['attributes.NAME']
+            ).add_to(m)
+        except Exception as e:
+            st.warning(f"Skipping invalid marker for {row['attributes.NAME']}: {str(e)}")
+
+    st.subheader("Map of Infestations")
+    folium_static(m)
+else:
+    st.write("No data available for mapping. Please upload the Food Inspections file to proceed.")
+
+# Date filter
+st.subheader("Filters")
+if merged_df is not None and 'attributes.INSPECTDATE' in merged_df.columns:
+    try:
+        merged_df['attributes.INSPECTDATE'] = pd.to_datetime(merged_df['attributes.INSPECTDATE'], errors='coerce')
+        min_date = merged_df['attributes.INSPECTDATE'].min().date()
+        max_date = merged_df['attributes.INSPECTDATE'].max().date()
+        if pd.notna(min_date) and pd.notna(max_date):
+            date_range = st.date_input("Select date range", [min_date, max_date])
+            filtered_df = merged_df[(merged_df['attributes.INSPECTDATE'].dt.date >= date_range[0]) & 
+                                  (merged_df['attributes.INSPECTDATE'].dt.date <= date_range[1])]
+            st.write(f"Filtered violations: {len(filtered_df)}")
+            if not filtered_df.empty:
+                m = folium.Map(location=[35.7796, -78.6382], zoom_start=11)
+                for idx, row in filtered_df.iterrows():
+                    popup_text = f"<b>{row['attributes.NAME']}</b><br>Address: {row['attributes.ADDRESS1']}, {row['attributes.CITY']}<br>Date: {row['attributes.INSPECTDATE']}<br>Violation: {row['attributes.SHORTDESC']}<br>Comments: {row['attributes.COMMENTS']}"
+                    try:
+                        folium.Marker(
+                            location=[row['attributes.Y'], row['attributes.X']],
+                            popup=popup_text,
+                            tooltip=row['attributes.NAME']
+                        ).add_to(m)
+                    except Exception as e:
+                        st.warning(f"Skipping invalid marker for {row['attributes.NAME']}: {str(e)}")
+                st.subheader("Filtered Map")
+                folium_static(m)
+    except Exception as e:
+        st.error(f"Error processing dates: {str(e)}")
+else:
+    st.write("Inspection date data not available or no data uploaded.")
