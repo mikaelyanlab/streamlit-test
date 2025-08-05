@@ -68,9 +68,9 @@ select_bedbugs = st.checkbox("Bedbugs")
 
 # Define keywords for each pest
 pest_keywords = {
-    'cockroaches': ['cockroach', 'roaches', 'pest', 'insect'],
-    'termites': ['termite', 'termites', 'wood-destroying', 'wood destroying'],
-    'bedbugs': ['bedbug', 'bed bug', 'bed bugs', 'bedbug infestation']
+    'cockroaches': ['cockroach', 'roaches', 'pest', 'insect', 'cockroach infestation', 'roach problem'],
+    'termites': ['termite', 'termites', 'wood-destroying', 'wood destroying', 'termite damage'],
+    'bedbugs': ['bedbug', 'bed bug', 'bed bugs', 'bedbug infestation', 'bed bug problem']
 }
 
 # Build the combined keywords based on selections
@@ -87,6 +87,10 @@ if merged_df is not None and keywords:
     mask = merged_df['SHORTDESC'].str.contains('|'.join(keywords), case=False, na=False) | \
            merged_df['COMMENTS'].str.contains('|'.join(keywords), case=False, na=False)
     filtered_df = merged_df[mask].copy()
+    # Debug: Show sample violations
+    if st.checkbox("Show sample violation texts"):
+        st.write("Sample violations (first 10 matches):")
+        st.write(filtered_df[['SHORTDESC', 'COMMENTS']].head(10))
 else:
     filtered_df = pd.DataFrame()
 
