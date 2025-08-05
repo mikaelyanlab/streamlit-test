@@ -4,12 +4,12 @@ import folium
 from streamlit_folium import folium_static
 
 # Title of the app
-st.title("Pest Infestation Visualization in Raleigh (Wake County)")
+st.title("Pest Infestation Visualization in North Carolina")
 
 st.markdown("""
-This app visualizes violations related to cockroaches, termites, or bedbugs from Wake County food inspection data on a map.
-Data is sourced from local files. It focuses on commercial facilities like restaurants.
-For residential data, HUD AHS provides metro-level stats: ~18-20% of Raleigh metro households reported cockroach sightings in recent surveys.
+This app visualizes violations related to cockroaches, termites, or bedbugs statewide in North Carolina on a map.
+Data is sourced from local files (e.g., AHS or pest rankings). It focuses on commercial and residential facilities.
+For residential data, HUD AHS provides metro-level stats: ~18-20% of NC households reported cockroach sightings in recent surveys.
 """)
 
 # Initialize session state
@@ -18,44 +18,29 @@ if 'merged_df' not in st.session_state:
 
 # Data upload section
 st.subheader("Upload Data")
-restaurants_upload = st.file_uploader("Upload Restaurants CSV/JSON (e.g., wake-county-restaurants.csv)", type=["csv", "json"])
-violations_upload = st.file_uploader("Upload Violations CSV/JSON (e.g., Food_Inspections.csv)", type=["csv", "json"])
+data_upload = st.file_uploader("Upload NC Pest Data CSV/JSON (e.g., AHS NC metro data or pest rankings)", type=["csv", "json"])
 
-if restaurants_upload and violations_upload and st.session_state.merged_df is None:
+if data_upload and st.session_state.merged_df is None:
     try:
-        # Load restaurants data
-        if restaurants_upload.name.endswith('.json'):
-            restaurants_df = pd.json_normalize(json.load(restaurants_upload))
+        # Load the data
+        if data_upload.name.endswith('.json'):
+            df = pd.json_normalize(json.load(data_upload))
         else:
-            restaurants_df = pd.read_csv(restaurants_upload)
-        st.write("Restaurants DataFrame columns:", restaurants_df.columns.tolist())
+            df = pd.read_csv(data_upload)
+        st.write("DataFrame columns:", df.columns.tolist())
+
         # Rename columns to match expected format
-        restaurants_df = restaurants_df.rename(columns={
-            'HSISID': 'HSISID', 'Name': 'NAME', 'Address 1': 'ADDRESS1', 'City': 'CITY', 
-            'Postal Code': 'POSTALCODE', 'X': 'X', 'Y': 'Y'
+        df = df.rename(columns={
+            'DATE_': 'INSPECTDATE', 'DESCRIPTION': 'SHORTDESC', 'TYPE': 'COMMENTS', 
+            'HSISID': 'HSISID', 'NAME': 'NAME', 'ADDRESS1': 'ADDRESS1', 'CITY': 'CITY', 
+            'POSTALCODE': 'POSTALCODE', 'X': 'X', 'Y': 'Y'
         })
 
-        # Load violations data
-        if violations_upload.name.endswith('.json'):
-            violations_df = pd.json_normalize(json.load(violations_upload))
-        else:
-            violations_df = pd.read_csv(violations_upload)
-        st.write("Violations DataFrame columns:", violations_df.columns.tolist())
-        # Rename columns to match expected format
-        violations_df = violations_df.rename(columns={
-            'DATE_': 'INSPECTDATE', 'DESCRIPTION': 'SHORTDESC', 'TYPE': 'COMMENTS'
-        })
-
-        # Merge data on HSISID
-        merged_df = violations_df.merge(restaurants_df[['HSISID', 'NAME', 'ADDRESS1', 'CITY', 'POSTALCODE', 'X', 'Y']], 
-                                      on='HSISID', how='left')
-        st.write("Merged DataFrame columns:", merged_df.columns.tolist())
-
-        st.session_state.merged_df = merged_df.copy()
+        st.session_state.merged_df = df.copy()
 
         st.success("Data uploaded and processed successfully.")
     except Exception as e:
-        st.error(f"Error processing uploaded files: {str(e)}")
+        st.error(f"Error processing uploaded file: {str(e)}")
 
 # Use cached/processed data
 merged_df = st.session_state.merged_df
@@ -111,7 +96,7 @@ if not filtered_df.empty:
     st.write(f"Number of selected pest-related violations: {len(filtered_df)}")
     st.dataframe(filtered_df[['NAME', 'ADDRESS1', 'CITY', 'INSPECTDATE', 'SHORTDESC', 'COMMENTS']].head(10))
 else:
-    st.warning("No selected pest-related violations found or data not uploaded yet. Please upload both files and select pests.")
+    st.warning("No selected pest-related violations found or data not uploaded yet. Please upload the file and select pests.")
 
 # Create map
 if not filtered_df.empty:
@@ -137,7 +122,7 @@ if not filtered_df.empty:
     st.subheader("Map of Infestations")
     folium_static(m)
 else:
-    st.write("No data available for mapping. Please upload both files and select pests.")
+    st.write("No data available for mapping. Please upload the file and select pests.")
 
 # Date filter
 st.subheader("Filters")
