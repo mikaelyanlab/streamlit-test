@@ -29,27 +29,27 @@ if data_upload and st.session_state.merged_df is None:
             df = pd.read_csv(data_upload)
         st.write("Full Dataset columns:", df.columns.tolist())
 
-        # Extract unique restaurant data (deduplicated by HSISID)
-        restaurant_cols = ['HSISID', 'NAME', 'ADDRESS1', 'CITY', 'POSTALCODE', 'X', 'Y']
-        restaurants_df = df[restaurant_cols].drop_duplicates(subset=['HSISID'])
-        restaurants_df.columns = [f'attributes.{col}' for col in restaurant_cols]
-        st.write("Restaurants DataFrame columns:", restaurants_df.columns.tolist())
+        # Check for required columns and map them
+        required_cols = {'HSISID': 'HSISID', 'DATE_': 'INSPECTDATE', 'DESCRIPTION': 'SHORTDESC', 'TYPE': 'COMMENTS'}
+        missing_cols = [col for col in required_cols.values() if col not in df.columns]
+        if missing_cols:
+            st.error(f"Missing required columns: {missing_cols}. Please ensure the dataset includes at least HSISID, DATE_, DESCRIPTION, and TYPE.")
+            st.markdown("**Note**: The uploaded file lacks restaurant location data (e.g., NAME, ADDRESS1, X, Y). You may need to download a separate dataset or adjust the file from https://data-wake.opendata.arcgis.com/datasets/food-inspections to include these fields.")
+            st.stop()
 
-        # Keep all violation records
-        violation_cols = [col for col in df.columns if col not in restaurant_cols or col == 'HSISID']
-        violations_df = df[violation_cols]
-        violations_df.columns = [f'attributes.{col}' if col != 'HSISID' else 'attributes.HSISID' for col in violation_cols]
-        st.write("Violations DataFrame columns:", violations_df.columns.tolist())
+        # Rename columns to match expected format
+        df_renamed = df.rename(columns=required_cols)
+        df_renamed.columns = [f'attributes.{col}' if col != 'HSISID' else 'attributes.HSISID' for col in df_renamed.columns]
+        st.write("Renamed DataFrame columns:", df_renamed.columns.tolist())
 
-        # Merge data on HSISID
-        merged_df = violations_df.merge(restaurants_df, on='attributes.HSISID', how='left')
-        st.write("Merged DataFrame columns:", merged_df.columns.tolist())
+        # Since restaurant data (NAME, X, Y) is missing, use available data as-is
+        st.session_state.merged_df = df_renamed.copy()
 
         # Filter for cockroach-related violations
         keywords = ['cockroach', 'roaches', 'pest', 'insect']
-        mask = merged_df['attributes.COMMENTS'].str.contains('|'.join(keywords), case=False, na=False) | \
-               merged_df['attributes.SHORTDESC'].str.contains('|'.join(keywords), case=False, na=False)
-        st.session_state.merged_df = merged_df[mask].copy()
+        mask = st.session_state.merged_df['attributes.COMMENTS'].str.contains('|'.join(keywords), case=False, na=False) | \
+               st.session_state.merged_df['attributes.SHORTDESC'].str.contains('|'.join(keywords), case=False, na=False)
+        st.session_state.merged_df = st.session_state.merged_df[mask].copy()
 
         st.success("Data uploaded and processed successfully.")
     except Exception as e:
@@ -62,34 +62,37 @@ merged_df = st.session_state.merged_df
 st.subheader("Summary")
 if merged_df is not None and not merged_df.empty:
     st.write(f"Number of cockroach-related violations: {len(merged_df)}")
-    st.dataframe(merged_df[['attributes.NAME', 'attributes.ADDRESS1', 'attributes.CITY',
-                           'attributes.INSPECTDATE', 'attributes.SHORTDESC', 'attributes.COMMENTS']].head(10))
+    # Use available columns for display
+    st.dataframe(merged_df[['attributes.HSISID', 'attributes.INSPECTDATE', 'attributes.SHORTDESC', 'attributes.COMMENTS']].head(10))
 else:
-    st.warning("No cockroach-related violations found or data not uploaded yet. Please upload the Food Inspections file.")
+    st.warning("No cockroach-related violations found or data not uploaded yet. Please upload the Food Inspections file and ensure it includes required fields.")
 
-# Create map
+# Create map (disabled due to missing coordinates)
 if merged_df is not None and not merged_df.empty:
-    # Drop rows with invalid coordinates
-    merged_df = merged_df.dropna(subset=['attributes.X', 'attributes.Y'])
-    merged_df = merged_df[(merged_df['attributes.X'] != 0) & (merged_df['attributes.Y'] != 0)]
+    if 'attributes.X' in merged_df.columns and 'attributes.Y' in merged_df.columns:
+        # Drop rows with invalid coordinates
+        merged_df = merged_df.dropna(subset=['attributes.X', 'attributes.Y'])
+        merged_df = merged_df[(merged_df['attributes.X'] != 0) & (merged_df['attributes.Y'] != 0)]
 
-    # Initialize map centered on Raleigh
-    m = folium.Map(location=[35.7796, -78.6382], zoom_start=11)
+        # Initialize map centered on Raleigh
+        m = folium.Map(location=[35.7796, -78.6382], zoom_start=11)
 
-    # Add markers
-    for idx, row in merged_df.iterrows():
-        popup_text = f"<b>{row['attributes.NAME']}</b><br>Address: {row['attributes.ADDRESS1']}, {row['attributes.CITY']}<br>Date: {row['attributes.INSPECTDATE']}<br>Violation: {row['attributes.SHORTDESC']}<br>Comments: {row['attributes.COMMENTS']}"
-        try:
-            folium.Marker(
-                location=[row['attributes.Y'], row['attributes.X']],  # Y=latitude, X=longitude
-                popup=popup_text,
-                tooltip=row['attributes.NAME']
-            ).add_to(m)
-        except Exception as e:
-            st.warning(f"Skipping invalid marker for {row['attributes.NAME']}: {str(e)}")
+        # Add markers
+        for idx, row in merged_df.iterrows():
+            popup_text = f"<b>HSISID: {row['attributes.HSISID']}</b><br>Date: {row['attributes.INSPECTDATE']}<br>Violation: {row['attributes.SHORTDESC']}<br>Comments: {row['attributes.COMMENTS']}"
+            try:
+                folium.Marker(
+                    location=[row['attributes.Y'], row['attributes.X']],  # Y=latitude, X=longitude
+                    popup=popup_text,
+                    tooltip=row['attributes.HSISID']
+                ).add_to(m)
+            except Exception as e:
+                st.warning(f"Skipping invalid marker for HSISID {row['attributes.HSISID']}: {str(e)}")
 
-    st.subheader("Map of Infestations")
-    folium_static(m)
+        st.subheader("Map of Infestations")
+        folium_static(m)
+    else:
+        st.warning("Map not available. The uploaded file lacks location data (X, Y coordinates). Please download a dataset with restaurant locations from https://data-wake.opendata.arcgis.com/datasets/food-inspections or a related source.")
 else:
     st.write("No data available for mapping. Please upload the Food Inspections file to proceed.")
 
@@ -105,20 +108,22 @@ if merged_df is not None and 'attributes.INSPECTDATE' in merged_df.columns:
             filtered_df = merged_df[(merged_df['attributes.INSPECTDATE'].dt.date >= date_range[0]) & 
                                   (merged_df['attributes.INSPECTDATE'].dt.date <= date_range[1])]
             st.write(f"Filtered violations: {len(filtered_df)}")
-            if not filtered_df.empty:
+            if not filtered_df.empty and 'attributes.X' in filtered_df.columns and 'attributes.Y' in filtered_df.columns:
                 m = folium.Map(location=[35.7796, -78.6382], zoom_start=11)
                 for idx, row in filtered_df.iterrows():
-                    popup_text = f"<b>{row['attributes.NAME']}</b><br>Address: {row['attributes.ADDRESS1']}, {row['attributes.CITY']}<br>Date: {row['attributes.INSPECTDATE']}<br>Violation: {row['attributes.SHORTDESC']}<br>Comments: {row['attributes.COMMENTS']}"
+                    popup_text = f"<b>HSISID: {row['attributes.HSISID']}</b><br>Date: {row['attributes.INSPECTDATE']}<br>Violation: {row['attributes.SHORTDESC']}<br>Comments: {row['attributes.COMMENTS']}"
                     try:
                         folium.Marker(
                             location=[row['attributes.Y'], row['attributes.X']],
                             popup=popup_text,
-                            tooltip=row['attributes.NAME']
+                            tooltip=row['attributes.HSISID']
                         ).add_to(m)
                     except Exception as e:
-                        st.warning(f"Skipping invalid marker for {row['attributes.NAME']}: {str(e)}")
+                        st.warning(f"Skipping invalid marker for HSISID {row['attributes.HSISID']}: {str(e)}")
                 st.subheader("Filtered Map")
                 folium_static(m)
+            else:
+                st.write("Filtered map not available due to missing location data.")
     except Exception as e:
         st.error(f"Error processing dates: {str(e)}")
 else:
