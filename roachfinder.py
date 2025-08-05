@@ -15,44 +15,44 @@ HUD AHS reports ~18-20% of NC households with cockroach sightings in recent surv
 # Initialize session state
 if 'merged_df' not in st.session_state:
     st.session_state.merged_df = None
-if 'weights_df' not in st.session_state:
-    st.session_state.weights_df = None
 
 # Data upload section
 st.subheader("Upload AHS 2023 Metropolitan Data")
-puf_upload = st.file_uploader("Upload PUF CSV (e.g., ahs2023_metropolitan_puf.csv)", type=["csv"])
-recode_upload = st.file_uploader("Upload Recode CSV (e.g., ahs2023_metropolitan_recode.csv)", type=["csv"])
-weights_upload = st.file_uploader("Upload Weights CSV (e.g., ahs2023_metropolitan_weights.csv)", type=["csv"])
+file1_upload = st.file_uploader("Upload File 1 (e.g., PUF data)", type=["csv"])
+file2_upload = st.file_uploader("Upload File 2 (e.g., Weights data)", type=["csv"])
+file3_upload = st.file_uploader("Upload File 3 (e.g., Recode data)", type=["csv"])
+file4_upload = st.file_uploader("Upload File 4 (e.g., Documentation or additional data)", type=["csv"])
 
-if any([puf_upload, recode_upload, weights_upload]) and st.session_state.merged_df is None:
+if any([file1_upload, file2_upload, file3_upload, file4_upload]) and st.session_state.merged_df is None:
     try:
-        # Load PUF data
-        if puf_upload:
-            puf_df = pd.read_csv(puf_upload)
-            st.write("PUF DataFrame columns:", puf_df.columns.tolist())
+        # Initialize dataframes
+        df_list = []
+        weights_df = None
+        recode_df = None
+
+        # Process each uploaded file
+        for i, file_upload in enumerate([file1_upload, file2_upload, file3_upload, file4_upload]):
+            if file_upload:
+                df = pd.read_csv(file_upload)
+                st.write(f"File {i+1} DataFrame columns:", df.columns.tolist())
+                if 'CONTROLID' in df.columns and 'WEIGHT' in df.columns:  # Likely weights file
+                    weights_df = df
+                elif 'VARIABLE' in df.columns and 'VALUE' in df.columns and 'LABEL' in df.columns:  # Likely recode file
+                    recode_df = df
+                else:  # Likely PUF or additional data
+                    df_list.append(df)
+
+        # Combine PUF or additional data files
+        if df_list:
+            merged_df = pd.concat(df_list, ignore_index=True)
         else:
-            st.error("PUF file is required. Please upload ahs2023_metropolitan_puf.csv.")
+            st.error("No PUF or data files uploaded. Please upload at least one data file.")
             st.stop()
-
-        # Load recode data (optional for mapping codes to text)
-        if recode_upload:
-            recode_df = pd.read_csv(recode_upload)
-            st.write("Recode DataFrame columns:", recode_df.columns.tolist())
-        else:
-            recode_df = None
-
-        # Load weights data (optional for counts)
-        if weights_upload:
-            weights_df = pd.read_csv(weights_upload)
-            st.write("Weights DataFrame columns:", weights_df.columns.tolist())
-            st.session_state.weights_df = weights_df
-        else:
-            st.session_state.weights_df = None
 
         # Filter for NC (Region 37) and relevant metros
         nc_metros = [3950, 1520, 3120, 9220]  # Raleigh, Charlotte, Greensboro, Winston-Salem
-        nc_df = puf_df[puf_df['REGION'] == 37]
-        nc_df = nc_df[nc_df['METRO'].isin(nc_metros)]
+        merged_df = merged_df[merged_df['REGION'] == 37]
+        merged_df = merged_df[merged_df['METRO'].isin(nc_metros)]
 
         # Add approximate coordinates based on metro
         metro_coords = {
@@ -61,41 +61,43 @@ if any([puf_upload, recode_upload, weights_upload]) and st.session_state.merged_
             3120: {'Y': 36.0726, 'X': -79.7920},  # Greensboro
             9220: {'Y': 36.0999, 'X': -80.2442}   # Winston-Salem
         }
-        nc_df['Y'] = nc_df['METRO'].map(lambda x: metro_coords.get(x, {'Y': None})['Y'])
-        nc_df['X'] = nc_df['METRO'].map(lambda x: metro_coords.get(x, {'X': None})['X'])
+        merged_df['Y'] = merged_df['METRO'].map(lambda x: metro_coords.get(x, {'Y': None})['Y'])
+        merged_df['X'] = merged_df['METRO'].map(lambda x: metro_coords.get(x, {'X': None})['X'])
 
         # Map columns with fallbacks
         column_mapping = {
             'ROACH': 'SHORTDESC', 'CONTROL': 'COMMENTS', 'YEAR': 'INSPECTDATE',
             'CONTROLID': 'HSISID', 'STRUCTURE': 'NAME', 'CITY': 'CITY', 'ZIP': 'POSTALCODE'
         }
-        nc_df = nc_df.rename(columns={k: v for k, v in column_mapping.items() if k in nc_df.columns})
+        merged_df = merged_df.rename(columns={k: v for k, v in column_mapping.items() if k in merged_df.columns})
 
-        # Convert ROACH to descriptive text using recode if available
-        if 'SHORTDESC' in nc_df.columns and recode_df is not None:
-            # Assume recode_df has a mapping like VARIABLE='ROACH', VALUE=1 -> LABEL='Cockroach sighting'
-            roach_recode = recode_df[recode_df['VARIABLE'] == 'ROACH']
-            if not roach_recode.empty:
-                roach_map = dict(zip(roach_recode['VALUE'], roach_recode['LABEL']))
-                nc_df['SHORTDESC'] = nc_df['SHORTDESC'].map(lambda x: roach_map.get(x, 'Unknown') if pd.notna(x) else None)
-            else:
-                nc_df['SHORTDESC'] = nc_df['SHORTDESC'].apply(lambda x: 'Cockroach sighting' if x == 1 else None)
-        elif 'SHORTDESC' in nc_df.columns:
-            nc_df['SHORTDESC'] = nc_df['SHORTDESC'].apply(lambda x: 'Cockroach sighting' if x == 1 else None)
+        # Convert pest codes to text using recode if available
+        if 'SHORTDESC' in merged_df.columns and recode_df is not None:
+            # Assume recode_df has VARIABLE, VALUE, LABEL columns
+            pest_vars = ['ROACH', 'TERMITE', 'BEDBUG']  # Adjust based on actual variables
+            for var in pest_vars:
+                if var in merged_df.columns:
+                    var_recode = recode_df[recode_df['VARIABLE'] == var]
+                    if not var_recode.empty:
+                        recode_map = dict(zip(var_recode['VALUE'], var_recode['LABEL']))
+                        merged_df.loc[merged_df[var] == merged_df[var], 'SHORTDESC'] = merged_df[var].map(lambda x: recode_map.get(x, 'Unknown') if pd.notna(x) else None)
+                    else:
+                        merged_df['SHORTDESC'] = merged_df['SHORTDESC'].apply(lambda x: 'Pest sighting' if x == 1 else None)
+        elif 'SHORTDESC' in merged_df.columns:
+            merged_df['SHORTDESC'] = merged_df['SHORTDESC'].apply(lambda x: 'Pest sighting' if x == 1 else None)
 
-        nc_df['INSPECTDATE'] = pd.to_datetime(nc_df['INSPECTDATE'], errors='coerce').fillna(pd.Timestamp('2023-01-01'))
+        merged_df['INSPECTDATE'] = pd.to_datetime(merged_df['INSPECTDATE'], errors='coerce').fillna(pd.Timestamp('2023-01-01'))
 
         # Drop rows with missing coordinates
-        nc_df = nc_df.dropna(subset=['X', 'Y'])
+        merged_df = merged_df.dropna(subset=['X', 'Y'])
 
-        st.session_state.merged_df = nc_df
+        st.session_state.merged_df = merged_df
         st.success("Data uploaded and processed successfully.")
     except Exception as e:
         st.error(f"Error processing uploaded files: {str(e)}")
 
 # Use cached/processed data
 merged_df = st.session_state.merged_df
-weights_df = st.session_state.weights_df
 
 # Pest selection switches
 st.subheader("Select Pests to Display")
@@ -152,12 +154,9 @@ if not cockroach_df.empty or not termite_df.empty or not bedbug_df.empty:
     st.write(f"Cockroach violations: {len(cockroach_df)}")
     st.write(f"Termite violations: {len(termite_df)}")
     st.write(f"Bedbug violations: {len(bedbug_df)}")
-    if weights_df is not None and 'CONTROLID' in weights_df.columns and 'CONTROLID' in merged_df.columns:
-        weighted_count = weights_df[weights_df['CONTROLID'].isin(merged_df['HSISID'])].sum().sum()
-        st.write(f"Weighted total violations (if applicable): {weighted_count}")
     st.dataframe(pd.concat([cockroach_df, termite_df, bedbug_df])[['NAME', 'CITY', 'INSPECTDATE', 'SHORTDESC', 'COMMENTS']].head(10))
 else:
-    st.warning("No pest-related violations found or data not uploaded yet. Please upload the PUF file and select pests.")
+    st.warning("No pest-related violations found or data not uploaded yet. Please upload at least one data file and select pests.")
 
 # Create map
 if not cockroach_df.empty or not termite_df.empty or not bedbug_df.empty:
@@ -195,7 +194,7 @@ if not cockroach_df.empty or not termite_df.empty or not bedbug_df.empty:
     st.subheader("Map of Infestations")
     folium_static(m)
 else:
-    st.write("No data available for mapping. Please upload the PUF file and select pests.")
+    st.write("No data available for mapping. Please upload at least one data file and select pests.")
 
 # Date filter
 st.subheader("Filters")
