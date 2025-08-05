@@ -66,12 +66,23 @@ select_cockroaches = st.checkbox("Cockroaches", value=True)
 select_termites = st.checkbox("Termites")
 select_bedbugs = st.checkbox("Bedbugs")
 
-# Define keywords for each pest
+# Define keywords for each pest (expandable based on data)
 pest_keywords = {
-    'cockroaches': ['cockroach', 'roaches', 'pest', 'insect', 'cockroach infestation', 'roach problem'],
-    'termites': ['termite', 'termites', 'wood-destroying', 'wood destroying', 'termite damage'],
-    'bedbugs': ['bedbug', 'bed bug', 'bed bugs', 'bedbug infestation', 'bed bug problem']
+    'cockroaches': ['cockroach', 'roaches', 'pest', 'insect', 'cockroach infestation', 'roach problem', 'infestation'],
+    'termites': ['termite', 'termites', 'wood-destroying', 'wood destroying', 'termite damage', 'wood pest'],
+    'bedbugs': ['bedbug', 'bed bug', 'bed bugs', 'bedbug infestation', 'bed bug problem', 'infestation']
 }
+
+# Allow manual keyword adjustment
+st.subheader("Custom Keywords (optional)")
+cockroach_keywords = st.text_input("Add/remove Cockroach keywords (comma-separated)", value=', '.join(pest_keywords['cockroaches']))
+termites_keywords = st.text_input("Add/remove Termite keywords (comma-separated)", value=', '.join(pest_keywords['termites']))
+bedbugs_keywords = st.text_input("Add/remove Bedbug keywords (comma-separated)", value=', '.join(pest_keywords['bedbugs']))
+
+# Update keywords based on input
+pest_keywords['cockroaches'] = [kw.strip() for kw in cockroach_keywords.split(',') if kw.strip()]
+pest_keywords['termites'] = [kw.strip() for kw in termites_keywords.split(',') if kw.strip()]
+pest_keywords['bedbugs'] = [kw.strip() for kw in bedbugs_keywords.split(',') if kw.strip()]
 
 # Build the combined keywords based on selections
 keywords = []
@@ -84,13 +95,13 @@ if select_bedbugs:
 
 # Filter for selected pest-related violations
 if merged_df is not None and keywords:
-    mask = merged_df['SHORTDESC'].str.contains('|'.join(keywords), case=False, na=False) | \
-           merged_df['COMMENTS'].str.contains('|'.join(keywords), case=False, na=False)
+    mask = merged_df['SHORTDESC'].str.contains('|'.join(keywords), case=False, na=False, na=False) | \
+           merged_df['COMMENTS'].str.contains('|'.join(keywords), case=False, na=False, na=False)
     filtered_df = merged_df[mask].copy()
-    # Debug: Show sample violations
-    if st.checkbox("Show sample violation texts"):
-        st.write("Sample violations (first 10 matches):")
-        st.write(filtered_df[['SHORTDESC', 'COMMENTS']].head(10))
+    # Debug: Show all violation texts
+    if st.checkbox("Show all violation texts for debugging"):
+        st.write("All violation texts (first 50 rows):")
+        st.write(merged_df[['SHORTDESC', 'COMMENTS']].head(50))
 else:
     filtered_df = pd.DataFrame()
 
