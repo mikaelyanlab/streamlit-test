@@ -5,6 +5,7 @@ from streamlit_folium import folium_static
 import requests
 from io import StringIO
 import json
+import os
 
 # Title of the app
 st.title("Cockroach Infestation Visualization in Raleigh (Wake County)")
@@ -19,6 +20,14 @@ For residential data, HUD AHS provides metro-level stats: ~18-20% of Raleigh met
 headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
 }
+
+# Local file paths for saving/loading state
+restaurants_file = "restaurants_cache.csv"
+violations_file = "violations_cache.csv"
+
+# Function to save DataFrame to CSV
+def save_df_to_file(df, file_path):
+    df.to_csv(file_path, index=False)
 
 # Cache data loading with pagination and debugging
 @st.cache_data
@@ -126,16 +135,32 @@ def load_local_data():
     st.write("No local files uploaded.")
     return None, None
 
-# API URLs and fields
-base_url = "https://maps.wakegov.com/arcgis/rest/services/Inspections/RestaurantInspectionsOpenData/MapServer/"
-restaurants_df = load_data_from_api(base_url, 0, "HSISID,NAME,ADDRESS1,CITY,POSTALCODE,X,Y")
-violations_df = load_data_from_api(base_url, 2, "*")
+# Load from local cache if exists
+if os.path.exists(restaurants_file) and os.path.exists(violations_file):
+    restaurants_df = pd.read_csv(restaurants_file)
+    violations_df = pd.read_csv(violations_file)
+    st.success("Loaded data from local cache files to preserve state.")
+else:
+    # API URLs and fields
+    base_url = "https://maps.wakegov.com/arcgis/rest/services/Inspections/RestaurantInspectionsOpenData/MapServer/"
+    restaurants_df = load_data_from_api(base_url, 0, "HSISID,NAME,ADDRESS1,CITY,POSTALCODE,X,Y")
+    violations_df = load_data_from_api(base_url, 2, "*")
+
+    if restaurants_df is not None and violations_df is not None:
+        # Save to local cache for future runs
+        save_df_to_file(restaurants_df, restaurants_file)
+        save_df_to_file(violations_df, violations_file)
+        st.success("Data loaded from API and saved to local cache for future use.")
 
 if restaurants_df is None or violations_df is None:
     restaurants_df, violations_df = load_local_data()
     if restaurants_df is None or violations_df is None:
         st.markdown("**Instructions**: Download data from https://data-wake.opendata.arcgis.com/datasets/food-inspections (CSV/JSON) and upload above, or obtain an API token from Wake County.")
         st.stop()
+
+# Debug: Show available columns
+st.write("Restaurants DataFrame columns:", restaurants_df.columns.tolist())
+st.write("Violations DataFrame columns:", violations_df.columns.tolist())
 
 # Filter for cockroach-related violations incrementally
 keywords = ['cockroach', 'roaches', 'pest', 'insect']
@@ -146,16 +171,23 @@ cockroach_viol = violations_df[mask]
 # Merge with locations (using attributes prefix for JSON-normalized data)
 merged_df = cockroach_viol.merge(restaurants_df, on='attributes.HSISID', how='left', suffixes=('_viol', '_rest'))
 
-# Extract coordinates from geometry if present, otherwise use X/Y
+# Extract coordinates from geometry or attributes
 if 'geometry.x' in restaurants_df.columns and 'geometry.y' in restaurants_df.columns:
     merged_df = merged_df.merge(restaurants_df[['attributes.HSISID', 'geometry.x', 'geometry.y']], on='attributes.HSISID', how='left')
     merged_df = merged_df.rename(columns={'geometry.x': 'X', 'geometry.y': 'Y'})
-else:
+elif 'attributes.X' in restaurants_df.columns and 'attributes.Y' in restaurants_df.columns:
     merged_df = merged_df.rename(columns={'attributes.X': 'X', 'attributes.Y': 'Y'})
+else:
+    st.error("No valid coordinate columns found in Restaurants data.")
+    st.stop()
 
-# Drop rows without valid coordinates
-merged_df = merged_df.dropna(subset=['X', 'Y'])
-merged_df = merged_df[(merged_df['X'] != 0) & (merged_df['Y'] != 0)]
+# Drop rows without valid coordinates with error handling
+try:
+    merged_df = merged_df.dropna(subset=['X', 'Y'])
+    merged_df = merged_df[(merged_df['X'] != 0) & (merged_df['Y'] != 0)]
+except KeyError as e:
+    st.error(f"KeyError: Columns 'X' or 'Y' not found in merged DataFrame. Available columns: {merged_df.columns.tolist()}")
+    st.stop()
 
 # Display summary and map incrementally
 st.subheader("Summary")
