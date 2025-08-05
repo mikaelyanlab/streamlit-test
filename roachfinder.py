@@ -22,7 +22,7 @@ headers = {
 
 # Cache data loading with pagination and debugging
 @st.cache_data
-def load_data_from_api(base_url, layer_id, out_fields, token=None, max_requests=20):
+def load_data_from_api(base_url, layer_id, out_fields, token=None, max_requests=50):
     st.write(f"Attempting to load data from {base_url}{layer_id}/query")
     try:
         # Get total record count
@@ -43,6 +43,7 @@ def load_data_from_api(base_url, layer_id, out_fields, token=None, max_requests=
         offset = 0
         max_records = 2000  # As per MaxRecordCount
         requests_made = 0
+        progress_bar = st.progress(0)
 
         while requests_made < max_requests:
             params = {
@@ -76,8 +77,8 @@ def load_data_from_api(base_url, layer_id, out_fields, token=None, max_requests=
             all_data.extend(features)
             offset += max_records
             requests_made += 1
+            progress_bar.progress(min(requests_made / max_requests, 1.0))
 
-            # Check if the transfer limit is exceeded
             if not data.get('exceededTransferLimit', False):
                 st.write("No more data to fetch.")
                 break
@@ -88,7 +89,7 @@ def load_data_from_api(base_url, layer_id, out_fields, token=None, max_requests=
 
         if all_data:
             df = pd.json_normalize(all_data)
-            st.write(f"Successfully loaded {len(df)} records out of {total_count}. ")
+            st.write(f"Successfully loaded {len(df)} records out of {total_count}.")
             if len(df) < total_count:
                 st.warning(f"Dataset truncated to {len(df)} records due to request limit. Consider using local files for full data.")
             return df
@@ -136,7 +137,7 @@ if restaurants_df is None or violations_df is None:
         st.markdown("**Instructions**: Download data from https://data-wake.opendata.arcgis.com/datasets/food-inspections (CSV/JSON) and upload above, or obtain an API token from Wake County.")
         st.stop()
 
-# Filter for cockroach-related violations
+# Filter for cockroach-related violations incrementally
 keywords = ['cockroach', 'roaches', 'pest', 'insect']
 mask = violations_df['attributes.COMMENTS'].str.contains('|'.join(keywords), case=False, na=False) | \
        violations_df['attributes.SHORTDESC'].str.contains('|'.join(keywords), case=False, na=False)
@@ -156,7 +157,7 @@ else:
 merged_df = merged_df.dropna(subset=['X', 'Y'])
 merged_df = merged_df[(merged_df['X'] != 0) & (merged_df['Y'] != 0)]
 
-# Display summary
+# Display summary and map incrementally
 st.subheader("Summary")
 if not merged_df.empty:
     st.write(f"Number of cockroach-related violations: {len(merged_df)}")
@@ -165,7 +166,6 @@ if not merged_df.empty:
 else:
     st.warning("No cockroach-related violations found in the data.")
 
-# Create map
 if not merged_df.empty:
     # Initialize map centered on Raleigh (lat, lon)
     m = folium.Map(location=[35.7796, -78.6382], zoom_start=11)
@@ -175,7 +175,7 @@ if not merged_df.empty:
         popup_text = f"<b>{row['attributes.NAME_rest']}</b><br>Address: {row['attributes.ADDRESS1_rest']}, {row['attributes.CITY_rest']}<br>Date: {row['attributes.INSPECTDATE_viol']}<br>Violation: {row['attributes.SHORTDESC_viol']}<br>Comments: {row['attributes.COMMENTS_viol']}"
         try:
             folium.Marker(
-                location=[row['Y'], row['X']],  # Y=latitude, X=longitude (converted from State Plane if needed)
+                location=[row['Y'], row['X']],  # Y=latitude, X=longitude
                 popup=popup_text,
                 tooltip=row['attributes.NAME_rest']
             ).add_to(m)
