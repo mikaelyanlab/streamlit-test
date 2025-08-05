@@ -22,14 +22,29 @@ headers = {
 
 # Cache data loading with pagination and debugging
 @st.cache_data
-def load_data_from_api(base_url, layer_id, out_fields, token=None):
+def load_data_from_api(base_url, layer_id, out_fields, token=None, max_requests=20):
     st.write(f"Attempting to load data from {base_url}{layer_id}/query")
     try:
+        # Get total record count
+        count_params = {
+            'where': '1=1',
+            'returnCountOnly': 'true',
+            'f': 'json'
+        }
+        if token:
+            count_params['token'] = token
+
+        count_response = requests.get(base_url + str(layer_id) + '/query', params=count_params, headers=headers, timeout=10)
+        count_response.raise_for_status()
+        total_count = count_response.json().get('count', 0)
+        st.write(f"Total records available: {total_count}")
+
         all_data = []
         offset = 0
         max_records = 2000  # As per MaxRecordCount
+        requests_made = 0
 
-        while True:
+        while requests_made < max_requests:
             params = {
                 'where': '1=1',
                 'outFields': out_fields,
@@ -60,17 +75,22 @@ def load_data_from_api(base_url, layer_id, out_fields, token=None):
 
             all_data.extend(features)
             offset += max_records
+            requests_made += 1
 
-            # Check if the transfer limit is exceeded (indicates more data available)
-            if data.get('exceededTransferLimit', False):
-                st.write(f"Transfer limit exceeded at offset {offset}, continuing...")
-            else:
+            # Check if the transfer limit is exceeded
+            if not data.get('exceededTransferLimit', False):
                 st.write("No more data to fetch.")
+                break
+
+            if len(features) < max_records:
+                st.write("Reached end of data chunk.")
                 break
 
         if all_data:
             df = pd.json_normalize(all_data)
-            st.write(f"Successfully loaded {len(df)} records.")
+            st.write(f"Successfully loaded {len(df)} records out of {total_count}. ")
+            if len(df) < total_count:
+                st.warning(f"Dataset truncated to {len(df)} records due to request limit. Consider using local files for full data.")
             return df
         st.write("No data returned from API.")
         return None
@@ -155,7 +175,7 @@ if not merged_df.empty:
         popup_text = f"<b>{row['attributes.NAME_rest']}</b><br>Address: {row['attributes.ADDRESS1_rest']}, {row['attributes.CITY_rest']}<br>Date: {row['attributes.INSPECTDATE_viol']}<br>Violation: {row['attributes.SHORTDESC_viol']}<br>Comments: {row['attributes.COMMENTS_viol']}"
         try:
             folium.Marker(
-                location=[row['Y'], row['X']],  # Y=latitude, X=longitude (converted from State Plane to WGS84 if needed)
+                location=[row['Y'], row['X']],  # Y=latitude, X=longitude (converted from State Plane if needed)
                 popup=popup_text,
                 tooltip=row['attributes.NAME_rest']
             ).add_to(m)
