@@ -16,8 +16,8 @@ from datetime import datetime, timedelta
 # --- CONFIG ---
 NUM_TICKERS = 50
 POP_THRESHOLD = 0.05
-LOOKBACK_MINUTES = 120  # last 2 hours
-LABEL_HORIZON = 30  # future 30 minutes
+LOOKBACK_MINUTES = 120
+LABEL_HORIZON = 30
 
 st.set_page_config("Real-Time Stock Pop Screener", layout="wide")
 st.title("📈 Real-Time Stock Pop Screener")
@@ -31,34 +31,31 @@ if now_et.hour < 4 or now_et.hour > 20:
 def scrape_tickers():
     tickers = set()
     try:
-        soup = BeautifulSoup(requests.get("https://finance.yahoo.com/gainers").text, "html.parser")
-        for a in soup.find_all("a", href=re.compile(r"/quote/")):
-            t = a.get("href").split("/")[-1]
-            if t.isupper() and len(t) <= 5:
-                tickers.add(t)
-        soup = BeautifulSoup(requests.get("https://finance.yahoo.com/most-active").text, "html.parser")
-        for a in soup.find_all("a", href=re.compile(r"/quote/")):
-            t = a.get("href").split("/")[-1]
-            if t.isupper() and len(t) <= 5:
-                tickers.add(t)
-        soup = BeautifulSoup(requests.get("https://finviz.com/screener.ashx?v=111&o=-volume", headers={"User-Agent": "Mozilla/5.0"}).text, "html.parser")
-        for a in soup.find_all("a", href=re.compile(r"quote\.ashx\?t=")):
-            t = a.text.strip()
-            if t.isupper() and len(t) <= 5:
-                tickers.add(t)
+        pages = [
+            ("https://finance.yahoo.com/gainers", r"/quote/"),
+            ("https://finance.yahoo.com/most-active", r"/quote/"),
+            ("https://finviz.com/screener.ashx?v=111&o=-volume", r"quote\.ashx\?t=")
+        ]
+        headers = {"User-Agent": "Mozilla/5.0"}
+        for url, pattern in pages:
+            html = requests.get(url, headers=headers).text
+            soup = BeautifulSoup(html, "html.parser")
+            for a in soup.find_all("a", href=re.compile(pattern)):
+                t = a.text.strip().upper() if "finviz" in url else a.get("href").split("/")[-1]
+                if t.isalpha() and 1 <= len(t) <= 5:
+                    tickers.add(t)
     except Exception as e:
         st.error(f"Failed to scrape tickers: {e}")
-    return sorted(list(tickers))[:NUM_TICKERS]
+    return sorted(tickers)[:NUM_TICKERS]
 
 # --- FETCH DATA ---
 def fetch_data(ticker):
     try:
         df = yf.download(ticker, period="1d", interval="1m", progress=False)
-        df = df.tail(LOOKBACK_MINUTES)
-        df.dropna(inplace=True)
-        if df.empty or "Close" not in df.columns:
+        if df.empty or df.isna().all().any():
             return None
-        df = df.copy()
+        df = df.tail(LOOKBACK_MINUTES)
+        df.dropna(subset=["Close", "High", "Low"], inplace=True)
         df["ticker"] = ticker
         return df
     except:
@@ -67,7 +64,7 @@ def fetch_data(ticker):
 # --- FEATURE ENGINEERING ---
 def compute_features(df):
     df = df.copy()
-    if "Close" not in df.columns or df["Close"].isnull().all():
+    if df.empty or "Close" not in df.columns:
         return pd.DataFrame()
     df["ret_1"] = df["Close"].pct_change(1)
     df["ret_5"] = df["Close"].pct_change(5)
@@ -81,8 +78,8 @@ def compute_features(df):
 # --- LABELING FUNCTION ---
 def add_labels(df):
     df = df.copy()
-    if "Close" not in df.columns:
-        return df
+    if df.empty or "Close" not in df.columns:
+        return pd.DataFrame()
     future_max = df["Close"].shift(-1).iloc[::-1].rolling(LABEL_HORIZON).max().iloc[::-1]
     df["label"] = ((future_max - df["Close"]) / df["Close"] >= POP_THRESHOLD).astype(int)
     return df
@@ -102,32 +99,40 @@ if not valid_data:
     st.error("Still no data available. Try again during market hours.")
     st.stop()
 
-all_data = pd.concat(valid_data, axis=0)
-all_data = all_data.groupby("ticker", group_keys=False).apply(compute_features)
-all_data = all_data.dropna(subset=["ret_1", "ret_5", "ret_10"]).reset_index(drop=True)
-all_data = all_data.groupby("ticker", group_keys=False).apply(add_labels).reset_index(drop=True)
+# --- PREPARE DATA ---
+frames = []
+for df in valid_data:
+    feats = compute_features(df)
+    if not feats.empty:
+        feats = add_labels(feats)
+        frames.append(feats)
+
+if not frames:
+    st.error("Failed to generate valid feature data.")
+    st.stop()
+
+all_data = pd.concat(frames).dropna(subset=["ret_1", "ret_5", "ret_10", "label"]).reset_index(drop=True)
 
 # --- TRAIN MODEL ---
 st.success("Training model...")
 features = ["ret_1", "ret_5", "ret_10", "vol_10", "dev_vwap", "minute_of_day"]
-train_df = all_data.dropna(subset=features + ["label"])
+X = all_data[features].values
+y = all_data["label"].values
 
-X = train_df[features].values
-y = train_df["label"].values
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 model = XGBClassifier(n_estimators=200, max_depth=4, learning_rate=0.07, use_label_encoder=False, eval_metric='logloss')
 model.fit(X_scaled, y)
 
-# --- APPLY MODEL TO LATEST ROW OF EACH TICKER ---
-st.subheader("Predicted Pop Candidates (Next 30 min)")
-latest_rows = all_data.groupby("ticker").tail(1).dropna(subset=features)
-X_latest = scaler.transform(latest_rows[features].values)
+# --- PREDICT POPS ---
+latest = all_data.groupby("ticker", group_keys=False).tail(1)
+X_latest = scaler.transform(latest[features])
 preds = model.predict_proba(X_latest)[:, 1]
-latest_rows["p_pop"] = preds
+latest["p_pop"] = preds
 
 # --- DISPLAY RESULTS ---
-top_hits = latest_rows.sort_values("p_pop", ascending=False).head(20)
+st.subheader("Predicted Pop Candidates (Next 30 min)")
+top_hits = latest.sort_values("p_pop", ascending=False).head(20)
 
 for _, row in top_hits.iterrows():
     col1, col2 = st.columns([1, 4])
