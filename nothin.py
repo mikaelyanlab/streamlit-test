@@ -1,4 +1,3 @@
-# app_deploy.py – Streamlit Cloud-compatible version
 import time
 from datetime import datetime, timedelta
 import pytz
@@ -50,8 +49,9 @@ def add_features(df):
     df["ret_10"] = df["close"].pct_change(10)
     df["vol_10"] = df["close"].pct_change().rolling(10).std()
     df["rv_10"] = df["volume"] / df["volume"].rolling(390).mean()
-    df["vwap"] = (df["high"] + df["low"] + df["close"]) / 3
-    df["dev_vwap"] = (df["close"] - df["vwap"]) / df["vwap"]
+    vwap = (df["high"] + df["low"] + df["close"]) / 3
+    df["vwap"] = vwap
+    df["dev_vwap"] = (df["close"] - vwap) / vwap
     df["minute_of_day"] = df.index.hour * 60 + df.index.minute
     return df
 
