@@ -22,24 +22,25 @@ LABEL_HORIZON = 30  # future 30 minutes
 st.set_page_config("Real-Time Stock Pop Screener", layout="wide")
 st.title("📈 Real-Time Stock Pop Screener")
 
+now_et = datetime.utcnow() - timedelta(hours=5)
+if now_et.hour < 4 or now_et.hour > 20:
+    st.warning("⚠️ Market is currently closed. 1-minute data may be unavailable until pre-market opens (~4:00 AM ET).")
+
 # --- SCRAPE TICKERS ---
 @st.cache_data(ttl=600)
 def scrape_tickers():
     tickers = set()
     try:
-        # Yahoo: Top Gainers
         soup = BeautifulSoup(requests.get("https://finance.yahoo.com/gainers").text, "html.parser")
         for a in soup.find_all("a", href=re.compile(r"/quote/")):
             t = a.get("href").split("/")[-1]
             if t.isupper() and len(t) <= 5:
                 tickers.add(t)
-        # Yahoo: Most Active
         soup = BeautifulSoup(requests.get("https://finance.yahoo.com/most-active").text, "html.parser")
         for a in soup.find_all("a", href=re.compile(r"/quote/")):
             t = a.get("href").split("/")[-1]
             if t.isupper() and len(t) <= 5:
                 tickers.add(t)
-        # Finviz
         soup = BeautifulSoup(requests.get("https://finviz.com/screener.ashx?v=111&o=-volume", headers={"User-Agent": "Mozilla/5.0"}).text, "html.parser")
         for a in soup.find_all("a", href=re.compile(r"quote\.ashx\?t=")):
             t = a.text.strip()
@@ -55,10 +56,12 @@ def fetch_data(ticker):
         df = yf.download(ticker, period="1d", interval="1m", progress=False)
         df = df.tail(LOOKBACK_MINUTES)
         df.dropna(inplace=True)
+        if df.empty:
+            return None
         df["ticker"] = ticker
         return df
     except:
-        return pd.DataFrame()
+        return None
 
 # --- FEATURE ENGINEERING ---
 def compute_features(df):
@@ -82,12 +85,18 @@ def add_labels(df):
 st.info("Fetching and preparing data for ~50 tickers...")
 ticker_list = scrape_tickers()
 raw_data = [fetch_data(t) for t in ticker_list]
-all_data = pd.concat(raw_data).dropna()
+valid_data = [d for d in raw_data if d is not None and not d.empty]
 
-if all_data.empty:
-    st.error("No data pulled. Try refreshing or changing filters.")
+if not valid_data:
+    st.warning("⚠️ No live data found. Using fallback demo tickers: TSLA, NVDA, AAPL")
+    fallback = ["TSLA", "NVDA", "AAPL"]
+    valid_data = [fetch_data(t) for t in fallback if fetch_data(t) is not None and not fetch_data(t).empty]
+
+if not valid_data:
+    st.error("Still no data available. Try again during market hours.")
     st.stop()
 
+all_data = pd.concat(valid_data, axis=0)
 all_data = all_data.groupby("ticker").apply(compute_features).dropna(subset=["ret_1", "ret_5", "ret_10"]).reset_index(drop=True)
 all_data = all_data.groupby("ticker").apply(add_labels).reset_index(drop=True)
 
