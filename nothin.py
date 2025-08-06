@@ -56,8 +56,9 @@ def fetch_data(ticker):
         df = yf.download(ticker, period="1d", interval="1m", progress=False)
         df = df.tail(LOOKBACK_MINUTES)
         df.dropna(inplace=True)
-        if df.empty:
+        if df.empty or "Close" not in df.columns:
             return None
+        df = df.copy()
         df["ticker"] = ticker
         return df
     except:
@@ -66,6 +67,8 @@ def fetch_data(ticker):
 # --- FEATURE ENGINEERING ---
 def compute_features(df):
     df = df.copy()
+    if "Close" not in df.columns or df["Close"].isnull().all():
+        return pd.DataFrame()
     df["ret_1"] = df["Close"].pct_change(1)
     df["ret_5"] = df["Close"].pct_change(5)
     df["ret_10"] = df["Close"].pct_change(10)
@@ -77,6 +80,9 @@ def compute_features(df):
 
 # --- LABELING FUNCTION ---
 def add_labels(df):
+    df = df.copy()
+    if "Close" not in df.columns:
+        return df
     future_max = df["Close"].shift(-1).iloc[::-1].rolling(LABEL_HORIZON).max().iloc[::-1]
     df["label"] = ((future_max - df["Close"]) / df["Close"] >= POP_THRESHOLD).astype(int)
     return df
@@ -97,8 +103,9 @@ if not valid_data:
     st.stop()
 
 all_data = pd.concat(valid_data, axis=0)
-all_data = all_data.groupby("ticker").apply(compute_features).dropna(subset=["ret_1", "ret_5", "ret_10"]).reset_index(drop=True)
-all_data = all_data.groupby("ticker").apply(add_labels).reset_index(drop=True)
+all_data = all_data.groupby("ticker", group_keys=False).apply(compute_features)
+all_data = all_data.dropna(subset=["ret_1", "ret_5", "ret_10"]).reset_index(drop=True)
+all_data = all_data.groupby("ticker", group_keys=False).apply(add_labels).reset_index(drop=True)
 
 # --- TRAIN MODEL ---
 st.success("Training model...")
