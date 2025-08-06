@@ -66,19 +66,19 @@ def fetch_data(ticker):
 # --- FEATURE ENGINEERING ---
 def compute_features(df):
     df = df.copy()
-    df["ret_1"] = df["close"].pct_change(1)
-    df["ret_5"] = df["close"].pct_change(5)
-    df["ret_10"] = df["close"].pct_change(10)
-    df["vol_10"] = df["close"].pct_change().rolling(10).std()
-    df["vwap"] = (df["high"] + df["low"] + df["close"]) / 3
-    df["dev_vwap"] = (df["close"] - df["vwap"]) / df["vwap"]
+    df["ret_1"] = df["Close"].pct_change(1)
+    df["ret_5"] = df["Close"].pct_change(5)
+    df["ret_10"] = df["Close"].pct_change(10)
+    df["vol_10"] = df["Close"].pct_change().rolling(10).std()
+    df["vwap"] = (df["High"] + df["Low"] + df["Close"]) / 3
+    df["dev_vwap"] = (df["Close"] - df["vwap"]) / df["vwap"]
     df["minute_of_day"] = df.index.hour * 60 + df.index.minute
     return df
 
 # --- LABELING FUNCTION ---
 def add_labels(df):
-    future_max = df["close"].shift(-1).iloc[::-1].rolling(LABEL_HORIZON).max().iloc[::-1]
-    df["label"] = ((future_max - df["close"]) / df["close"] >= POP_THRESHOLD).astype(int)
+    future_max = df["Close"].shift(-1).iloc[::-1].rolling(LABEL_HORIZON).max().iloc[::-1]
+    df["label"] = ((future_max - df["Close"]) / df["Close"] >= POP_THRESHOLD).astype(int)
     return df
 
 # --- LOAD AND PREP DATA ---
@@ -129,7 +129,7 @@ for _, row in top_hits.iterrows():
     with col2:
         hist = all_data[all_data["ticker"] == row["ticker"]].tail(LOOKBACK_MINUTES)
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=hist.index, y=hist["close"], mode="lines", line=dict(width=2)))
+        fig.add_trace(go.Scatter(x=hist.index, y=hist["Close"], mode="lines", line=dict(width=2)))
         fig.update_layout(height=150, margin=dict(l=20, r=20, t=10, b=10), xaxis=dict(showgrid=False), yaxis=dict(showgrid=False))
         st.plotly_chart(fig, use_container_width=True)
 
