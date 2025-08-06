@@ -12,7 +12,8 @@ geopandas
 requests
 beautifulsoup4
 streamlit-autorefresh
-time
-pytz
+scikit-learn
+xgboost
 yfinance
-gettz
+python-dateutil
+pytz
