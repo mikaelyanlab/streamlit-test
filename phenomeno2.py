@@ -14,7 +14,7 @@ k_MeOH_ref = 0.00011 # 1/s at 25°C; methanol oxidation rate constant
 # Source: Sander (2015) compilation: https://acp.copernicus.org/articles/15/4399/2015/acp-15-4399-2015.pdf
 H_0_CH4 = 1.4 # mmol/L/atm for CH4 at 25°C
 H_0_O2 = 1.3 # mmol/L/atm for O2 at 25°C
-A_V = 1e5 # specific surface area, m^{-1}, typical for plant leaves based on mesophyll surface area to volume ratio
+A_V = 1e5 # m^{-1}, mesophyll surface area/volume; typical ~10^5 m^{-1} (Evans et al., Proc R Soc B 2021: https://royalsocietypublishing.org/doi/10.1098/rspb.2020.3145)
 # --- ODE System ---
 def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
                       V_cell, scaling_factor, photosynthesis_on):
@@ -47,9 +47,9 @@ def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
     Km_O2 = 0.001 # mmol/L
     V_MMO = Vmax * (C_cyt / (Km_T + C_cyt)) * (O2_cyt / (Km_O2 + O2_cyt))
     # Optional photosynthetic O₂ production
-    # Volumetric rate ~0.001-0.01 mmol/L/s based on leaf rates (10-30 µmol/m²/s, ~200 µm thickness)
-    # Source: Flexas et al. (2018): https://academic.oup.com/pcp/article/59/6/1072/5026149
-    O2_prod = 0.005 if photosynthesis_on else 0 # mmol/L/s, lowered for conservatism
+    # Volumetric rate ~0.1 mmol/L/s based on leaf rates (20 µmol/m²/s O2, 200 µm thickness, mesophyll fraction ~0.5)
+    # Source: Typical PS rates (Sharkey et al., Annu Rev Plant Biol 2008); calculation: 20e-6 mol/m²/s / (2e-4 m * 0.5) = 0.2 mol/m³/s = 0.2 mmol/L/s
+    O2_prod = 0.1 if photosynthesis_on else 0 # mmol/L/s
     # ODEs
     dC_cyt_dt = J_CH4 - V_MMO
     dCH3OH_dt = V_MMO - k_MeOH * CH3OH
@@ -68,9 +68,9 @@ Pi = st.sidebar.slider("Cytosolic Osmolarity (%)", 0, 100, 50)
 photosynthesis_on = st.sidebar.checkbox("Photosynthetic O₂ Production", value=True)
 st.sidebar.header("Enzyme Parameters")
 expression_percent = st.sidebar.slider("pMMO Expression (% of total cell protein)", 0.1, 5.0, 1.0, step=0.1)
-baseline_vmax_at_10_percent = 0.001 # mmol/L/s at 10% expression, from Schmider et al. (2024)
+baseline_vmax_at_10_percent = 0.001 # mmol/L/s at 10% expression, from Schmider et al. (2024) [assumed; similar to engineered rates ~10^{-3} mmol/L/s]
 Vmax_ref = baseline_vmax_at_10_percent * (expression_percent / 10.0)
-Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.0, 0.1, 5e-5, step=1e-6)
+Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.0, 1e-5, 1e-7, step=1e-8)  # Default 0.1 µM = 1e-7 mmol/L; Semrau et al. PNAS 2008: https://www.pnas.org/doi/10.1073/pnas.0702643105
 st.sidebar.header("Biomass Settings")
 cellular_material = st.sidebar.slider("Cellular Material (g/L)", 0.1, 200.0, 1.0)
 baseline_cell_density = 10
@@ -160,7 +160,7 @@ st.subheader("Sensitivity Analysis")
 param_options = {
     "T": {"label": "Temperature (°C)", "range": np.linspace(5, 45, 20)},
     "expression_percent": {"label": "pMMO Expression (%)", "range": np.linspace(0.1, 5.0, 20), "transform": lambda x: baseline_vmax_at_10_percent * (x / 10.0)},
-    "Km_ref": {"label": "Km_ref (mmol/L)", "range": np.linspace(1e-6, 0.1, 20)},
+    "Km_ref": {"label": "Km_ref (mmol/L)", "range": np.linspace(1e-8, 1e-5, 20)},
     "Pi": {"label": "Cytosolic Osmolarity (%)", "range": np.linspace(0, 100, 20)},
     "g_s": {"label": "Stomatal Conductance (mol/m²/s)", "range": np.linspace(0.1, 2.0, 20)},
     "cellular_material": {"label": "Cellular Material (g/L)", "range": np.linspace(0.1, 200.0, 20)},
@@ -228,17 +228,17 @@ st.markdown("""
 - **R**: 8.314 J/mol/K (Gas constant)
 - **T_ref**: 298.15 K (Reference temperature)
 - **k_MeOH_ref**: 0.00011 1/s (Methanol oxidation rate at 25°C)
-- **H_0_CH4**: 1.4 mmol/L/atm (Henry's constant for CH4 at 25°C)
-- **H_0_O2**: 1.3 mmol/L/atm (Henry's constant for O2 at 25°C)
+- **H_0_CH4**: 1.4 mmol/L/atm (Henry's constant for CH4 at 25°C; Sander 2015)
+- **H_0_O2**: 1.3 mmol/L/atm (Henry's constant for O2 at 25°C; Sander 2015)
 - **alpha**: 0.02 (Temperature adjustment factor for Henry's constants)
 - **beta**: 0.01 (Osmolarity adjustment factor for Henry's constants)
-- **Km_O2**: 0.001 mmol/L (Michaelis constant for O2)
-- **O2_prod**: 0.005 mmol/L/s (Photosynthetic O2 production rate, if enabled)
+- **Km_O2**: 0.001 mmol/L (Michaelis constant for O2; Semrau et al. 2010)
+- **O2_prod**: 0.1 mmol/L/s (Photosynthetic O2 production rate, if enabled; based on 20 µmol/m²/s / 200 µm thickness)
 - **cytosol_fraction**: 0.03 (Fraction of cell volume that is cytosol)
-- **baseline_vmax_at_10_percent**: 0.001 mmol/L/s (Baseline Vmax at 10% protein expression)
+- **baseline_vmax_at_10_percent**: 0.001 mmol/L/s (Baseline Vmax at 10% protein expression; Schmider et al. 2024)
 - **baseline_cell_density**: 10 g/L (Baseline cell density for scaling)
 - **V_cell**: 1e-15 L (Typical plant cell volume, currently unused)
-- **A_V**: 100000 m^{-1} (Specific surface area for gas-liquid interface)
+- **A_V**: 100000 m^{-1} (Specific surface area for gas-liquid interface; Evans et al. 2021)
 """)
 st.subheader("Key Equations")
 st.latex(r"Vmax_T = Vmax_{ref} \times scaling_factor \times \exp\left(-\frac{E_a}{R} \left(\frac{1}{T_K} - \frac{1}{T_{ref}}\right)\right)")
