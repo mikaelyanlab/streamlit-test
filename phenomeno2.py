@@ -102,10 +102,9 @@ time = np.linspace(0, 100, 5000)
 alpha, beta = 0.02, 0.01
 H_CH4 = H_0_CH4 * np.exp(-alpha * (T - 25)) * (1 - beta * Pi)
 P_CH4 = C_atm / 1e6
-C_cyt_init = H_CH4 * P_CH4  # ~1-3 nmol/L equilibrium
+C_cyt_init = H_CH4 * P_CH4 # ~1-3 nmol/L equilibrium
 O2_init = H_0_O2 * np.exp(-alpha * (T - 25)) * (1 - beta * Pi) * (O2_atm / 100.0)
-C0 = [C_cyt_init, 0, O2_init]  # Realistic initials (mmol/L)
-
+C0 = [C_cyt_init, 0, O2_init] # Realistic initials (mmol/L)
 # Solve ODEs
 def wrapped_ode(t, C):
     return methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
@@ -173,6 +172,8 @@ if st.button("Run Sensitivity Analysis"):
     param_info = param_options[selected_param]
     param_range = param_info["range"]
     results = []
+    alpha_local, beta_local = 0.02, 0.01  # Define here for consistency
+    Km_O2_local = 0.001
     for val in param_range:
         local_T = T if selected_param != "T" else val
         local_expression_percent = expression_percent if selected_param != "expression_percent" else val
@@ -184,8 +185,11 @@ if st.button("Run Sensitivity Analysis"):
         local_scaling_factor = (local_cellular_material * cytosol_fraction) / baseline_cell_density
         local_C_atm = C_atm if selected_param != "C_atm" else val
         local_O2_atm = O2_atm if selected_param != "O2_atm" else val
-        local_O2_init = H_0_O2 * np.exp(-0.02 * (local_T - 25)) * (1 - 0.01 * local_Pi) * (local_O2_atm / 100.0)
-        local_C0 = [0.0001, 0.0001, local_O2_init]
+        local_H_CH4 = H_0_CH4 * np.exp(-alpha_local * (local_T - 25)) * (1 - beta_local * local_Pi)
+        local_P_CH4 = local_C_atm / 1e6
+        local_C_cyt_init = local_H_CH4 * local_P_CH4
+        local_O2_init = H_0_O2 * np.exp(-alpha_local * (local_T - 25)) * (1 - beta_local * local_Pi) * (local_O2_atm / 100.0)
+        local_C0 = [local_C_cyt_init, 0, local_O2_init]
         # Solve ODE
         sol_local = solve_ivp(
             fun=lambda t, C: methane_oxidation(C, t, local_C_atm, local_O2_atm, local_g_s, local_Vmax_ref, local_Km_ref,
@@ -203,7 +207,7 @@ if st.button("Run Sensitivity Analysis"):
         local_Vmax_T = local_Vmax_ref * local_scaling_factor * np.exp(-E_a / R * (1/(local_T + 273.15) - 1/T_ref))
         local_Vmax_osm = local_Vmax_T * np.exp(-0.02 * (local_Pi / 100))
         local_O2_cyt_final = sol_local[-1, 2]
-        local_V_MMO_final = local_Vmax_osm * (local_C_cyt_final / (local_Km_T + local_C_cyt_final)) * (local_O2_cyt_final / (Km_O2 + local_O2_cyt_final))
+        local_V_MMO_final = local_Vmax_osm * (local_C_cyt_final / (local_Km_T + local_C_cyt_final)) * (local_O2_cyt_final / (Km_O2_local + local_O2_cyt_final))
         display_val = param_info["transform"](val) if "transform" in param_info else val
         results.append((display_val, local_V_MMO_final))
     df = pd.DataFrame(results, columns=[param_info["label"], "Final CH₄ Oxidation Rate (mmol/L/s)"])
