@@ -32,8 +32,8 @@ def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
     H_CH4 = H_0_CH4 * np.exp(-alpha * (T - 25)) * (1 - beta * Pi)
     H_O2 = H_0_O2 * np.exp(-alpha * (T - 25)) * (1 - beta * Pi)
     # Partial pressures (in atm, assuming total P=1 atm; g_s scales effective flux)
-    P_CH4 = g_s * (C_atm / 1e6) # Corrected for ppm to mole fraction
-    P_O2 = g_s * (O2_atm / 100.0) # % to fraction
+    P_CH4 = (C_atm / 1e6) # Corrected for ppm to mole fraction
+    P_O2 = (O2_atm / 100.0) # % to fraction
     # Equilibrium concentrations (mmol/L)
     C_cyt_eq = H_CH4 * P_CH4
     O2_eq = H_O2 * P_O2
