@@ -109,21 +109,24 @@ O2_init = H_0_O2 * np.exp(-0.02 * (T - 25)) * (1 - 0.01 * Pi) * (O2_atm / 100.0)
 C0 = [0.0001, 0.0001, O2_init]  # Lowered initials for ambient realism (mmol/L)
 
 # Solve ODEs
-def wrapped_ode(t, C):
-    return methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
-                             k_L_CH4, k_L_O2, V_cell, scaling_factor, photosynthesis_on,
-                             A_leaf, V_leaf)
-
-sol_ivp = solve_ivp(
-    fun=wrapped_ode,
-    t_span=(time[0], time[-1]),
-    y0=C0,
-    t_eval=time,
-    method='LSODA',
-    rtol=1e-6,
-    atol=1e-9
-)
-sol = sol_ivp.y.T
+try:
+    def wrapped_ode(t, C):
+        return methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
+                                 k_L_CH4, k_L_O2, V_cell, scaling_factor, photosynthesis_on,
+                                 A_leaf, V_leaf)
+    sol_ivp = solve_ivp(
+        fun=wrapped_ode,
+        t_span=(time[0], time[-1]),
+        y0=C0,
+        t_eval=time,
+        method='LSODA',
+        rtol=1e-6,
+        atol=1e-9
+    )
+    sol = sol_ivp.y.T
+except Exception as e:
+    st.error(f"Error in ODE solving: {str(e)}")
+    st.stop()
 
 # Create three separate subplots with Plotly for interactive viewing
 fig_plots = make_subplots(rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.1,
