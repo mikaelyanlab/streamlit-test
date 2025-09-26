@@ -37,9 +37,9 @@ def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
     # Equilibrium concentrations (mmol/L)
     C_cyt_eq = H_CH4 * P_CH4
     O2_eq = H_O2 * P_O2
-    # Fluxes
-    J_CH4 = k_L_CH4 * (C_cyt_eq - C_cyt)
-    J_O2 = k_L_O2 * (O2_eq - O2_cyt)
+    # Fluxes: J (mmol/L/s) = area_to_vol * g_s * (Δ mole fraction) * H
+    J_CH4 = area_to_vol * g_s * (P_CH4 - C_cyt / H_CH4) * H_CH4
+    J_O2 = area_to_vol * g_s * (P_O2 - O2_cyt / H_O2) * H_O2
     # MMO activity
     # Km_O2 from literature on pMMO: ~1-2 µM (0.001-0.002 mmol/L)
     # Source: Semrau et al. (2010): https://www.pnas.org/doi/10.1073/pnas.0702643105
