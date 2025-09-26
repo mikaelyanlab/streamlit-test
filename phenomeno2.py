@@ -14,7 +14,7 @@ k_MeOH_ref = 0.00011 # 1/s at 25°C; methanol oxidation rate constant
 # Source: Sander (2015) compilation: https://acp.copernicus.org/articles/15/4399/2015/acp-15-4399-2015.pdf
 H_0_CH4 = 1.4 # mmol/L/atm for CH4 at 25°C
 H_0_O2 = 1.3 # mmol/L/atm for O2 at 25°C
-A_V = 1e5 # m^{-1}, mesophyll surface area/volume; typical ~10^5 m^{-1} (Evans et al., Proc R Soc B 2021: https://royalsocietypublishing.org/doi/10.1098/rspb.2020.3145)
+A_V = 1e4 # m^{-1}, adjusted for effective mesophyll gas transfer (Evans et al., Proc R Soc B 2021: https://royalsocietypublishing.org/doi/10.1098/rspb.2020.3145)
 # --- ODE System ---
 def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
                       V_cell, scaling_factor, photosynthesis_on):
@@ -48,7 +48,7 @@ def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
     V_MMO = Vmax * (C_cyt / (Km_T + C_cyt)) * (O2_cyt / (Km_O2 + O2_cyt))
     # Optional photosynthetic O₂ production
     # Volumetric rate ~0.1 mmol/L/s based on leaf rates (20 µmol/m²/s O2, 200 µm thickness, mesophyll fraction ~0.5)
-    # Source: Typical PS rates (Sharkey et al., Annu Rev Plant Biol 2008); calculation: 20e-6 mol/m²/s / (2e-4 m * 0.5) = 0.2 mol/m³/s = 0.2 mmol/L/s
+    # Source: Typical PS rates (Sharkey et al., Annu Rev Plant Biol 2008)
     O2_prod = 0.1 if photosynthesis_on else 0 # mmol/L/s
     # ODEs
     dC_cyt_dt = J_CH4 - V_MMO
@@ -68,9 +68,9 @@ Pi = st.sidebar.slider("Cytosolic Osmolarity (%)", 0, 100, 50)
 photosynthesis_on = st.sidebar.checkbox("Photosynthetic O₂ Production", value=True)
 st.sidebar.header("Enzyme Parameters")
 expression_percent = st.sidebar.slider("pMMO Expression (% of total cell protein)", 0.1, 5.0, 1.0, step=0.1)
-baseline_vmax_at_10_percent = 0.001 # mmol/L/s at 10% expression, from Schmider et al. (2024) [assumed; similar to engineered rates ~10^{-3} mmol/L/s]
+baseline_vmax_at_10_percent = 0.001 # mmol/L/s at 10% expression, from Schmider et al. (2024)
 Vmax_ref = baseline_vmax_at_10_percent * (expression_percent / 10.0)
-Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.0, 1e-5, 1e-7, step=1e-8)  # Default 0.1 µM = 1e-7 mmol/L; Semrau et al. PNAS 2008: https://www.pnas.org/doi/10.1073/pnas.0702643105
+Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.0, 1e-5, 1e-7, step=1e-8)  # Default 0.1 µM = 1e-7 mmol/L; Semrau et al. PNAS 2008
 st.sidebar.header("Biomass Settings")
 cellular_material = st.sidebar.slider("Cellular Material (g/L)", 0.1, 200.0, 1.0)
 baseline_cell_density = 10
@@ -127,7 +127,7 @@ fig_plots.add_trace(go.Scatter(x=time, y=sol[:, 1], mode='lines', name="Methanol
 fig_plots.add_trace(go.Scatter(x=time, y=sol[:, 2], mode='lines', name="Cytosolic O₂"), row=3, col=1)
 fig_plots.update_layout(height=800, title_text="Concentration Dynamics Over Time", showlegend=False)
 fig_plots.update_xaxes(title_text="Time (s)", row=3, col=1)
-fig_plots.update_yaxes(title_text="Concentration (mmol/L)", row=1, col=1)
+fig_plots.update_yaxes(title_text="Concentration (mmol/L)", type="log", row=1, col=1)  # Log scale for CH4 to show subtle changes
 fig_plots.update_yaxes(title_text="Concentration (mmol/L)", row=2, col=1)
 fig_plots.update_yaxes(title_text="Concentration (mmol/L)", row=3, col=1)
 # Final MMO rate
@@ -172,7 +172,7 @@ if st.button("Run Sensitivity Analysis"):
     param_info = param_options[selected_param]
     param_range = param_info["range"]
     results = []
-    alpha_local, beta_local = 0.02, 0.01  # Define here for consistency
+    alpha_local, beta_local = 0.02, 0.01
     Km_O2_local = 0.001
     for val in param_range:
         local_T = T if selected_param != "T" else val
@@ -191,9 +191,11 @@ if st.button("Run Sensitivity Analysis"):
         local_O2_init = H_0_O2 * np.exp(-alpha_local * (local_T - 25)) * (1 - beta_local * local_Pi) * (local_O2_atm / 100.0)
         local_C0 = [local_C_cyt_init, 0, local_O2_init]
         # Solve ODE
+        def local_wrapped(t, C):
+            return methane_oxidation(C, t, local_C_atm, local_O2_atm, local_g_s, local_Vmax_ref, local_Km_ref,
+                                     local_Pi, local_T, V_cell, local_scaling_factor, photosynthesis_on)
         sol_local = solve_ivp(
-            fun=lambda t, C: methane_oxidation(C, t, local_C_atm, local_O2_atm, local_g_s, local_Vmax_ref, local_Km_ref,
-                                               local_Pi, local_T, V_cell, local_scaling_factor, photosynthesis_on),
+            fun=local_wrapped,
             t_span=(time[0], time[-1]),
             y0=local_C0,
             t_eval=time,
@@ -233,12 +235,12 @@ st.markdown("""
 - **alpha**: 0.02 (Temperature adjustment factor for Henry's constants)
 - **beta**: 0.01 (Osmolarity adjustment factor for Henry's constants)
 - **Km_O2**: 0.001 mmol/L (Michaelis constant for O2; Semrau et al. 2010)
-- **O2_prod**: 0.1 mmol/L/s (Photosynthetic O2 production rate, if enabled; based on 20 µmol/m²/s / 200 µm thickness)
+- **O2_prod**: 0.1 mmol/L/s (Photosynthetic O2 production rate, if enabled; Sharkey et al. 2008)
 - **cytosol_fraction**: 0.03 (Fraction of cell volume that is cytosol)
 - **baseline_vmax_at_10_percent**: 0.001 mmol/L/s (Baseline Vmax at 10% protein expression; Schmider et al. 2024)
 - **baseline_cell_density**: 10 g/L (Baseline cell density for scaling)
 - **V_cell**: 1e-15 L (Typical plant cell volume, currently unused)
-- **A_V**: 100000 m^{-1} (Specific surface area for gas-liquid interface; Evans et al. 2021)
+- **A_V**: 10000 m^{-1} (Specific surface area for gas-liquid interface; Evans et al. 2021, adjusted for dynamics)
 """)
 st.subheader("Key Equations")
 st.latex(r"Vmax_T = Vmax_{ref} \times scaling_factor \times \exp\left(-\frac{E_a}{R} \left(\frac{1}{T_K} - \frac{1}{T_{ref}}\right)\right)")
@@ -256,4 +258,5 @@ st.latex(r"\frac{dO2_{cyt}}{dt} = J_{O2} - V_{MMO} + O2_{prod}")
 # Debug output
 k_MeOH_scaled = k_MeOH_ref * np.exp(-E_a_MeOH / R * (1/(T + 273.15) - 1/T_ref))
 st.sidebar.text(f"Temp-Adjusted k_MeOH: {k_MeOH_scaled:.6g} 1/s")
+st.sidebar.text(f"k_L_CH4_eff: {g_s * A_V / H_CH4:.2g} 1/s")
 st.markdown("***Hornstein E. and Mikaelyan A., in prep.***")
