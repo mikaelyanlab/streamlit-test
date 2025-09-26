@@ -88,7 +88,7 @@ st.sidebar.header("Enzyme Parameters")
 expression_percent = st.sidebar.slider("pMMO Expression (% of total cell protein)", 0.1, 5.0, 1.0, step=0.1)
 baseline_vmax_at_10_percent = 0.001  # mmol/L/s at 10% expression
 Vmax_ref = baseline_vmax_at_10_percent * (expression_percent / 10.0)
-Km_ref   = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.0, 0.1, 5e-5, step=1e-6)
+Km_ref   = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.0, 0.01, 5e-5, step=5e-5)
 
 st.sidebar.header("Biomass Settings")
 cellular_material   = st.sidebar.slider("Cellular Material (g/L)", 0.1, 200.0, 1.0)
