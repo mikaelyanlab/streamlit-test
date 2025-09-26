@@ -99,8 +99,13 @@ if error_message:
     st.stop()
 # Time and initial conditions
 time = np.linspace(0, 100, 5000)
-O2_init = H_0_O2 * np.exp(-0.02 * (T - 25)) * (1 - 0.01 * Pi) * (O2_atm / 100.0)
-C0 = [0.0001, 0.0001, O2_init]
+alpha, beta = 0.02, 0.01
+H_CH4 = H_0_CH4 * np.exp(-alpha * (T - 25)) * (1 - beta * Pi)
+P_CH4 = C_atm / 1e6
+C_cyt_init = H_CH4 * P_CH4  # ~1-3 nmol/L equilibrium
+O2_init = H_0_O2 * np.exp(-alpha * (T - 25)) * (1 - beta * Pi) * (O2_atm / 100.0)
+C0 = [C_cyt_init, 0, O2_init]  # Realistic initials (mmol/L)
+
 # Solve ODEs
 def wrapped_ode(t, C):
     return methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
