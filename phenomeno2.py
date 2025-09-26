@@ -70,7 +70,7 @@ Pi = st.sidebar.slider("Cytosolic Osmolarity (%)", 0, 100, 50)
 photosynthesis_on = st.sidebar.checkbox("Photosynthetic O₂ Production", value=True)
 st.sidebar.header("Enzyme Parameters")
 expression_percent = st.sidebar.slider("pMMO Expression (% of total cell protein)", 0.1, 5.0, 1.0, step=0.1)
-baseline_vmax_at_10_percent = 0.001 # mmol/L/s at 10% expression, from Schmider et al. (2024)
+baseline_vmax_at_10_percent = 0.01 # mmol/L/s at 10% expression, increased for visibility
 Vmax_ref = baseline_vmax_at_10_percent * (expression_percent / 10.0)
 Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.0, 0.1, 5e-5, step=1e-6)
 st.sidebar.header("Biomass Settings")
@@ -102,7 +102,7 @@ if error_message:
     st.error(error_message)
     st.stop()
 # Time and initial conditions (DEBUG FIX: Start from zero for visible dynamics)
-time = np.linspace(0, 100, 5000)
+time = np.linspace(0, 1000, 5000)
 C0 = [0.0, 0.0, 0.0]
 # Equilibrium for reference
 alpha, beta = 0.02, 0.01
@@ -132,9 +132,9 @@ fig_plots.add_trace(go.Scatter(x=time, y=sol[:, 1], mode='lines', name="Methanol
 fig_plots.add_trace(go.Scatter(x=time, y=sol[:, 2], mode='lines', name="Cytosolic O₂"), row=3, col=1)
 fig_plots.update_layout(height=800, title_text="Concentration Dynamics Over Time", showlegend=False)
 fig_plots.update_xaxes(title_text="Time (s)", row=3, col=1)
-fig_plots.update_yaxes(title_text="Concentration (mmol/L)", row=1, col=1)
-fig_plots.update_yaxes(title_text="Concentration (mmol/L)", row=2, col=1)
-fig_plots.update_yaxes(title_text="Concentration (mmol/L)", row=3, col=1)
+fig_plots.update_yaxes(title_text="Concentration (mmol/L)", type='log', row=1, col=1)
+fig_plots.update_yaxes(title_text="Concentration (mmol/L)", type='log', row=2, col=1)
+fig_plots.update_yaxes(title_text="Concentration (mmol/L)", type='log', row=3, col=1)
 # Final MMO rate
 C_cyt_final = sol[-1, 0]
 Km_T = Km_ref * (1 + 0.02 * (T - 25))
@@ -239,7 +239,7 @@ st.markdown("""
 - **Km_O2**: 0.001 mmol/L (Michaelis constant for O2)
 - **O2_prod**: 0.005 mmol/L/s (Photosynthetic O2 production rate, if enabled)
 - **cytosol_fraction**: 0.03 (Fraction of cell volume that is cytosol)
-- **baseline_vmax_at_10_percent**: 0.001 mmol/L/s (Baseline Vmax at 10% protein expression)
+- **baseline_vmax_at_10_percent**: 0.01 mmol/L/s (Baseline Vmax at 10% protein expression)
 - **baseline_cell_density**: 10 g/L (Baseline cell density for scaling)
 - **V_cell**: 1e-15 L (Typical plant cell volume, currently unused)
 """)
