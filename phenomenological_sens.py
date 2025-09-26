@@ -16,9 +16,10 @@ k_MeOH_ref = 0.00011 # 1/s at 25°C; methanol oxidation rate constant
 # Source: Sander (2015) compilation: https://acp.copernicus.org/articles/15/4399/2015/acp-15-4399-2015.pdf
 H_0_CH4 = 1.4 # mmol/L/atm for CH4 at 25°C
 H_0_O2 = 1.3 # mmol/L/atm for O2 at 25°C
+area_to_vol = 1e6  # m²/L (e.g., for ~1 µm layer)
 # --- ODE System ---
 def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
-                      k_L_CH4, k_L_O2, V_cell, scaling_factor, photosynthesis_on):
+                      k_L_CH4, k_L_O2, V_cell, scaling_factor, photosynthesis_on, area_to_vol):
     C_cyt, CH3OH, O2_cyt = C
     T_K = T + 273.15
     # Vmax and Km adjustments
@@ -112,7 +113,7 @@ C0 = [0.0001, 0.0001, O2_init]
 # Solve ODEs
 def wrapped_ode(t, C):
     return methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
-                             k_L_CH4, k_L_O2, V_cell, scaling_factor, photosynthesis_on)
+                             k_L_CH4, k_L_O2, V_cell, scaling_factor, photosynthesis_on, area_to_vol)
 sol_ivp = solve_ivp(
     fun=wrapped_ode,
     t_span=(time[0], time[-1]),
@@ -255,7 +256,7 @@ st.latex(r"Km_T = Km_{ref} \times (1 + 0.02 \times (T - 25))")
 st.latex(r"H = H_0 \times \exp(-\alpha \times (T - 25)) \times (1 - \beta \times Pi)")
 st.latex(r"P_{CH4} = g_s \times (C_{atm} / 10^6), \quad P_{O2} = g_s \times (O2_{atm} / 100)")
 st.latex(r"C_{eq} = H \times P")
-st.latex(r"J = k_L \times (C_{eq} - C)")
+st.latex(r"J = A/V \times g_s \times (P - C/H) \times H")
 st.latex(r"V_{MMO} = Vmax \times \frac{C_{cyt}}{Km_T + C_{cyt}} \times \frac{O2_{cyt}}{Km_{O2} + O2_{cyt}}")
 st.latex(r"\frac{dC_{cyt}}{dt} = J_{CH4} - V_{MMO}")
 st.latex(r"\frac{dCH3OH}{dt} = V_{MMO} - k_{MeOH} \times CH3OH")
