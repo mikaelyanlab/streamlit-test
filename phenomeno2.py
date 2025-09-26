@@ -15,10 +15,10 @@ k_MeOH_ref = 0.00011 # 1/s at 25°C; methanol oxidation rate constant
 # Source: Sander (2015) compilation: https://acp.copernicus.org/articles/15/4399/2015/acp-15-4399-2015.pdf
 H_0_CH4 = 1.4 # mmol/L/atm for CH4 at 25°C
 H_0_O2 = 1.3 # mmol/L/atm for O2 at 25°C
-area_to_vol = 1e4  # m²/L (e.g., for ~100 µm effective thickness)
+g_s_ref = 0.2 # mol/m²/s; reference for scaling
 # --- ODE System ---
 def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
-                      k_L_CH4, k_L_O2, V_cell, scaling_factor, photosynthesis_on, area_to_vol):
+                      k_L_CH4, k_L_O2, V_cell, scaling_factor, photosynthesis_on):
     C_cyt, CH3OH, O2_cyt = C
     T_K = T + 273.15
     # Vmax and Km adjustments
@@ -34,9 +34,13 @@ def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
     # Partial pressures (in atm, assuming total P=1 atm)
     P_CH4 = (C_atm / 1e6) # ppm to mole fraction
     P_O2 = (O2_atm / 100.0) # % to fraction
-    # Fluxes: mmol/L/s = 1000 * area_to_vol * g_s * Δx (x_int = C / H)
-    J_CH4 = 1000 * area_to_vol * g_s * (P_CH4 - C_cyt / H_CH4)
-    J_O2 = 1000 * area_to_vol * g_s * (P_O2 - O2_cyt / H_O2)
+    # Equilibrium concentrations (mmol/L)
+    C_cyt_eq = H_CH4 * P_CH4
+    O2_eq = H_O2 * P_O2
+    # Fluxes: scaled by relative stomatal conductance
+    g_s_scale = g_s / g_s_ref
+    J_CH4 = k_L_CH4 * g_s_scale * (C_cyt_eq - C_cyt)
+    J_O2 = k_L_O2 * g_s_scale * (O2_eq - O2_cyt)
     # MMO activity
     # Km_O2 from literature on pMMO: ~1-2 µM (0.001-0.002 mmol/L)
     # Source: Semrau et al. (2010): https://www.pnas.org/doi/10.1073/pnas.0702643105
@@ -58,8 +62,8 @@ st.sidebar.header("Atmosphere & Gas Transfer")
 C_atm = st.sidebar.slider("Atmospheric CH₄ (ppm)", 0.1, 10.0, 1.8)
 O2_atm = st.sidebar.slider("Atmospheric O₂ (%)", 1.0, 25.0, 21.0)
 g_s = st.sidebar.slider("Stomatal Conductance (mol/m²/s)", 0.1, 2.0, 0.2)
-k_L_CH4 = st.sidebar.slider("CH₄ Mass Transfer Coefficient (1/s)", 0.0001, 0.1, 0.01)  # Retained for compatibility, unused in new fluxes
-k_L_O2 = st.sidebar.slider("O₂ Mass Transfer Coefficient (1/s)", 0.0001, 0.1, 0.03)  # Retained for compatibility, unused
+k_L_CH4 = st.sidebar.slider("CH₄ Mass Transfer Coefficient (1/s)", 0.0001, 0.1, 0.01)
+k_L_O2 = st.sidebar.slider("O₂ Mass Transfer Coefficient (1/s)", 0.0001, 0.1, 0.03)
 st.sidebar.header("Cellular Environment")
 T = st.sidebar.slider("Temperature (°C)", 5, 45, 25)
 Pi = st.sidebar.slider("Cytosolic Osmolarity (%)", 0, 100, 50)
@@ -97,18 +101,19 @@ elif T < -273.15:
 if error_message:
     st.error(error_message)
     st.stop()
-# Time and initial conditions (DEBUG FIX: Parameter-dependent equilibrium initials)
+# Time and initial conditions (DEBUG FIX: Start from zero for visible dynamics)
 time = np.linspace(0, 100, 5000)
+C0 = [0.0, 0.0, 0.0]
+# Equilibrium for reference
 alpha, beta = 0.02, 0.01
-H_CH4_init = H_0_CH4 * np.exp(-alpha * (T - 25)) * (1 - beta * Pi)
-C_cyt_init = H_CH4_init * (C_atm / 1e6)
-CH3OH_init = 0.0  # No initial methanol
-O2_init = H_0_O2 * np.exp(-alpha * (T - 25)) * (1 - beta * Pi) * (O2_atm / 100.0)
-C0 = [C_cyt_init, CH3OH_init, O2_init]
+H_CH4_eq = H_0_CH4 * np.exp(-alpha * (T - 25)) * (1 - beta * Pi)
+C_cyt_eq = H_CH4_eq * (C_atm / 1e6)
+H_O2_eq = H_0_O2 * np.exp(-alpha * (T - 25)) * (1 - beta * Pi)
+O2_eq = H_O2_eq * (O2_atm / 100.0)
 # Solve ODEs
 def wrapped_ode(t, C):
     return methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
-                             k_L_CH4, k_L_O2, V_cell, scaling_factor, photosynthesis_on, area_to_vol)
+                             k_L_CH4, k_L_O2, V_cell, scaling_factor, photosynthesis_on)
 sol_ivp = solve_ivp(
     fun=wrapped_ode,
     t_span=(time[0], time[-1]),
@@ -174,7 +179,6 @@ if st.button("Run Sensitivity Analysis"):
     param_info = param_options[selected_param]
     param_range = param_info["range"]
     results = []
-    alpha_local, beta_local = 0.02, 0.01
     for val in param_range:
         local_T = T if selected_param != "T" else val
         local_expression_percent = expression_percent if selected_param != "expression_percent" else val
@@ -188,16 +192,11 @@ if st.button("Run Sensitivity Analysis"):
         local_scaling_factor = (local_cellular_material * cytosol_fraction) / baseline_cell_density
         local_C_atm = C_atm if selected_param != "C_atm" else val
         local_O2_atm = O2_atm if selected_param != "O2_atm" else val
-        # Dynamic local initials (DEBUG FIX)
-        local_H_CH4 = H_0_CH4 * np.exp(-alpha_local * (local_T - 25)) * (1 - beta_local * local_Pi)
-        local_C_cyt_init = local_H_CH4 * (local_C_atm / 1e6)
-        local_CH3OH_init = 0.0
-        local_O2_init = H_0_O2 * np.exp(-alpha_local * (local_T - 25)) * (1 - beta_local * local_Pi) * (local_O2_atm / 100.0)
-        local_C0 = [local_C_cyt_init, local_CH3OH_init, local_O2_init]
+        local_C0 = [0.0, 0.0, 0.0]
         # Solve ODE
         sol_local = solve_ivp(
             fun=lambda t, C: methane_oxidation(C, t, local_C_atm, local_O2_atm, local_g_s, local_Vmax_ref, local_Km_ref,
-                                               local_Pi, local_T, local_k_L_CH4, local_k_L_O2, V_cell, local_scaling_factor, photosynthesis_on, area_to_vol),
+                                               local_Pi, local_T, local_k_L_CH4, local_k_L_O2, V_cell, local_scaling_factor, photosynthesis_on),
             t_span=(time[0], time[-1]),
             y0=local_C0,
             t_eval=time,
@@ -234,7 +233,7 @@ st.markdown("""
 - **k_MeOH_ref**: 0.00011 1/s (Methanol oxidation rate at 25°C)
 - **H_0_CH4**: 1.4 mmol/L/atm (Henry's constant for CH4 at 25°C)
 - **H_0_O2**: 1.3 mmol/L/atm (Henry's constant for O2 at 25°C)
-- **area_to_vol**: 10,000 m²/L (Area/volume ratio for flux scaling)
+- **g_s_ref**: 0.2 mol/m²/s (Reference stomatal conductance for flux scaling)
 - **alpha**: 0.02 (Temperature adjustment factor for Henry's constants)
 - **beta**: 0.01 (Osmolarity adjustment factor for Henry's constants)
 - **Km_O2**: 0.001 mmol/L (Michaelis constant for O2)
@@ -250,7 +249,8 @@ st.latex(r"Vmax = Vmax_T \times \exp(-0.02 \times (Pi / 100))")
 st.latex(r"Km_T = Km_{ref} \times (1 + 0.02 \times (T - 25))")
 st.latex(r"H = H_0 \times \exp(-\alpha \times (T - 25)) \times (1 - \beta \times Pi)")
 st.latex(r"P_{CH4} = C_{atm} / 10^6, \quad P_{O2} = O2_{atm} / 100")
-st.latex(r"J = 1000 \times (A/V) \times g_s \times (P - C/H)")
+st.latex(r"C_{eq} = H \times P")
+st.latex(r"J = k_L \times (g_s / g_{s,ref}) \times (C_{eq} - C)")
 st.latex(r"V_{MMO} = Vmax \times \frac{C_{cyt}}{Km_T + C_{cyt}} \times \frac{O2_{cyt}}{Km_{O2} + O2_{cyt}}")
 st.latex(r"\frac{dC_{cyt}}{dt} = J_{CH4} - V_{MMO}")
 st.latex(r"\frac{dCH3OH}{dt} = V_{MMO} - k_{MeOH} \times CH3OH")
@@ -258,5 +258,6 @@ st.latex(r"\frac{dO2_{cyt}}{dt} = J_{O2} - V_{MMO} + O2_{prod}")
 # Debug output
 k_MeOH_scaled = k_MeOH_ref * np.exp(-E_a_MeOH / R * (1/(T + 273.15) - 1/T_ref))
 st.sidebar.text(f"Temp-Adjusted k_MeOH: {k_MeOH_scaled:.6g} 1/s")
-st.sidebar.text(f"Initial C_cyt_eq: {C_cyt_init:.2e} mmol/L")  # Debug initial
+st.sidebar.text(f"CH4 eq: {C_cyt_eq:.2e} mmol/L")
+st.sidebar.text(f"O2 eq: {O2_eq:.2e} mmol/L")
 st.markdown("***Hornstein E. and Mikaelyan A., in prep.***")
