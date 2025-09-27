@@ -72,8 +72,8 @@ Vmax_ref = st.sidebar.slider("Vmax_ref (mmol/L/s)", 0.001, 0.1, 0.01, step=0.001
 Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.00001, 0.005, 0.005, step=0.00001)  # Values and ranges based on Baani and Liesack (2008), and Schmider et al. (2024).
 
 st.sidebar.header("Biomass Settings")
+cytosol_fraction = st.sidebar.slider("Cytosol Fraction (%)", 1, 100, 5) / 100  # Convert percentage to fraction
 cellular_material = st.sidebar.slider("Cellular Material (g/L)", 0.1, 200.0, 1.0)
-cytosol_fraction = 0.05
 baseline_cell_density = 10
 active_volume = cellular_material * cytosol_fraction
 scaling_factor = active_volume / baseline_cell_density
@@ -88,7 +88,7 @@ elif Vmax_ref <= 0:
 elif k_L_CH4 <= 0 or k_L_O2 <= 0:
     error_message = "Invalid input: Mass transfer coefficients (k_L) must be greater than 0."
 elif cellular_material <= 0:
-    error_message = "Invalid input: Cellular material must be greater than 0."
+    error_message = "Increased cytosol fraction must be accompanied by increased cellular material."
 elif O2_atm <= 0:
     error_message = "Invalid input: Atmospheric O₂ must be greater than 0."
 elif C_atm <= 0:
@@ -188,7 +188,7 @@ if st.button("Run Sensitivity Analysis"):
         local_Pi = Pi if selected_param != "Pi" else val
         local_g_s = g_s if selected_param != "g_s" else val
         local_k_L_CH4 = k_L_CH4 if selected_param != "k_L_CH4" else val
-        local_k_L_O2 = k_L_O2 if selected_param != "k_L_O2" else val
+        local_k_t_L_O2 = k_L_O2 if selected_param != "k_L_O2" else val
         local_cellular_material = cellular_material if selected_param != "cellular_material" else val
         local_scaling_factor = (local_cellular_material * cytosol_fraction) / baseline_cell_density
         local_C_atm = C_atm if selected_param != "C_atm" else val
@@ -243,7 +243,6 @@ st.markdown(f"""
 - **beta**: 0.01 (Osmolarity factor for Henry's constants)
 - **Km_O2**: 0.001 mmol/L (Michaelis constant for O2)
 - **O2_prod**: 0.005 mmol/L/s (Photosynthetic O2 production rate, if enabled)
-- **cytosol_fraction**: 0.05 (Fraction of cell volume that is cytosol)
 - **baseline_cell_density**: 10 g/L (Baseline cell density for scaling)
 - **V_cell**: 1e-15 L (Typical plant cell volume, currently unused)
 """)
