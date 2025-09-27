@@ -16,7 +16,7 @@ growing_days = st.sidebar.slider("Growing Days per Year", 150, 300, 200)
 total_adoption = st.sidebar.slider("Total Adoption Area (ha)", 1e5, 5e9, 1e6)
 optimization_factor = st.sidebar.slider("Nutrient/Temp Optimization Factor", 1.0, 1.5, 1.2)  # 20% boost
 co2_factor = st.sidebar.slider("CO2 Synergy Factor", 1.0, 1.3, 1.1)  # 10-30% biomass increase
-symbiotic_efficiency = st.sidebar.slider("Symbiotic Integration Efficiency", 1.0, 1.5, 1.2)  # 20% boost
+# symbiotic_efficiency = st.sidebar.slider("Symbiotic Integration Efficiency", 1.0, 1.5, 1.2)  # 20% boost
 canopy_multiplier = st.sidebar.slider("Multi-layer Canopy Multiplier", 1.0, 5.0, 2.0)  # 2-5x biomass
 
 # Constants
@@ -33,7 +33,7 @@ for B in biomass_range:
     # Calculate per-plant oxidation rate
     output1 = ox_rate * (active_density / 100) * effective_biomass * cytosol_fraction * (stomatal_open * 3600) * g_per_mmol
     # Scale by plant density, optimization, and symbiotic efficiency
-    output2 = output1 * plant_density * optimization_factor * symbiotic_efficiency
+    output2 = output1 * plant_density * optimization_factor #* symbiotic_efficiency
     # Annual impact in tonnes
     output3 = output2 * growing_days * total_adoption * 10  # 10 = 10,000 m²/ha * 1e-6 tonnes/g * 1000 g/kg
     impact_output3.append(output3)
