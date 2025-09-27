@@ -78,8 +78,8 @@ st.title("Methane Oxidation Model (with Optional Photosynthetic O₂)")
 st.sidebar.header("Atmosphere & Gas Transfer")
 C_atm = st.sidebar.slider("Atmospheric CH₄ (ppm)", 0.1, 10.0, 1.8)
 O2_atm = st.sidebar.slider("Atmospheric O₂ (%)",   1.0, 25.0, 21.0)
-g_s    = st.sidebar.slider("Stomatal Conductance (mol/m²/s)", 0.05, 2.0, 0.2)
-k_L_CH4 = st.sidebar.slider("CH₄ Mass Transfer Coefficient (1/s)", 0.0001, 0.1, 0.05) # Increased from 0.01 to 0.05 to match Model 1
+g_s = st.sidebar.slider("Stomatal Conductance (mol/m²/s)", 0.05, 2.0, 0.5) # Increased default to 0.5
+k_L_CH4 = st.sidebar.slider("CH₄ Mass Transfer Coefficient (1/s)", 0.0001, 0.1, 0.1) # Increased from 0.01 to 0.05 to match Model 1
 # Source for k_L: Plant gas exchange models, e.g., Defraeye et al. (2014): https://www.sciencedirect.com/science/article/pii/S0017931013004372
 k_L_O2  = st.sidebar.slider("O₂ Mass Transfer Coefficient (1/s)",  0.0001, 0.1, 0.03)
 
@@ -92,7 +92,7 @@ st.sidebar.header("Enzyme Parameters")
 expression_percent = st.sidebar.slider("pMMO Expression (% of total cell protein)", 0.1, 20.0, 1.0, step=0.1)
 baseline_vmax_at_10_percent = 0.01 # mmol/L/s at 10% expression, from Schmider et al. (2024); https://www.nature.com/articles/s41467-024-48197-1; increased from 0.001 to Semrau's values of 130 nmol/L/s to match Model 1 
 Vmax_ref = baseline_vmax_at_10_percent * (expression_percent / 10.0)
-Km_ref   = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.0, 0.005, 5e-5, step=1e-5)
+Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.0, 0.005, 0.00005, step=1e-5) # Lowered default to 0.00005
 
 st.sidebar.header("Biomass Settings")
 cellular_material   = st.sidebar.slider("Cellular Material (g/L)", 0.1, 200.0, 1.0)
@@ -280,7 +280,7 @@ st.markdown(f"""
 - **Km_O2**: 0.001 mmol/L (Michaelis constant for O2)  
 - **O2_prod**: 0.005 mmol/L/s (Photosynthetic O2 production rate, if enabled)  
 - **cytosol_fraction**: 0.03 (Fraction of cell volume that is cytosol)  
-- **baseline_vmax_at_10_percent**: 0.001 mmol/L/s (Baseline Vmax at 10% expression)  
+- **baseline_vmax_at_10_percent**: 0.01 mmol/L/s (Baseline Vmax at 10% expression)  
 - **baseline_cell_density**: 10 g/L (Baseline cell density for scaling)  
 - **V_cell**: 1e-15 L (Typical plant cell volume, currently unused)  
 """)
