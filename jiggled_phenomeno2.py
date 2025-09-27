@@ -97,7 +97,7 @@ Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.0, 0.005, 0.00
 st.sidebar.header("Biomass Settings")
 cellular_material   = st.sidebar.slider("Cellular Material (g/L)", 0.1, 200.0, 1.0)
 baseline_cell_density = 10
-cytosol_fraction    = 0.03  # 3% of cell volume
+cytosol_fraction    = 0.05  # 3% of cell volume is recommended, but trying 5%
 active_volume       = cellular_material * cytosol_fraction
 scaling_factor      = active_volume / baseline_cell_density
 V_cell = 1e-15  # L (currently unused)
