@@ -68,7 +68,9 @@ Pi = st.sidebar.slider("Cytosolic Osmolarity (%)", 0, 100, 50)
 photosynthesis_on = st.sidebar.checkbox("Photosynthetic O₂ Production", value=True)
 
 st.sidebar.header("Enzyme Parameters")
-Vmax_ref = st.sidebar.slider("Vmax_ref (mmol/L/s)", 0.001, 0.1, 0.01, step=0.001)  # Values and ranges based on Baani and Liesack (2008), and Schmider et al. (2024). Conversion from per-cell to per-liter assuming methanotroph cell volume of ~1 fL.
+expression_percent = st.sidebar.slider("pMMO Expression (% of total protein)", 0.1, 20.0, 1.0, step=0.1)
+baseline_vmax_at_10_percent = 0.01  # mmol/L/s; reference Vmax at 10% expression from Schmider et al. (2024)
+Vmax_ref = baseline_vmax_at_10_percent * (expression_percent / 10.0)  # Values and ranges based on Baani and Liesack (2008), and Schmider et al. (2024). Conversion from per-cell to per-liter assuming methanotroph cell volume of ~1 fL.
 Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.00001, 0.005, 0.005, step=0.00001)  # Values and ranges based on Baani and Liesack (2008), and Schmider et al. (2024).
 
 st.sidebar.header("Biomass Settings")
@@ -164,7 +166,7 @@ with col2:
 st.subheader("Sensitivity Analysis")
 param_options = {
     "T": {"label": "Temperature (°C)", "range": np.linspace(5, 45, 20)},
-    "Vmax_ref": {"label": "Vmax_ref (mmol/L/s)", "range": np.linspace(0.001, 0.1, 20)},
+    "expression_percent": {"label": "pMMO Expression (% of total protein)", "range": np.linspace(0.1, 20.0, 20)},
     "Km_ref": {"label": "Km_ref (mmol/L)", "range": np.linspace(1e-6, 0.1, 20)},
     "Pi": {"label": "Cytosolic Osmolarity (%)", "range": np.linspace(0, 100, 20)},
     "g_s": {"label": "Stomatal Conductance (mol/m²/s)", "range": np.linspace(0.05, 2.0, 20)},
@@ -183,12 +185,13 @@ if st.button("Run Sensitivity Analysis"):
     results = []
     for val in param_range:
         local_T = T if selected_param != "T" else val
-        local_Vmax_ref = Vmax_ref if selected_param != "Vmax_ref" else val
+        local_expression_percent = expression_percent if selected_param != "expression_percent" else val
+        local_Vmax_ref = baseline_vmax_at_10_percent * (local_expression_percent / 10.0) if selected_param == "expression_percent" else Vmax_ref
         local_Km_ref = Km_ref if selected_param != "Km_ref" else val
         local_Pi = Pi if selected_param != "Pi" else val
         local_g_s = g_s if selected_param != "g_s" else val
         local_k_L_CH4 = k_L_CH4 if selected_param != "k_L_CH4" else val
-        local_k_t_L_O2 = k_L_O2 if selected_param != "k_L_O2" else val
+        local_k_L_O2 = k_L_O2 if selected_param != "k_L_O2" else val
         local_cellular_material = cellular_material if selected_param != "cellular_material" else val
         local_scaling_factor = (local_cellular_material * cytosol_fraction) / baseline_cell_density
         local_C_atm = C_atm if selected_param != "C_atm" else val
