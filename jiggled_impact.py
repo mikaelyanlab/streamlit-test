@@ -7,7 +7,7 @@ st.title("Methane Oxidation Impact Model")
 st.sidebar.header("Adjust Parameters")
 
 # Sliders for parameters
-ox_rate = st.sidebar.slider("Instantaneous CH₄ Oxidation Rate (mmol/L/s)", 0.0000001, 0.00001, 0.000001)
+ox_rate = st.sidebar.slider("Instantaneous CH₄ Oxidation Rate (mmol/L/s)", 1e-8, 1e-4, 1e-6, step=1e-8)
 active_density = st.sidebar.slider("Active Cellular Density (%)", 10, 100, 50)  # Increased via genetic enhancements
 plant_density = st.sidebar.slider("Plant Density (plants/m²)", 1.0, 10.0, 5.0)  # Realistic crop range
 stomatal_open = st.sidebar.slider("Stomatal Opening Period (hours/day)", 8.0, 16.0, 12.0)
