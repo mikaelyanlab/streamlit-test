@@ -69,7 +69,7 @@ photosynthesis_on = st.sidebar.checkbox("Photosynthetic O₂ Production", value=
 
 st.sidebar.header("Enzyme Parameters")
 Vmax_ref = st.sidebar.slider("Vmax_ref (mmol/L/s)", 0.001, 0.1, 0.01, step=0.001)
-Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 1e-6, 0.005, 1e-6, step=1e-7)
+Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.001, 0.005, 0.001, step=0.00001)
 
 st.sidebar.header("Biomass Settings")
 cellular_material = st.sidebar.slider("Cellular Material (g/L)", 0.1, 200.0, 1.0)
