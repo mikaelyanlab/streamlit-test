@@ -35,6 +35,7 @@ def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
     k_MeOH = k_MeOH_ref * np.exp(-E_a_MeOH / R * (1/T_K - 1/T_ref))
 
     # Henry’s constants with temperature and osmolarity adjustments
+    # Alpha and beta are empirical; osmolarity effects from Sander (2015)                    
     alpha, beta = 0.02, 0.01
     H_CH4 = H_0_CH4 * np.exp(-alpha * (T - 25)) * (1 - beta * Pi)
     H_O2  = H_0_O2  * np.exp(-alpha * (T - 25)) * (1 - beta * Pi)
@@ -52,13 +53,15 @@ def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
     J_CH4 = k_L_CH4 * g_s_scale * (C_cyt_eq - C_cyt)
     J_O2  = k_L_O2  * g_s_scale * (O2_eq    - O2_cyt)
 
-    # MMO activity (bi–substrate Michaelis–Menten)
-    # Km_O2 ~1–2 µM (0.001–0.002 mmol/L); Semrau et al. (2010)
+    # MMO activity
+    # Km_O2 from literature on pMMO: ~1-2 µM (0.001-0.002 mmol/L)
+    # Source: Semrau et al. (2010): https://www.pnas.org/doi/10.1073/pnas.0702643105
     Km_O2 = 0.001  # mmol/L
     V_MMO = Vmax * (C_cyt / (Km_T + C_cyt)) * (O2_cyt / (Km_O2 + O2_cyt))
 
-    # Optional photosynthetic O2 production (mmol/L/s)
-    # Leaf-level 10–30 µmol m^-2 s^-1 ~ 0.001–0.01 mmol/L/s (200 µm)
+    # Optional photosynthetic O₂ production
+    # Volumetric rate ~0.001-0.01 mmol/L/s based on leaf rates (10-30 µmol/m²/s, ~200 µm thickness)
+    # Source: Flexas et al. (2018): https://academic.oup.com/pcp/article/59/6/1072/5026149
     O2_prod = 0.005 if photosynthesis_on else 0.0
 
     # ODEs
@@ -77,6 +80,7 @@ C_atm = st.sidebar.slider("Atmospheric CH₄ (ppm)", 0.1, 10.0, 1.8)
 O2_atm = st.sidebar.slider("Atmospheric O₂ (%)",   1.0, 25.0, 21.0)
 g_s    = st.sidebar.slider("Stomatal Conductance (mol/m²/s)", 0.05, 2.0, 0.2)
 k_L_CH4 = st.sidebar.slider("CH₄ Mass Transfer Coefficient (1/s)", 0.0001, 0.1, 0.01)
+# Source for k_L: Plant gas exchange models, e.g., Defraeye et al. (2014): https://www.sciencedirect.com/science/article/pii/S0017931013004372
 k_L_O2  = st.sidebar.slider("O₂ Mass Transfer Coefficient (1/s)",  0.0001, 0.1, 0.03)
 
 st.sidebar.header("Cellular Environment")
@@ -86,7 +90,7 @@ photosynthesis_on = st.sidebar.checkbox("Photosynthetic O₂ Production", value=
 
 st.sidebar.header("Enzyme Parameters")
 expression_percent = st.sidebar.slider("pMMO Expression (% of total cell protein)", 0.1, 20.0, 1.0, step=0.1)
-baseline_vmax_at_10_percent = 0.001 # mmol/L/s at 10% expression, from Schmider et al. (2024)
+baseline_vmax_at_10_percent = 0.001 # mmol/L/s at 10% expression, from Schmider et al. (2024); https://www.nature.com/articles/s41467-024-48197-1
 Vmax_ref = baseline_vmax_at_10_percent * (expression_percent / 10.0)
 Km_ref   = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.0, 0.005, 5e-5, step=1e-5)
 
@@ -121,7 +125,7 @@ if error_message:
     st.stop()
 
 # Time and initial conditions
-time = np.linspace(0, 100, 5000)
+time = np.linspace(0, 1000, 5000)
 O2_init = H_0_O2 * np.exp(-0.02 * (T - 25)) * (1 - 0.01 * Pi) * (O2_atm / 100.0)
 C0 = [0.0001, 0.0001, O2_init]
 
