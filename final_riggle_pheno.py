@@ -274,11 +274,11 @@ if st.button("Run Sensitivity Analysis"):
     colorbar=dict(title="Normalized Rate")
 ))
 
-fig_heatmap.update_layout(
+    fig_heatmap.update_layout(
     title="Sensitivity Heatmap Across Parameters",
-    xaxis_title="Parameter Sweep (Percentile)",
-    yaxis_title="Parameter",
-    xaxis=dict(
+      xaxis_title="Parameter Sweep (Percentile)",
+      yaxis_title="Parameter",
+      xaxis=dict(
         tickmode='array',
         tickvals=[0, 25, 50, 75, 100],
         ticktext=["0%", "25%", "50%", "75%", "100%"]
