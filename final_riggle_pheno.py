@@ -267,22 +267,23 @@ if st.button("Run Sensitivity Analysis"):
         heatmap_matrix = heatmap_matrix[:, :20]  # Truncate or pad to 20 if needed
     # Heatmap plot
     fig_heatmap = go.Figure(data=go.Heatmap(
-        z=heatmap_matrix,
-        x=[f"{i*5}%" for i in range(20)],  # 0% to 95% in 5% steps
-        y=list(param_options.keys())[::-1],
-        colorscale='Plasma',
-        colorbar=dict(title="Normalized Rate")
-    ))
-    fig_heatmap.update_layout(
-        title="Sensitivity Heatmap Across Parameters",
-        xaxis_title="Parameter Sweep (Percentile)",
-        yaxis_title="Parameter",
-        xaxis=dict(
-            tickmode='array',
-            tickvals=[i * 5 for i in range(0, 20, 5)],  # 0, 5, 10, ..., 95
-            ticktext=["0%", "25%", "50%", "75%", "100%"]  # Map to 0-100% percentiles
-        )
+    z=heatmap_matrix,
+    x=np.linspace(0, 100, heatmap_matrix.shape[1]),  # numeric 0–100
+    y=list(param_options.keys())[::-1],
+    colorscale='Plasma',
+    colorbar=dict(title="Normalized Rate")
+))
+
+fig_heatmap.update_layout(
+    title="Sensitivity Heatmap Across Parameters",
+    xaxis_title="Parameter Sweep (Percentile)",
+    yaxis_title="Parameter",
+    xaxis=dict(
+        tickmode='array',
+        tickvals=[0, 25, 50, 75, 100],
+        ticktext=["0%", "25%", "50%", "75%", "100%"]
     )
+)
     st.plotly_chart(fig_heatmap)
 
 # Model Constants and Equations
