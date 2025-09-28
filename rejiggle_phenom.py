@@ -20,7 +20,7 @@ baseline_cell_density = 10  # g/L; implicit baseline biomass density
 
 # --- ODE System ---
 def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
-                     k_L_CH4, k_L_O2, V_cell, scaling_factor, photosynthesis_on):
+                     k_L_CH4, k_L_O2, V_cell, scaling_factor, photosynthesis_on, expression_percent):
     C_cyt, CH3OH, O2_cyt = C
     T_K = T + 273.15
     # Vmax and Km adjustments
@@ -63,21 +63,18 @@ O2_atm = st.sidebar.slider("Atmospheric O₂ (%)", 1.0, 25.0, 21.0)
 g_s = st.sidebar.slider("Stomatal Conductance (mol/m²/s)", 0.05, 2.0, 0.5)
 k_L_CH4 = st.sidebar.slider("CH₄ Mass Transfer Coefficient (1/s)", 0.0001, 0.1, 0.1)
 k_L_O2 = st.sidebar.slider("O₂ Mass Transfer Coefficient (1/s)", 0.0001, 0.1, 0.03)
-
 st.sidebar.header("Cellular Environment")
 T = st.sidebar.slider("Temperature (°C)", 5, 45, 25)
 Pi = st.sidebar.slider("Cytosolic Osmolarity (%)", 0, 100, 50)
 photosynthesis_on = st.sidebar.checkbox("Photosynthetic O₂ Production", value=True)
-
 st.sidebar.header("Enzyme Parameters")
-expression_percent = st.sidebar.slider("pMMO Expression (% of total protein)", 0.1, 20.0, 1.0, step=0.1)  # Indicates pMMO protein fraction, not currently linked to Vmax_ref
-Vmax_ref = st.sidebar.slider("Vmax_ref (mmol/L/s)", 0.001, 0.1, 0.01, step=0.001)  # Base maximum rate from Baani and Liesack (2008) and Schmider et al. (2024). Conversion from per-cell to per-liter assuming methanotroph cell volume of ~1 fL.
-Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.00001, 0.005, 0.005, step=0.00001)  # Values and ranges based on Baani and Liesack (2008) and Schmider et al. (2024).
-
+expression_percent = st.sidebar.slider("pMMO Expression (% of total protein)", 0.1, 20.0, 1.0, step=0.1)
+Vmax_ref = st.sidebar.slider("Vmax_ref (mmol/L/s)", 0.001, 0.1, 0.01, step=0.001)
+Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.00001, 0.005, 0.005, step=0.00001)
 st.sidebar.header("Biomass Settings")
-cytosol_fraction = st.sidebar.slider("Cytosol Fraction (% of cell volume)", 1, 100, 5) / 100  # Percent of total cell volume that is cytosol
-active_volume = V_cell * cytosol_fraction  # L of active cytosol per cell, scaled per liter
-scaling_factor = cytosol_fraction  # Fraction of cell volume that is active cytosol
+cytosol_fraction = st.sidebar.slider("Cytosol Fraction (% of cell volume)", 1, 100, 5) / 100
+active_volume = V_cell * cytosol_fraction
+scaling_factor = cytosol_fraction
 
 # Input validation
 error_message = None
@@ -107,7 +104,7 @@ C0 = [0.0001, 0.0001, O2_init]
 # Solve ODEs
 def wrapped_ode(t, C):
     return methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
-                            k_L_CH4, k_L_O2, V_cell, scaling_factor, photosynthesis_on)
+                            k_L_CH4, k_L_O2, V_cell, scaling_factor, photosynthesis_on, expression_percent)
 sol_ivp = solve_ivp(
     fun=wrapped_ode,
     t_span=(time[0], time[-1]),
@@ -133,12 +130,11 @@ for r in (1, 2, 3):
 # Final MMO rate (for gauge)
 C_cyt_final = sol[-1, 0]
 Km_T = Km_ref * (1 + 0.02 * (T - 25))
-Vmax_T = Vmax_ref * scaling_factor * np.exp(-E_a / R * (1/(T + 273.15) - 1/T_ref))
+Vmax_T = Vmax_ref * (expression_percent / 100) * scaling_factor * np.exp(-E_a / R * (1/(T + 273.15) - 1/T_ref))
 Vmax_osm = Vmax_T * np.exp(-0.02 * (Pi / 100))
 O2_cyt_final = sol[-1, 2]
 Km_O2 = 0.001
 V_MMO_final = Vmax_osm * (C_cyt_final / (Km_T + C_cyt_final)) * (O2_cyt_final / (Km_O2 + O2_cyt_final))
-
 fig_gauge = go.Figure(go.Indicator(
     mode="gauge+number",
     value=V_MMO_final,
@@ -151,7 +147,6 @@ fig_gauge = go.Figure(go.Indicator(
         'threshold': {'line': {'color': "black", 'width': 4}, 'value': V_MMO_final}
     }
 ))
-
 col1, col2 = st.columns(2)
 with col1:
     st.plotly_chart(fig_plots, use_container_width=True)
@@ -172,7 +167,6 @@ param_options = {
     "C_atm": {"label": "Atmospheric CH₄ (ppm)", "range": np.linspace(0.1, 10.0, 20)},
     "O2_atm": {"label": "Atmospheric O₂ (%)", "range": np.linspace(1.0, 25.0, 20)},
 }
-
 selected_param = st.selectbox("Select Parameter to Sweep", list(param_options.keys()),
                               format_func=lambda k: param_options[k]["label"])
 if st.button("Run Sensitivity Analysis"):
@@ -196,7 +190,7 @@ if st.button("Run Sensitivity Analysis"):
         sol_local = solve_ivp(
             fun=lambda t, C: methane_oxidation(
                 C, t, local_C_atm, local_O2_atm, local_g_s, local_Vmax_ref, local_Km_ref,
-                local_Pi, local_T, local_k_L_CH4, local_k_L_O2, V_cell, local_scaling_factor, photosynthesis_on
+                local_Pi, local_T, local_k_L_CH4, local_k_L_O2, V_cell, local_scaling_factor, photosynthesis_on, local_expression_percent
             ),
             t_span=(time[0], time[-1]),
             y0=local_C0,
@@ -207,7 +201,7 @@ if st.button("Run Sensitivity Analysis"):
         ).y.T
         local_C_cyt_final = sol_local[-1, 0]
         local_Km_T = local_Km_ref * (1 + 0.02 * (local_T - 25))
-        local_Vmax_T = local_Vmax_ref * local_scaling_factor * np.exp(-E_a / R * (1/(local_T + 273.15) - 1/T_ref))
+        local_Vmax_T = local_Vmax_ref * (local_expression_percent / 100) * local_scaling_factor * np.exp(-E_a / R * (1/(local_T + 273.15) - 1/T_ref))
         local_Vmax_osm = local_Vmax_T * np.exp(-0.02 * (local_Pi / 100))
         local_O2_cyt_final = sol_local[-1, 2]
         Km_O2_local = 0.001
