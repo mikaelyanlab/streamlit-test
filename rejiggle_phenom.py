@@ -212,4 +212,57 @@ if st.button("Run Sensitivity Analysis"):
         ).y.T
         local_C_cyt_final = sol_local[-1, 0]
         local_Km_T = local_Km_ref * (1 + 0.02 * (local_T - 25))
-        local_Vmax_T = local_Vmax_ref * local_scaling_factor * np.exp(-E_a
+        local_Vmax_T = local_Vmax_ref * local_scaling_factor * np.exp(-E_a / R * (1/(local_T + 273.15) - 1/T_ref))
+        local_Vmax_osm = local_Vmax_T * np.exp(-0.02 * (local_Pi / 100))
+        local_O2_cyt_final = sol_local[-1, 2]
+        Km_O2_local = 0.001
+        local_V_MMO_final = local_Vmax_osm * (local_C_cyt_final / (local_Km_T + local_C_cyt_final)) * \
+                            (local_O2_cyt_final / (Km_O2_local + local_O2_cyt_final))
+        results.append((val, local_V_MMO_final))
+    df = pd.DataFrame(results, columns=[param_info["label"], "Final CH₄ Oxidation Rate (mmol/L/s)"])
+    fig_sa = go.Figure()
+    fig_sa.add_trace(go.Scatter(x=df[param_info["label"]],
+                                y=df["Final CH₄ Oxidation Rate (mmol/L/s)"],
+                                mode="lines+markers"))
+    fig_sa.update_layout(title=f"Sensitivity: {param_info['label']} vs. Final CH₄ Oxidation Rate",
+                         xaxis_title=param_info["label"], yaxis_title="mmol/L/s")
+    st.plotly_chart(fig_sa)
+    csv = df.to_csv(index=False).encode("utf-8")
+    st.download_button("Download CSV", csv, "sensitivity_analysis.csv", "text/csv")
+
+# Model Constants and Equations
+st.header("Model Constants and Equations")
+st.subheader("Constants")
+st.markdown(f"""
+- **E_a**: 50,000 J/mol (Activation energy for MMO)
+- **E_a_MeOH**: 45,000 J/mol (Activation energy for methanol oxidation)
+- **R**: 8.314 J/mol/K (Gas constant)
+- **T_ref**: 298.15 K (Reference temperature)
+- **k_MeOH_ref**: 0.00011 1/s (Methanol oxidation rate at 25°C)
+- **H_0_CH4**: 1.4 mmol/L/atm (Henry's constant for CH4 at 25°C)
+- **H_0_O2**: 1.3 mmol/L/atm (Henry's constant for O2 at 25°C)
+- **g_s_ref**: {g_s_ref} mol/m²/s (Reference stomatal conductance for flux scaling)
+- **alpha**: 0.02 (Temperature factor for Henry's constants)
+- **beta**: 0.01 (Osmolarity factor for Henry's constants)
+- **Km_O2**: 0.001 mmol/L (Michaelis constant for O2)
+- **O2_prod**: 0.005 mmol/L/s (Photosynthetic O2 production rate, if enabled)
+- **baseline_cell_density**: 10 g/L (Baseline cell density for scaling)
+- **V_cell**: 1e-15 L (Typical plant cell volume, currently unused)
+""")
+st.subheader("Key Equations")
+st.latex(r"Vmax_T = Vmax_{ref} \times scaling\_factor \times \exp\left(-\frac{E_a}{R}\left(\frac{1}{T_K}-\frac{1}{T_{ref}}\right)\right)")
+st.latex(r"Vmax = Vmax_T \times \exp(-0.02 \times (Pi / 100))")
+st.latex(r"Km_T = Km_{ref} \times (1 + 0.02 \times (T - 25))")
+st.latex(r"H = H_0 \times \exp(-\alpha (T - 25)) \times (1 - \beta \, Pi)")
+st.latex(r"P_{CH4} = C_{atm}/10^6, \quad P_{O2} = O2_{atm}/100")
+st.latex(r"C_{eq} = H \times P")
+st.latex(r"J = k_L \times \left(\frac{g_s}{g_{s,ref}}\right) \times (C_{eq} - C)")
+st.latex(r"V_{MMO} = Vmax \times \frac{C_{cyt}}{Km_T + C_{cyt}} \times \frac{O2_{cyt}}{Km_{O2} + O2_{cyt}}")
+st.latex(r"\frac{dC_{cyt}}{dt} = J_{CH4} - V_{MMO}")
+st.latex(r"\frac{dCH3OH}{dt} = V_{MMO} - k_{MeOH} \times CH3OH")
+st.latex(r"\frac{dO2_{cyt}}{dt} = J_{O2} - V_{MMO} + O2_{prod}")
+
+# Debug output
+k_MeOH_scaled = k_MeOH_ref * np.exp(-E_a_MeOH / R * (1/(T + 273.15) - 1/T_ref))
+st.sidebar.text(f"Temp-Adjusted k_MeOH: {k_MeOH_scaled:.6g} 1/s")
+st.markdown("***Hornstein E. and Mikaelyan A., in prep.***")
