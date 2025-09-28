@@ -1,6 +1,4 @@
-how does this edit look:
-
-"import streamlit as st
+import streamlit as st
 import numpy as np
 from scipy.integrate import solve_ivp
 import plotly.graph_objects as go
@@ -254,4 +252,4 @@ st.latex(r"\frac{dO2_{cyt}}{dt} = J_{O2} - V_{MMO} + O2_{prod}")
 # Debug output
 k_MeOH_scaled = k_MeOH_ref * np.exp(-E_a_MeOH / R * (1/(T + 273.15) - 1/T_ref))
 st.sidebar.text(f"Temp-Adjusted k_MeOH: {k_MeOH_scaled:.6g} 1/s")
-st.markdown("***Hornstein E. and Mikaelyan A., in prep.***")"
+st.markdown("***Hornstein E. and Mikaelyan A., in prep.***")
