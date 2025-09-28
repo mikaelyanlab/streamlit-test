@@ -231,7 +231,7 @@ x_vals = np.linspace(0, 100, heatmap_matrix.shape[1])
       colorscale="Plasma",
       colorbar=dict(title="Normalized Rate"),
       zsmooth=False
-))
+  ))
   fig_heatmap.update_layout(
       title="Sensitivity Heatmap Across Parameters",
       xaxis_title="Parameter Sweep (Percentile)",
@@ -240,7 +240,7 @@ x_vals = np.linspace(0, 100, heatmap_matrix.shape[1])
           tickmode="array",
           tickvals=[x_vals[0], x_vals[-1]],
           ticktext=["0%", "100%"]
-      )
+                )
   )
 
   st.plotly_chart(fig_heatmap)
