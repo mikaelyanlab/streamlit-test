@@ -46,12 +46,18 @@ def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
     Km_O2 = 0.001  # mmol/L
     V_MMO = Vmax * (C_cyt / (Km_T + C_cyt)) * (O2_cyt / (Km_O2 + O2_cyt))
     # Optional photosynthetic O₂ production
-    O2_prod = 0.005 if photosynthesis_on else 0.0
-    # ODEs
+    # Optional photosynthetic O₂ production with saturation safeguard
+    O2_eq = H_O2 * P_O2  # already computed
+    if photosynthesis_on and O2_cyt < O2_eq:
+        O2_prod_eff = 0.005
+    else:
+        O2_prod_eff = 0.0
+    
+# ODEs
     dC_cyt_dt = J_CH4 - V_MMO
     dCH3OH_dt = V_MMO - k_MeOH * CH3OH
-    dO2_dt = J_O2 - V_MMO + O2_prod
-    return [dC_cyt_dt, dCH3OH_dt, dO2_dt]
+    dO2_dt = J_O2 - V_MMO + O2_prod_eff
+return [dC_cyt_dt, dCH3OH_dt, dO2_dt]
 
 # --- UI ---
 st.title("Methane Oxidation Model (with Optional Photosynthetic O₂)")
