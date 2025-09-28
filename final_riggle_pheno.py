@@ -243,7 +243,7 @@ fig_heatmap.update_layout(
                 )
   )
 
-  st.plotly_chart(fig_heatmap)
+st.plotly_chart(fig_heatmap)
 
 # Model Constants and Equations
 st.header("Model Constants and Equations")
