@@ -70,7 +70,7 @@ photosynthesis_on = st.sidebar.checkbox("Photosynthetic O₂ Production", value=
 
 st.sidebar.header("Enzyme Parameters")
 expression_percent = st.sidebar.slider("pMMO Expression (% of total protein)", 0.1, 20.0, 1.0, step=0.1)
-Vmax_ref = st.sidebar.slider("Vmax_ref (mmol/L/s)", 0.001, 0.1, 0.01, step=0.001)  # Values and ranges based on Baani and Liesack (2008) and Schmider et al. (2024). Conversion from per-cell to per-liter assuming methanotroph cell volume of ~1 fL.
+Vmax_ref = st.sidebar.slider("Vmax_ref (mmol/L/s)", 0.001, 0.5, 0.01, step=0.001)  # Values and ranges based on Baani and Liesack (2008) and Schmider et al. (2024). Conversion from per-cell to per-liter assuming methanotroph cell volume of ~1 fL.
 Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.00001, 0.005, 0.005, step=0.00001)  # Values and ranges based on Baani and Liesack (2008) and Schmider et al. (2024).
 
 st.sidebar.header("Biomass Settings")
