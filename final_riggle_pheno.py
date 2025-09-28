@@ -224,7 +224,7 @@ y_labels = [param_options[k]["label"] for k in param_options.keys()]
 heatmap_matrix = np.vstack([df_param["rate_norm"].to_numpy() for df_param in all_results])  # (n_params, 20)
 # x as numeric percentiles; show only 0% and 100% ticks
 x_vals = np.linspace(0, 100, heatmap_matrix.shape[1])
-  fig_heatmap = go.Figure(data=go.Heatmap(
+fig_heatmap = go.Figure(data=go.Heatmap(
       z=heatmap_matrix,
       x=x_vals,
       y=y_labels,
@@ -232,7 +232,7 @@ x_vals = np.linspace(0, 100, heatmap_matrix.shape[1])
       colorbar=dict(title="Normalized Rate"),
       zsmooth=False
   ))
-  fig_heatmap.update_layout(
+fig_heatmap.update_layout(
       title="Sensitivity Heatmap Across Parameters",
       xaxis_title="Parameter Sweep (Percentile)",
       yaxis_title="Parameter",
