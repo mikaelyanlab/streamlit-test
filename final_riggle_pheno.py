@@ -114,13 +114,26 @@ fig_plots.add_trace(go.Scatter(x=time, y=sol[:, 2], mode='lines', name="O₂"), 
 fig_plots.update_layout(height=800, title_text="Cytosolic Dynamics", showlegend=False)
 fig_plots.update_xaxes(title_text="Time (s)", row=3, col=1)
 
+# Final MMO rate gauge (bulk-scaled)
 fig_gauge = go.Figure(go.Indicator(
     mode="gauge+number",
     value=V_MMO_bulk,
     number={'suffix': " mmol/L_bulk/s", 'valueformat': '.3g'},
     title={'text': "Final CH₄ Oxidation Rate (bulk-scaled)"},
-    gauge={'axis': {'range': [0, 1e-6]}, 'bar': {'color': "#ffcc00"}}
+    gauge={
+        'axis': {'range': [0, 1e-6]},
+        'bar': {'color': "#ffcc00"},
+        'steps': [
+            {'range': [i*1e-7, (i+1)*1e-7], 
+             'color': f"rgba(255,0,0,{0.1 + 0.1*i})"} for i in range(10)
+        ],
+        'threshold': {
+            'line': {'color': "black", 'width': 4},
+            'value': V_MMO_bulk
+        }
+    }
 ))
+
 
 col1, col2 = st.columns(2)
 with col1:
