@@ -69,7 +69,7 @@ Pi = st.sidebar.slider("Cytosolic Osmolarity (%)", 0, 100, 50)
 photosynthesis_on = st.sidebar.checkbox("Photosynthetic O₂ Production", value=True)
 st.sidebar.header("Enzyme Parameters")
 expression_percent = st.sidebar.slider("pMMO Expression (% of total protein)", 0.1, 20.0, 1.0, step=0.1)
-Vmax_ref = st.sidebar.slider("Vmax_ref (mmol·L_cyt⁻¹·s⁻¹)", 0.001, 0.1, 0.01, step=0.001)
+Vmax_ref = st.sidebar.slider("Vmax_ref (mmol·L_cyt⁻¹·s⁻¹)", 0.001, 0.5, 0.01, step=0.001)
 Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.00001, 0.005, 0.005, step=0.00001)
 
 # Input validation
