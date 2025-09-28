@@ -261,17 +261,17 @@ if st.button("Run Sensitivity Analysis"):
                                 (df_param['rate'].max() - df_param['rate'].min())
         all_results.append(df_param)
     # Create heatmap matrix
-  # Create x-values as evenly spaced percentiles (0–100)
-x_vals = np.linspace(0, 100, heatmap_matrix.shape[1])
-fig_heatmap = go.Figure(data=go.Heatmap(
+    # Create x-values as evenly spaced percentiles (0–100)
+    x_vals = np.linspace(0, 100, heatmap_matrix.shape[1])
+    fig_heatmap = go.Figure(data=go.Heatmap(
     z=heatmap_matrix,
     x=x_vals,
     y=list(param_options.keys())[::-1],
     colorscale='Plasma',
     colorbar=dict(title="Normalized Rate")
-))
-# Match tick labels to actual positions in x_vals
-fig_heatmap.update_layout(
+    ))
+    # Match tick labels to actual positions in x_vals
+    fig_heatmap.update_layout(
     title="Sensitivity Heatmap Across Parameters",
     xaxis_title="Parameter Sweep (Percentile)",
     yaxis_title="Parameter",
