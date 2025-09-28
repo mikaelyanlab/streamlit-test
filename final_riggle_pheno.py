@@ -261,7 +261,7 @@ if st.button("Run Sensitivity Analysis"):
                                 (df_param['rate'].max() - df_param['rate'].min())
         all_results.append(df_param)
     # Create heatmap matrix
-    heatmap_matrix = np.array([df['rate_norm'].values for df in all_results]).T
+    heatmap_matrix = np.array([df['rate_norm'].values for df in all_results])
     x_vals = np.linspace(0, 100, heatmap_matrix.shape[1])
     fig_heatmap = go.Figure(data=go.Heatmap(
     z=heatmap_matrix,
