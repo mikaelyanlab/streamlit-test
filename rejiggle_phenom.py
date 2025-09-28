@@ -24,7 +24,7 @@ def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
     C_cyt, CH3OH, O2_cyt = C
     T_K = T + 273.15
     # Vmax and Km adjustments
-    Vmax_T = Vmax_ref * scaling_factor * np.exp(-E_a / R * (1/T_K - 1/T_ref))
+    Vmax_T = Vmax_ref * (expression_percent / 100) * scaling_factor * np.exp(-E_a / R * (1/T_K - 1/T_ref))
     Km_T = Km_ref * (1 + 0.02 * (T - 25))
     Vmax = Vmax_T * np.exp(-0.02 * (Pi / 100))
     k_MeOH = k_MeOH_ref * np.exp(-E_a_MeOH / R * (1/T_K - 1/T_ref))
