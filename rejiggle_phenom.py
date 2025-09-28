@@ -16,6 +16,7 @@ H_0_CH4 = 1.4  # mmol/L/atm for CH4 at 25°C
 H_0_O2 = 1.3  # mmol/L/atm for O2 at 25°C
 g_s_ref = 0.2  # mol/m²/s; reference stomatal conductance for scaling
 V_cell = 1e-15  # L; typical plant cell volume
+baseline_cell_density = 10  # g/L; implicit baseline biomass density
 
 # --- ODE System ---
 def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
@@ -70,16 +71,13 @@ photosynthesis_on = st.sidebar.checkbox("Photosynthetic O₂ Production", value=
 
 st.sidebar.header("Enzyme Parameters")
 expression_percent = st.sidebar.slider("pMMO Expression (% of total protein)", 0.1, 20.0, 1.0, step=0.1)
-Vmax_ref = st.sidebar.slider("Vmax_ref (mmol/L/s)", 0.001, 0.5, 0.01, step=0.001)  # Values and ranges based on Baani and Liesack (2008) and Schmider et al. (2024). Conversion from per-cell to per-liter assuming methanotroph cell volume of ~1 fL.
+Vmax_ref = st.sidebar.slider("Vmax_ref (mmol/L/s)", 0.001, 0.1, 0.01, step=0.001)  # Values and ranges based on Baani and Liesack (2008) and Schmider et al. (2024). Conversion from per-cell to per-liter assuming methanotroph cell volume of ~1 fL.
 Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.00001, 0.005, 0.005, step=0.00001)  # Values and ranges based on Baani and Liesack (2008) and Schmider et al. (2024).
 
 st.sidebar.header("Biomass Settings")
 cytosol_fraction = st.sidebar.slider("Cytosol Fraction (% of cell volume)", 1, 100, 5) / 100  # Percent of total cell volume that is cytosol
-cellular_material = st.sidebar.slider("Cellular Material (g/L)", 0.1, 200.0, 1.0)
-baseline_cell_density = 10  # g/L
-active_volume = V_cell * (cellular_material / baseline_cell_density) * cytosol_fraction  # L of active cytosol per L of solution
-scaling_factor = active_volume / (V_cell * (cellular_material / baseline_cell_density))  # Normalize to fraction of cell volume
-V_cell = 1e-15  # L; typical plant cell volume
+active_volume = V_cell * cytosol_fraction  # L of active cytosol per cell, scaled per liter
+scaling_factor = cytosol_fraction  # Fraction of cell volume that is active cytosol
 
 # Input validation
 error_message = None
@@ -89,8 +87,6 @@ elif Vmax_ref <= 0:
     error_message = "Invalid input: Vmax_ref must be greater than 0."
 elif k_L_CH4 <= 0 or k_L_O2 <= 0:
     error_message = "Invalid input: Mass transfer coefficients (k_L) must be greater than 0."
-elif cellular_material <= 0:
-    error_message = "Increased cytosol fraction must be accompanied by increased cellular material."
 elif O2_atm <= 0:
     error_message = "Invalid input: Atmospheric O₂ must be greater than 0."
 elif C_atm <= 0:
@@ -173,7 +169,6 @@ param_options = {
     "g_s": {"label": "Stomatal Conductance (mol/m²/s)", "range": np.linspace(0.05, 2.0, 20)},
     "k_L_CH4": {"label": "CH₄ Mass Transfer Coefficient (1/s)", "range": np.linspace(0.0001, 0.1, 20)},
     "k_L_O2": {"label": "O₂ Mass Transfer Coefficient (1/s)", "range": np.linspace(0.0001, 0.1, 20)},
-    "cellular_material": {"label": "Cellular Material (g/L)", "range": np.linspace(0.1, 200.0, 20)},
     "C_atm": {"label": "Atmospheric CH₄ (ppm)", "range": np.linspace(0.1, 10.0, 20)},
     "O2_atm": {"label": "Atmospheric O₂ (%)", "range": np.linspace(1.0, 25.0, 20)},
 }
@@ -193,8 +188,7 @@ if st.button("Run Sensitivity Analysis"):
         local_g_s = g_s if selected_param != "g_s" else val
         local_k_L_CH4 = k_L_CH4 if selected_param != "k_L_CH4" else val
         local_k_L_O2 = k_L_O2 if selected_param != "k_L_O2" else val
-        local_cellular_material = cellular_material if selected_param != "cellular_material" else val
-        local_scaling_factor = (local_cellular_material * cytosol_fraction) / baseline_cell_density
+        local_scaling_factor = cytosol_fraction
         local_C_atm = C_atm if selected_param != "C_atm" else val
         local_O2_atm = O2_atm if selected_param != "O2_atm" else val
         local_O2_init = H_0_O2 * np.exp(-0.02 * (local_T - 25)) * (1 - 0.01 * local_Pi) * (local_O2_atm / 100.0)
