@@ -47,7 +47,7 @@ def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
     O2_prod = 0.005 if photosynthesis_on else 0.0
     # ODEs
     dC_cyt_dt = J_CH4 - V_MMO
-    dCH3OH_dt = V_MMO - k_MeOH * CH3OH
+    dCH3OH_dt = VMMO - k_MeOH * CH3OH
     dO2_dt = J_O2 - V_MMO + O2_prod
     return [dC_cyt_dt, dCH3OH_dt, dO2_dt]
 
@@ -69,8 +69,7 @@ photosynthesis_on = st.sidebar.checkbox("Photosynthetic O₂ Production", value=
 
 st.sidebar.header("Enzyme Parameters")
 expression_percent = st.sidebar.slider("pMMO Expression (% of total protein)", 0.1, 20.0, 1.0, step=0.1)
-baseline_vmax_at_10_percent = 0.01  # mmol/L/s; reference Vmax at 10% expression from Schmider et al. (2024)
-Vmax_ref = baseline_vmax_at_10_percent * (expression_percent / 10.0)  # Values and ranges based on Baani and Liesack (2008), and Schmider et al. (2024). Conversion from per-cell to per-liter assuming methanotroph cell volume of ~1 fL.
+Vmax_ref = st.sidebar.slider("Vmax_ref (mmol/L/s)", 0.001, 0.1, 0.01, step=0.001)  # Values and ranges based on Baani and Liesack (2008), and Schmider et al. (2024). Conversion from per-cell to per-liter assuming methanotroph cell volume of ~1 fL.
 Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.00001, 0.005, 0.005, step=0.00001)  # Values and ranges based on Baani and Liesack (2008), and Schmider et al. (2024).
 
 st.sidebar.header("Biomass Settings")
@@ -167,6 +166,7 @@ st.subheader("Sensitivity Analysis")
 param_options = {
     "T": {"label": "Temperature (°C)", "range": np.linspace(5, 45, 20)},
     "expression_percent": {"label": "pMMO Expression (% of total protein)", "range": np.linspace(0.1, 20.0, 20)},
+    "Vmax_ref": {"label": "Vmax_ref (mmol/L/s)", "range": np.linspace(0.001, 0.1, 20)},
     "Km_ref": {"label": "Km_ref (mmol/L)", "range": np.linspace(1e-6, 0.1, 20)},
     "Pi": {"label": "Cytosolic Osmolarity (%)", "range": np.linspace(0, 100, 20)},
     "g_s": {"label": "Stomatal Conductance (mol/m²/s)", "range": np.linspace(0.05, 2.0, 20)},
@@ -186,7 +186,7 @@ if st.button("Run Sensitivity Analysis"):
     for val in param_range:
         local_T = T if selected_param != "T" else val
         local_expression_percent = expression_percent if selected_param != "expression_percent" else val
-        local_Vmax_ref = baseline_vmax_at_10_percent * (local_expression_percent / 10.0) if selected_param == "expression_percent" else Vmax_ref
+        local_Vmax_ref = Vmax_ref if selected_param != "Vmax_ref" else val
         local_Km_ref = Km_ref if selected_param != "Km_ref" else val
         local_Pi = Pi if selected_param != "Pi" else val
         local_g_s = g_s if selected_param != "g_s" else val
@@ -212,57 +212,4 @@ if st.button("Run Sensitivity Analysis"):
         ).y.T
         local_C_cyt_final = sol_local[-1, 0]
         local_Km_T = local_Km_ref * (1 + 0.02 * (local_T - 25))
-        local_Vmax_T = local_Vmax_ref * local_scaling_factor * np.exp(-E_a / R * (1/(local_T + 273.15) - 1/T_ref))
-        local_Vmax_osm = local_Vmax_T * np.exp(-0.02 * (local_Pi / 100))
-        local_O2_cyt_final = sol_local[-1, 2]
-        Km_O2_local = 0.001
-        local_V_MMO_final = local_Vmax_osm * (local_C_cyt_final / (local_Km_T + local_C_cyt_final)) * \
-                            (local_O2_cyt_final / (Km_O2_local + local_O2_cyt_final))
-        results.append((val, local_V_MMO_final))
-    df = pd.DataFrame(results, columns=[param_info["label"], "Final CH₄ Oxidation Rate (mmol/L/s)"])
-    fig_sa = go.Figure()
-    fig_sa.add_trace(go.Scatter(x=df[param_info["label"]],
-                                y=df["Final CH₄ Oxidation Rate (mmol/L/s)"],
-                                mode="lines+markers"))
-    fig_sa.update_layout(title=f"Sensitivity: {param_info['label']} vs. Final CH₄ Oxidation Rate",
-                         xaxis_title=param_info["label"], yaxis_title="mmol/L/s")
-    st.plotly_chart(fig_sa)
-    csv = df.to_csv(index=False).encode("utf-8")
-    st.download_button("Download CSV", csv, "sensitivity_analysis.csv", "text/csv")
-
-# Model Constants and Equations
-st.header("Model Constants and Equations")
-st.subheader("Constants")
-st.markdown(f"""
-- **E_a**: 50,000 J/mol (Activation energy for MMO)
-- **E_a_MeOH**: 45,000 J/mol (Activation energy for methanol oxidation)
-- **R**: 8.314 J/mol/K (Gas constant)
-- **T_ref**: 298.15 K (Reference temperature)
-- **k_MeOH_ref**: 0.00011 1/s (Methanol oxidation rate at 25°C)
-- **H_0_CH4**: 1.4 mmol/L/atm (Henry's constant for CH4 at 25°C)
-- **H_0_O2**: 1.3 mmol/L/atm (Henry's constant for O2 at 25°C)
-- **g_s_ref**: {g_s_ref} mol/m²/s (Reference stomatal conductance for flux scaling)
-- **alpha**: 0.02 (Temperature factor for Henry's constants)
-- **beta**: 0.01 (Osmolarity factor for Henry's constants)
-- **Km_O2**: 0.001 mmol/L (Michaelis constant for O2)
-- **O2_prod**: 0.005 mmol/L/s (Photosynthetic O2 production rate, if enabled)
-- **baseline_cell_density**: 10 g/L (Baseline cell density for scaling)
-- **V_cell**: 1e-15 L (Typical plant cell volume, currently unused)
-""")
-st.subheader("Key Equations")
-st.latex(r"Vmax_T = Vmax_{ref} \times scaling\_factor \times \exp\left(-\frac{E_a}{R}\left(\frac{1}{T_K}-\frac{1}{T_{ref}}\right)\right)")
-st.latex(r"Vmax = Vmax_T \times \exp(-0.02 \times (Pi / 100))")
-st.latex(r"Km_T = Km_{ref} \times (1 + 0.02 \times (T - 25))")
-st.latex(r"H = H_0 \times \exp(-\alpha (T - 25)) \times (1 - \beta \, Pi)")
-st.latex(r"P_{CH4} = C_{atm}/10^6, \quad P_{O2} = O2_{atm}/100")
-st.latex(r"C_{eq} = H \times P")
-st.latex(r"J = k_L \times \left(\frac{g_s}{g_{s,ref}}\right) \times (C_{eq} - C)")
-st.latex(r"V_{MMO} = Vmax \times \frac{C_{cyt}}{Km_T + C_{cyt}} \times \frac{O2_{cyt}}{Km_{O2} + O2_{cyt}}")
-st.latex(r"\frac{dC_{cyt}}{dt} = J_{CH4} - V_{MMO}")
-st.latex(r"\frac{dCH3OH}{dt} = V_{MMO} - k_{MeOH} \times CH3OH")
-st.latex(r"\frac{dO2_{cyt}}{dt} = J_{O2} - V_{MMO} + O2_{prod}")
-
-# Debug output
-k_MeOH_scaled = k_MeOH_ref * np.exp(-E_a_MeOH / R * (1/(T + 273.15) - 1/T_ref))
-st.sidebar.text(f"Temp-Adjusted k_MeOH: {k_MeOH_scaled:.6g} 1/s")
-st.markdown("***Hornstein E. and Mikaelyan A., in prep.***")
+        local_Vmax_T = local_Vmax_ref * local_scaling_factor * np.exp(-E_a
