@@ -69,7 +69,7 @@ Pi = st.sidebar.slider("Cytosolic Osmolarity (%)", 0, 100, 50)
 photosynthesis_on = st.sidebar.checkbox("Photosynthetic O₂ Production", value=True)
 st.sidebar.header("Enzyme Parameters")
 expression_percent = st.sidebar.slider("pMMO Expression (% of total protein)", 0.1, 20.0, 1.0, step=0.1)
-Vmax_ref = st.sidebar.slider("Vmax_ref (mmol·L_cyt⁻¹·s⁻¹)", 0.001, 0.5, 0.01, step=0.001)
+Vmax_ref = st.sidebar.slider("Vmax_ref (mmol·L_cyt⁻¹·s⁻¹)", 0.001, 0.1, 0.01, step=0.001)
 Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.00001, 0.005, 0.005, step=0.00001)
 
 # Input validation
@@ -204,15 +204,82 @@ if st.button("Run Sensitivity Analysis"):
                             (local_O2_cyt_final / (Km_O2_local + local_O2_cyt_final))
         results.append((val, local_V_MMO_final))
     df = pd.DataFrame(results, columns=[param_info["label"], "Final CH₄ Oxidation Rate (mmol/L/s)"])
-    fig_sa = go.Figure()
-    fig_sa.add_trace(go.Scatter(x=df[param_info["label"]],
-                                y=df["Final CH₄ Oxidation Rate (mmol/L/s)"],
-                                mode="lines+markers"))
-    fig_sa.update_layout(title=f"Sensitivity: {param_info['label']} vs. Final CH₄ Oxidation Rate",
-                         xaxis_title=param_info["label"], yaxis_title="mmol/L/s")
-    st.plotly_chart(fig_sa)
+    # Normalize rate
+    df['rate_norm'] = (df['Final CH₄ Oxidation Rate (mmol/L/s)'] - df['Final CH₄ Oxidation Rate (mmol/L/s)'].min()) / \
+                      (df['Final CH₄ Oxidation Rate (mmol/L/s)'].max() - df['Final CH₄ Oxidation Rate (mmol/L/s)'].min())
+    # Sensitivity line plot
+    fig_sa_line = go.Figure()
+    fig_sa_line.add_trace(go.Scatter(x=df[param_info["label"]],
+                                     y=df["Final CH₄ Oxidation Rate (mmol/L/s)"],
+                                     mode="lines+markers"))
+    fig_sa_line.update_layout(title=f"Sensitivity: {param_info['label']} vs. Final CH₄ Oxidation Rate",
+                              xaxis_title=param_info["label"], yaxis_title="mmol/L/s")
+    st.plotly_chart(fig_sa_line)
+    # Download CSV
     csv = df.to_csv(index=False).encode("utf-8")
     st.download_button("Download CSV", csv, "sensitivity_analysis.csv", "text/csv")
+    # Heatmap preparation
+    all_results = []
+    for param, info in param_options.items():
+        local_results = []
+        for val in info["range"]:
+            local_T = T if param != "T" else val
+            local_expression_percent = expression_percent if param != "expression_percent" else val
+            local_Vmax_ref = Vmax_ref if param != "Vmax_ref" else val
+            local_Km_ref = Km_ref if param != "Km_ref" else val
+            local_Pi = Pi if param != "Pi" else val
+            local_g_s = g_s if param != "g_s" else val
+            local_k_L_CH4 = k_L_CH4 if param != "k_L_CH4" else val
+            local_k_L_O2 = k_L_O2 if param != "k_L_O2" else val
+            local_C_atm = C_atm if param != "C_atm" else val
+            local_O2_atm = O2_atm if param != "O2_atm" else val
+            local_O2_init = H_0_O2 * np.exp(-0.02 * (local_T - 25)) * (1 - 0.01 * local_Pi) * (local_O2_atm / 100.0)
+            local_C0 = [0.0001, 0.0001, local_O2_init]
+            sol_local = solve_ivp(
+                fun=lambda t, C: methane_oxidation(
+                    C, t, local_C_atm, local_O2_atm, local_g_s, local_Vmax_ref, local_Km_ref,
+                    local_Pi, local_T, local_k_L_CH4, local_k_L_O2, photosynthesis_on, local_expression_percent
+                ),
+                t_span=(time[0], time[-1]),
+                y0=local_C0,
+                t_eval=time,
+                method='LSODA',
+                rtol=1e-6,
+                atol=1e-9
+            ).y.T
+            local_C_cyt_final = sol_local[-1, 0]
+            local_Km_T = local_Km_ref * (1 + 0.02 * (local_T - 25))
+            local_Vmax_T = local_Vmax_ref * (local_expression_percent / 100) * np.exp(-E_a / R * (1/(local_T + 273.15) - 1/T_ref))
+            local_Vmax_osm = local_Vmax_T * np.exp(-0.02 * (local_Pi / 100))
+            local_O2_cyt_final = sol_local[-1, 2]
+            Km_O2_local = 0.001
+            local_V_MMO_final = local_Vmax_osm * (local_C_cyt_final / (local_Km_T + local_C_cyt_final)) * \
+                                (local_O2_cyt_final / (Km_O2_local + local_O2_cyt_final))
+            local_results.append(local_V_MMO_final)
+        df_param = pd.DataFrame({param: info["range"], "rate": local_results})
+        df_param['rate_norm'] = (df_param['rate'] - df_param['rate'].min()) / \
+                                (df_param['rate'].max() - df_param['rate'].min())
+        all_results.append(df_param)
+    # Create heatmap matrix
+    heatmap_data = pd.concat(all_results, axis=1)
+    heatmap_matrix = np.array([df['rate_norm'].values for df in all_results]).T
+    maxlen = max(heatmap_matrix.shape[1], len(param_options))
+    if heatmap_matrix.shape[1] < maxlen:
+        heatmap_matrix = np.pad(heatmap_matrix, ((0, 0), (0, maxlen - heatmap_matrix.shape[1])), 'constant', constant_values=np.nan)
+    # Heatmap plot
+    fig_heatmap = go.Figure(data=go.Heatmap(
+        z=heatmap_matrix,
+        x=[f"{i*25}%" for i in range(maxlen)],
+        y=list(param_options.keys())[::-1],
+        colorscale='Plasma',
+        colorbar=dict(title="Normalized Rate")
+    ))
+    fig_heatmap.update_layout(
+        title="Sensitivity Heatmap Across Parameters",
+        xaxis_title="Parameter Sweep (Percentile)",
+        yaxis_title="Parameter"
+    )
+    st.plotly_chart(fig_heatmap)
 
 # Model Constants and Equations
 st.header("Model Constants and Equations")
@@ -251,5 +318,5 @@ k_MeOH_scaled = k_MeOH_ref * np.exp(-E_a_MeOH / R * (1/(T + 273.15) - 1/T_ref))
 Vmax_T_debug = Vmax_ref * (expression_percent / 100) * np.exp(-E_a / R * (1/(T + 273.15) - 1/T_ref))
 st.sidebar.text(f"Temp-Adjusted k_MeOH: {k_MeOH_scaled:.6g} 1/s")
 st.sidebar.text(f"Debug Vmax_T: {Vmax_T_debug:.6g} mmol·L_cyt⁻¹·s⁻¹")
-st.sidebar.text(f"Run Time: 01:26 AM EDT, Sep 28, 2025")
+st.sidebar.text(f"Run Time: 01:36 AM EDT, Sep 28, 2025")
 st.markdown("***Hornstein E. and Mikaelyan A., in prep.***")
