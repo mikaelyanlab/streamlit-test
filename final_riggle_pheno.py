@@ -261,26 +261,23 @@ if st.button("Run Sensitivity Analysis"):
                                 (df_param['rate'].max() - df_param['rate'].min())
         all_results.append(df_param)
     # Create heatmap matrix
-    heatmap_matrix = np.array([df['rate_norm'].values for df in all_results]).T
-    # Ensure 20 points for x-axis
-    if heatmap_matrix.shape[1] != 20:
-        heatmap_matrix = heatmap_matrix[:, :20]  # Truncate or pad to 20 if needed
-    # Heatmap plot
-    fig_heatmap = go.Figure(data=go.Heatmap(
+  # Create x-values as evenly spaced percentiles (0–100)
+x_vals = np.linspace(0, 100, heatmap_matrix.shape[1])
+fig_heatmap = go.Figure(data=go.Heatmap(
     z=heatmap_matrix,
-    x=np.linspace(0, 100, heatmap_matrix.shape[1]),  # numeric 0–100
+    x=x_vals,
     y=list(param_options.keys())[::-1],
     colorscale='Plasma',
     colorbar=dict(title="Normalized Rate")
 ))
-
-    fig_heatmap.update_layout(
+# Match tick labels to actual positions in x_vals
+fig_heatmap.update_layout(
     title="Sensitivity Heatmap Across Parameters",
-      xaxis_title="Parameter Sweep (Percentile)",
-      yaxis_title="Parameter",
-      xaxis=dict(
+    xaxis_title="Parameter Sweep (Percentile)",
+    yaxis_title="Parameter",
+    xaxis=dict(
         tickmode='array',
-        tickvals=[0, 25, 50, 75, 100],
+        tickvals=[x_vals[0], x_vals[5], x_vals[10], x_vals[15], x_vals[-1]],  # 0%, 25%, 50%, 75%, 100%
         ticktext=["0%", "25%", "50%", "75%", "100%"]
     )
 )
