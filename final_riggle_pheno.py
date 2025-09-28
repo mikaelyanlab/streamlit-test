@@ -263,14 +263,14 @@ if st.button("Run Sensitivity Analysis"):
     # Create heatmap matrix
     heatmap_matrix = np.array([df['rate_norm'].values for df in all_results]).T
     x_vals = np.linspace(0, 100, heatmap_matrix.shape[1])
-  fig_heatmap = go.Figure(data=go.Heatmap(
+    fig_heatmap = go.Figure(data=go.Heatmap(
     z=heatmap_matrix,
     x=x_vals,
     y=list(param_options.keys())[::-1],
     colorscale='Plasma',
     colorbar=dict(title="Normalized Rate")
-  ))
-  fig_heatmap.update_layout(
+    ))
+    fig_heatmap.update_layout(
     title="Sensitivity Heatmap Across Parameters",
     xaxis_title="Parameter Sweep (Percentile)",
     yaxis_title="Parameter",
@@ -279,7 +279,7 @@ if st.button("Run Sensitivity Analysis"):
         tickvals=[x_vals[0], x_vals[-1]],   # only first and last
         ticktext=["0%", "100%"]
     )
-  )
+    )
     st.plotly_chart(fig_heatmap)
 # Model Constants and Equations
 st.header("Model Constants and Equations")
