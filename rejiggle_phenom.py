@@ -15,6 +15,7 @@ k_MeOH_ref = 0.00011  # 1/s at 25°C; methanol oxidation rate constant
 H_0_CH4 = 1.4  # mmol/L/atm for CH4 at 25°C
 H_0_O2 = 1.3  # mmol/L/atm for O2 at 25°C
 g_s_ref = 0.2  # mol/m²/s; reference stomatal conductance for scaling
+V_cell = 1e-15  # L; typical plant cell volume
 
 # --- ODE System ---
 def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
@@ -73,12 +74,12 @@ Vmax_ref = st.sidebar.slider("Vmax_ref (mmol/L/s)", 0.001, 0.1, 0.01, step=0.001
 Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.00001, 0.005, 0.005, step=0.00001)  # Values and ranges based on Baani and Liesack (2008) and Schmider et al. (2024).
 
 st.sidebar.header("Biomass Settings")
-cytosol_fraction = st.sidebar.slider("Cytosol Fraction (%)", 1, 100, 5) / 100  # Convert percentage to fraction
+cytosol_fraction = st.sidebar.slider("Cytosol Fraction (% of cell volume)", 1, 100, 5) / 100  # Percent of total cell volume that is cytosol
 cellular_material = st.sidebar.slider("Cellular Material (g/L)", 0.1, 200.0, 1.0)
-baseline_cell_density = 10
-active_volume = cellular_material * cytosol_fraction
-scaling_factor = active_volume / baseline_cell_density
-V_cell = 1e-15  # L (currently unused)
+baseline_cell_density = 10  # g/L
+active_volume = V_cell * (cellular_material / baseline_cell_density) * cytosol_fraction  # L of active cytosol per L of solution
+scaling_factor = active_volume / (V_cell * (cellular_material / baseline_cell_density))  # Normalize to fraction of cell volume
+V_cell = 1e-15  # L; typical plant cell volume
 
 # Input validation
 error_message = None
