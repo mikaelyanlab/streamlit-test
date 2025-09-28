@@ -47,7 +47,7 @@ def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
     O2_prod = 0.005 if photosynthesis_on else 0.0
     # ODEs
     dC_cyt_dt = J_CH4 - V_MMO
-    dCH3OH_dt = V_MMO - k_MeOH * CH3OH  # Fixed typo from VMMO to V_MMO
+    dCH3OH_dt = V_MMO - k_MeOH * CH3OH
     dO2_dt = J_O2 - V_MMO + O2_prod
     return [dC_cyt_dt, dCH3OH_dt, dO2_dt]
 
@@ -69,8 +69,8 @@ photosynthesis_on = st.sidebar.checkbox("Photosynthetic O₂ Production", value=
 
 st.sidebar.header("Enzyme Parameters")
 expression_percent = st.sidebar.slider("pMMO Expression (% of total protein)", 0.1, 20.0, 1.0, step=0.1)
-Vmax_ref = st.sidebar.slider("Vmax_ref (mmol/L/s)", 0.001, 0.1, 0.01, step=0.001)  # Values and ranges based on Baani and Liesack (2008), and Schmider et al. (2024). Conversion from per-cell to per-liter assuming methanotroph cell volume of ~1 fL.
-Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.00001, 0.005, 0.005, step=0.00001)  # Values and ranges based on Baani and Liesack (2008), and Schmider et al. (2024).
+Vmax_ref = st.sidebar.slider("Vmax_ref (mmol/L/s)", 0.001, 0.1, 0.01, step=0.001)  # Values and ranges based on Baani and Liesack (2008) and Schmider et al. (2024). Conversion from per-cell to per-liter assuming methanotroph cell volume of ~1 fL.
+Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.00001, 0.005, 0.005, step=0.00001)  # Values and ranges based on Baani and Liesack (2008) and Schmider et al. (2024).
 
 st.sidebar.header("Biomass Settings")
 cytosol_fraction = st.sidebar.slider("Cytosol Fraction (%)", 1, 100, 5) / 100  # Convert percentage to fraction
