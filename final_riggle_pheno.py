@@ -33,8 +33,8 @@ def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
     H_CH4 = H_0_CH4 * np.exp(-alpha * (T - 25)) * (1 - beta * Pi)
     H_O2 = H_0_O2 * np.exp(-alpha * (T - 25)) * (1 - beta * Pi)
     # Partial pressures (atm)
-    P_CH4 = (C_atm / 1e6)  # ppm -> mole fraction
-    P_O2 = (O2_atm / 100.0)  # % -> fraction
+    P_CH4 = (C_atm / 1e6)   # ppm -> mole fraction
+    P_O2 = (O2_atm / 100.0) # % -> fraction
     # Equilibrium concentrations at the interface (mmol/L)
     C_cyt_eq = H_CH4 * P_CH4
     O2_eq = H_O2 * P_O2
@@ -45,19 +45,17 @@ def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
     # MMO activity
     Km_O2 = 0.001  # mmol/L
     V_MMO = Vmax * (C_cyt / (Km_T + C_cyt)) * (O2_cyt / (Km_O2 + O2_cyt))
-    # Optional photosynthetic O₂ production
-    # Optional photosynthetic O₂ production with saturation safeguard
-    O2_eq = H_O2 * P_O2  # already computed
+    # Photosynthetic O₂ production with saturation safeguard
     if photosynthesis_on and O2_cyt < O2_eq:
         O2_prod_eff = 0.005
     else:
         O2_prod_eff = 0.0
-    
-# ODEs
+    # ODEs
     dC_cyt_dt = J_CH4 - V_MMO
     dCH3OH_dt = V_MMO - k_MeOH * CH3OH
     dO2_dt = J_O2 - V_MMO + O2_prod_eff
     return [dC_cyt_dt, dCH3OH_dt, dO2_dt]
+
 
 # --- UI ---
 st.title("Methane Oxidation Model (with Optional Photosynthetic O₂)")
