@@ -279,8 +279,8 @@ if st.button("Run Sensitivity Analysis"):
         yaxis_title="Parameter",
         xaxis=dict(
             tickmode='array',
-            tickvals=[i * 5 for i in range(0, 100, 1)],  # 0, 5, 10, ..., 95
-            ticktext=["0%", "100%"]  # Map to 0-100% percentiles
+            tickvals=[i * 10 for i in range(0, 100, 10)],  # 0, 5, 10, ..., 95
+            ticktext=["0%", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%"]  # Map to 0-100% percentiles
         )
     )
     st.plotly_chart(fig_heatmap)
