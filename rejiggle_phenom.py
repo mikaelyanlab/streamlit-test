@@ -47,7 +47,7 @@ def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
     O2_prod = 0.005 if photosynthesis_on else 0.0
     # ODEs
     dC_cyt_dt = J_CH4 - V_MMO
-    dCH3OH_dt = VMMO - k_MeOH * CH3OH
+    dCH3OH_dt = V_MMO - k_MeOH * CH3OH  # Fixed typo from VMMO to V_MMO
     dO2_dt = J_O2 - V_MMO + O2_prod
     return [dC_cyt_dt, dCH3OH_dt, dO2_dt]
 
