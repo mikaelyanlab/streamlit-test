@@ -57,7 +57,7 @@ def methane_oxidation(C, t, C_atm, O2_atm, g_s, Vmax_ref, Km_ref, Pi, T,
     dC_cyt_dt = J_CH4 - V_MMO
     dCH3OH_dt = V_MMO - k_MeOH * CH3OH
     dO2_dt = J_O2 - V_MMO + O2_prod_eff
-return [dC_cyt_dt, dCH3OH_dt, dO2_dt]
+    return [dC_cyt_dt, dCH3OH_dt, dO2_dt]
 
 # --- UI ---
 st.title("Methane Oxidation Model (with Optional Photosynthetic O₂)")
