@@ -12,8 +12,8 @@ R = 8.314  # Gas constant, J/mol/K
 T_ref = 298.15  # Reference temperature, K
 k_MeOH_ref = 0.00011  # 1/s at 25°C
 # Henry's constants in mmol/L/atm (adjusted for model units)
-H_0_CH4 = 1.4  # CH4 at 25°C
-H_0_O2 = 1.3  # O2 at 25°C
+H_0_CH4 = 1.4  # CH4 at 25°C   # Sander, R. (2015). Compilation of Henry's law constants (version 4.0) for water as solvent. Atmospheric Chemistry and Physics, 15(8), 4399-4981.
+H_0_O2 = 1.3  # O2 at 25°C     # Sander, R. (2015). Compilation of Henry's law constants (version 4.0) for water as solvent. Atmospheric Chemistry and Physics, 15(8), 4399-4981.
 g_s_ref = 0.2  # mol/m²/s; reference stomatal conductance for scaling
 
 # --- ODE System ---
