@@ -83,8 +83,8 @@ st.sidebar.header("Atmosphere & Gas Transfer")
 C_atm = st.sidebar.slider("Atmospheric CH₄ (ppm)", 0.1, 10.0, 1.8)
 O2_atm = st.sidebar.slider("Atmospheric O₂ (%)", 1.0, 25.0, 21.0)
 g_s = st.sidebar.slider("Stomatal Conductance (mol/m²/s)", 0.05, 2.0, 0.5)
-k_L_CH4 = st.sidebar.slider("CH₄ Mass Transfer Coefficient (1/s)", 0.0001, 0.1, 0.1)
-k_L_O2 = st.sidebar.slider("O₂ Mass Transfer Coefficient (1/s)", 0.0001, 0.1, 0.1)
+k_L_CH4 = st.sidebar.number_input("CH₄ Mass Transfer Coefficient (1/s)", min_value=0.0001, max_value=0.1, value=0.1, step=1e-6, format="%.6f")
+k_L_O2 = st.sidebar.number_input("O₂ Mass Transfer Coefficient (1/s)", min_value=0.0001, max_value=0.1, value=0.1, step=1e-6, format="%.6f")
 
 st.sidebar.header("Cellular Environment")
 T = st.sidebar.slider("Temperature (°C)", 5, 45, 25)
@@ -93,8 +93,8 @@ photosynthesis_on = st.sidebar.checkbox("Photosynthetic O₂ Production", value=
 
 st.sidebar.header("Enzyme Parameters")
 expression_percent = st.sidebar.slider("pMMO Expression (% of total protein)", 0.1, 20.0, 1.0, step=0.1)
-Vmax_ref = st.sidebar.slider("Vmax_ref (mmol·L_cyt⁻¹·s⁻¹)", 0.001, 0.5, 0.01, step=0.001)
-Km_ref = st.sidebar.slider("Methane Affinity (Km_ref, mmol/L)", 0.00001, 0.005, 0.001, step=0.00001)
+Vmax_ref = st.sidebar.number_input("Vmax_ref (mmol·L_cyt⁻¹·s⁻¹)", min_value=0.001, max_value=0.5, value=0.01, step=1e-6, format="%.6f")
+Km_ref = st.sidebar.number_input("Methane Affinity (Km_ref, mmol/L)", min_value=1e-6, max_value=0.005, value=0.001, step=1e-6, format="%.6f")
 
 # Input validation
 err = None
@@ -292,4 +292,4 @@ if st.button("Run Sensitivity Analysis"):
     st.plotly_chart(fig_heatmap)
 
 # Footer
-st.markdown("***Hornstein E. and Mikaelyan A., in prep.***")
+st.markdown("***Mikaelyan A. and Hornstein E.D., in prep.***")
