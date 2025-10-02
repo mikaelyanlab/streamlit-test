@@ -1,4 +1,19 @@
-# Aram Mikaelyan, NCSU | Impact Layer Model for Methane Oxidation
+# # PLAMMO: Plants as Distributed Bioreactors for Methane Oxidation | Scaling widget.
+# Aram Mikaelyan, NCSU 
+# Contact: amikael@ncsu.edu | www.mikaelyanlab.com
+# 
+# Eli D. Hornstein, Elysia Creative Biology 
+# Impact Layer Model for Methane Oxidation
+# Description:
+#    Streamlit app for exploring a phenomenological sandbox model
+#    of particulate methane monooxygenase (pMMO) activity in plant cells
+#    and scaling potential impacts from leaves to hectares.
+#
+#    The app is a scaling widget to visualize potential gigaton-scale impacts
+#
+# Reference:
+#    Mikaelyan & Hornstein, in prep. (BioEssays, Ideas & Speculations)
+#
 import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
