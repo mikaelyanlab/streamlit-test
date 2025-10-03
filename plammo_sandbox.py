@@ -25,7 +25,7 @@ def compute_v_mmo(Vmax_ref, expression_percent, T, Pi, Km_ref, C_cyt, O2_cyt):
              np.exp(-k_den * (T_K - T_opt)**2)
     Vmax = Vmax_T * np.exp(-0.02 * (Pi / 100.0))
     Km_T = Km_ref * (1.0 + 0.02 * (T - 25.0))
-    Km_O2 = 0.0001  # mmol/L
+    Km_O2 = 0.001  # mmol/L
 
     # Prevent division by zero or negative values
     if Km_T <= 0 or C_cyt < 0 or O2_cyt < 0:
