@@ -1,8 +1,20 @@
-############### 
+# # PLAMMO: Plants as Distributed Bioreactors for Methane Oxidation |  Sandbox
 # Aram Mikaelyan, Department of Entomology and Plant Pathology, NCSU | amikael@ncsu.edu | http://www.mikaelyanlab.com
 # Eli Hornstein, Elysia Creative Biology | https://www.elysiabio.com/  
-# Methane Oxidation Model (Streamlit App)
+# Methane Oxidation Model (Streamlit App here: https://plammo-sandbox.streamlit.app/)
+# Leaf2Planet Widget (Streamlit App here: https://plammo-leaf2planet.streamlit.app/)
 # Preprint: 
+# 
+# Eli D. Hornstein, Elysia Creative Biology 
+# Description:
+#    Streamlit app for exploring a phenomenological sandbox model
+#    of particulate methane monooxygenase (pMMO) activity in plant cells
+#    and scaling potential impacts from leaves to hectares.
+#
+#    The app is a scaling widget to visualize potential gigaton-scale impacts
+#
+# Reference:
+#    Mikaelyan & Hornstein, in prep.
 ###############
 import streamlit as st
 import numpy as np
