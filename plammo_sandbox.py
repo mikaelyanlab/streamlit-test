@@ -267,22 +267,21 @@ if st.button("Run Sensitivity Analysis"):
                                         local["Pi"], local["Km_ref"], C_cyt_f, O2_cyt_f)
             local_vals.append(V_MMO_f_loc)
         df_param = pd.DataFrame({"value": pinfo["range"], "rate": local_vals})
-        rmin, rmax = df_param["rate"].min(), df_param["rate"].max()
-        df_param["rate_norm"] = 0.0 if rmax == rmin else (df_param["rate"] - rmin) / (rmax - rmin)
         all_results.append(df_param)
 
     # Heatmap matrix
     y_labels = [param_options[k]["label"] for k in param_options.keys()]
-    heatmap_matrix = np.vstack([df_param["rate_norm"].to_numpy() for df_param in all_results])
+    heatmap_matrix = np.vstack([df_param["rate"].to_numpy() for df_param in all_results])
     x_vals = np.linspace(0, 100, heatmap_matrix.shape[1])
     fig_heatmap = go.Figure(data=go.Heatmap(
         z=heatmap_matrix,
         x=x_vals,
         y=y_labels,
         colorscale="Plasma",
-        colorbar=dict(title="Normalized Rate"),
+        colorbar=dict(title="CH₄ Oxidation Rate (mmol/L/s)"),
         zsmooth=False
     ))
+
     fig_heatmap.update_layout(
         title="Sensitivity Heatmap Across Parameters",
         xaxis_title="Parameter Sweep (Percentile)",
