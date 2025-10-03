@@ -176,16 +176,16 @@ with col2:
 # --- Sensitivity Analysis ---
 st.subheader("Sensitivity Analysis")
 param_options = {
-    "T": {"label": "Temperature (°C)", "range": np.linspace(5, 45, 100)},
-    "expression_percent": {"label": "pMMO Expression (% of total protein)", "range": np.linspace(0.1, 20.0, 100)},
-    "Vmax_ref": {"label": "Vmax_ref (mmol·L_cyt⁻¹·s⁻¹)", "range": np.linspace(0.001, 0.1, 100)},
-    "Km_ref": {"label": "Methane Affinity (Km_ref, mmol/L)", "range": np.linspace(1e-6, 0.1, 100)},
-    "Pi": {"label": "Cytosolic Osmolarity (%)", "range": np.linspace(0, 100, 100)},
-    "g_s": {"label": "Stomatal Conductance (mol/m²/s)", "range": np.linspace(0.05, 2.0, 100)},
-    "k_L_CH4": {"label": "CH₄ Mass Transfer Coefficient (1/s)", "range": np.linspace(0.0001, 0.1, 100)},
-    "k_L_O2": {"label": "O₂ Mass Transfer Coefficient (1/s)", "range": np.linspace(0.0001, 0.1, 100)},
-    "C_atm": {"label": "Atmospheric CH₄ (ppm)", "range": np.linspace(0.1, 10.0, 100)},
-    "O2_atm": {"label": "Atmospheric O₂ (%)", "range": np.linspace(1.0, 25.0, 100)},
+    "T": {"label": "Temperature (°C)", "range": np.linspace(5, 45, 20)},
+    "expression_percent": {"label": "pMMO Expression (% of total protein)", "range": np.linspace(0.1, 20.0, 20)},
+    "Vmax_ref": {"label": "Vmax_ref (mmol·L_cyt⁻¹·s⁻¹)", "range": np.linspace(0.001, 0.1, 20)},
+    "Km_ref": {"label": "Methane Affinity (Km_ref, mmol/L)", "range": np.linspace(1e-6, 0.1, 20)},
+    "Pi": {"label": "Cytosolic Osmolarity (%)", "range": np.linspace(0, 100, 20)},
+    "g_s": {"label": "Stomatal Conductance (mol/m²/s)", "range": np.linspace(0.05, 2.0, 20)},
+    "k_L_CH4": {"label": "CH₄ Mass Transfer Coefficient (1/s)", "range": np.linspace(0.0001, 0.1, 20)},
+    "k_L_O2": {"label": "O₂ Mass Transfer Coefficient (1/s)", "range": np.linspace(0.0001, 0.1, 20)},
+    "C_atm": {"label": "Atmospheric CH₄ (ppm)", "range": np.linspace(0.1, 10.0, 20)},
+    "O2_atm": {"label": "Atmospheric O₂ (%)", "range": np.linspace(1.0, 25.0, 20)},
 }
 
 selected_param = st.selectbox(
@@ -267,21 +267,22 @@ if st.button("Run Sensitivity Analysis"):
                                         local["Pi"], local["Km_ref"], C_cyt_f, O2_cyt_f)
             local_vals.append(V_MMO_f_loc)
         df_param = pd.DataFrame({"value": pinfo["range"], "rate": local_vals})
+        rmin, rmax = df_param["rate"].min(), df_param["rate"].max()
+        df_param["rate_norm"] = 0.0 if rmax == rmin else (df_param["rate"] - rmin) / (rmax - rmin)
         all_results.append(df_param)
 
     # Heatmap matrix
     y_labels = [param_options[k]["label"] for k in param_options.keys()]
-    heatmap_matrix = np.vstack([df_param["rate"].to_numpy() for df_param in all_results])
+    heatmap_matrix = np.vstack([df_param["rate_norm"].to_numpy() for df_param in all_results])
     x_vals = np.linspace(0, 100, heatmap_matrix.shape[1])
     fig_heatmap = go.Figure(data=go.Heatmap(
         z=heatmap_matrix,
         x=x_vals,
         y=y_labels,
         colorscale="Plasma",
-        colorbar=dict(title="CH₄ Oxidation Rate (mmol/L/s)"),
+        colorbar=dict(title="Normalized Rate"),
         zsmooth=False
     ))
-
     fig_heatmap.update_layout(
         title="Sensitivity Heatmap Across Parameters",
         xaxis_title="Parameter Sweep (Percentile)",
