@@ -176,16 +176,16 @@ with col2:
 # --- Sensitivity Analysis ---
 st.subheader("Sensitivity Analysis")
 param_options = {
-    "T": {"label": "Temperature (°C)", "range": np.linspace(5, 45, 20)},
-    "expression_percent": {"label": "pMMO Expression (% of total protein)", "range": np.linspace(0.1, 20.0, 20)},
-    "Vmax_ref": {"label": "Vmax_ref (mmol·L_cyt⁻¹·s⁻¹)", "range": np.linspace(0.001, 0.1, 20)},
-    "Km_ref": {"label": "Methane Affinity (Km_ref, mmol/L)", "range": np.linspace(1e-6, 0.1, 20)},
-    "Pi": {"label": "Cytosolic Osmolarity (%)", "range": np.linspace(0, 100, 20)},
-    "g_s": {"label": "Stomatal Conductance (mol/m²/s)", "range": np.linspace(0.05, 2.0, 20)},
-    "k_L_CH4": {"label": "CH₄ Mass Transfer Coefficient (1/s)", "range": np.linspace(0.0001, 0.1, 20)},
-    "k_L_O2": {"label": "O₂ Mass Transfer Coefficient (1/s)", "range": np.linspace(0.0001, 0.1, 20)},
-    "C_atm": {"label": "Atmospheric CH₄ (ppm)", "range": np.linspace(0.1, 10.0, 20)},
-    "O2_atm": {"label": "Atmospheric O₂ (%)", "range": np.linspace(1.0, 25.0, 20)},
+    "T": {"label": "Temperature (°C)", "range": np.linspace(5, 45, 200)},
+    "expression_percent": {"label": "pMMO Expression (% of total protein)", "range": np.linspace(0.1, 20.0, 200)},
+    "Vmax_ref": {"label": "Vmax_ref (mmol·L_cyt⁻¹·s⁻¹)", "range": np.linspace(0.001, 0.1, 200)},
+    "Km_ref": {"label": "Methane Affinity (Km_ref, mmol/L)", "range": np.linspace(1e-6, 0.1, 200)},
+    "Pi": {"label": "Cytosolic Osmolarity (%)", "range": np.linspace(0, 100, 200)},
+    "g_s": {"label": "Stomatal Conductance (mol/m²/s)", "range": np.linspace(0.05, 2.0, 200)},
+    "k_L_CH4": {"label": "CH₄ Mass Transfer Coefficient (1/s)", "range": np.linspace(0.0001, 0.1, 200)},
+    "k_L_O2": {"label": "O₂ Mass Transfer Coefficient (1/s)", "range": np.linspace(0.0001, 0.1, 200)},
+    "C_atm": {"label": "Atmospheric CH₄ (ppm)", "range": np.linspace(0.1, 10.0, 200)},
+    "O2_atm": {"label": "Atmospheric O₂ (%)", "range": np.linspace(1.0, 25.0, 200)},
 }
 
 selected_param = st.selectbox(
