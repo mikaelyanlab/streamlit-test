@@ -1,3 +1,9 @@
+############### 
+# Aram Mikaelyan, Department of Entomology and Plant Pathology, NCSU | amikael@ncsu.edu | http://www.mikaelyanlab.com
+# Eli Hornstein, Elysia Creative Biology | https://www.elysiabio.com/  
+# Methane Oxidation Model (Streamlit App)
+# Preprint
+###############
 import streamlit as st
 import numpy as np
 from scipy.integrate import solve_ivp
