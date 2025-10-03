@@ -73,4 +73,4 @@ fig.update_layout(
     hovermode="closest"
 )
 st.plotly_chart(fig, use_container_width=True)
-st.markdown("***Hornstein E. and Mikaelyan A., in prep.***")
+st.markdown("***Mikaelyan A. and Hornstein E., in prep.***")
