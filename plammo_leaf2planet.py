@@ -1,6 +1,9 @@
-# # PLAMMO: Plants as Distributed Bioreactors for Methane Oxidation | Scaling widget.
-# Aram Mikaelyan, NCSU 
-# Contact: amikael@ncsu.edu | www.mikaelyanlab.com
+# # PLAMMO: Plants as Distributed Bioreactors for Methane Oxidation | Leaf2Planet Widget
+# Aram Mikaelyan, Department of Entomology and Plant Pathology, NCSU | amikael@ncsu.edu | http://www.mikaelyanlab.com
+# Eli Hornstein, Elysia Creative Biology | https://www.elysiabio.com/  
+# Methane Oxidation Model (Streamlit App here: https://plammo-sandbox.streamlit.app/)
+# Leaf2Planet Widget (Streamlit App here: https://plammo-leaf2planet.streamlit.app/)
+# Preprint: 
 # 
 # Eli D. Hornstein, Elysia Creative Biology 
 # Impact Layer Model for Methane Oxidation
@@ -12,8 +15,8 @@
 #    The app is a scaling widget to visualize potential gigaton-scale impacts
 #
 # Reference:
-#    Mikaelyan & Hornstein, in prep. (BioEssays, Ideas & Speculations)
-#
+#    Mikaelyan & Hornstein, in prep.
+###############
 import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
