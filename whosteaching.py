@@ -30,8 +30,14 @@ from typing import List, Dict
 import pandas as pd
 import streamlit as st
 import networkx as nx
-from pyvis.network import Network
-from streamlit.components.v1 import html
+# Try PyVis first; fall back to Plotly if unavailable
+try:
+    from pyvis.network import Network  # type: ignore
+    from streamlit.components.v1 import html
+    HAS_PYVIS = True
+except Exception:
+    HAS_PYVIS = False
+    import plotly.graph_objects as go
 
 # --------------------------- Utility ---------------------------
 
@@ -333,44 +339,64 @@ else:
     def scale_size(x):
         return (size_min + size_max) / 2
 
-# Build PyVis network
-net = Network(height="800px", width="100%", bgcolor="#ffffff", font_color="#222")
-net.force_atlas_2based(gravity=-50, central_gravity=0.02, spring_length=120, spring_strength=0.05,
-                       damping=0.4, overlap=1.5)
-
-# Add nodes to PyVis
-for n in G.nodes():
-    data = G.nodes[n]
-    instrs = data["instructors"]
-    # Color by first listed instructor (active coloring). Display all in tooltip.
-    color = color_map[instrs[0]] if instrs else "#777777"
-    size = scale_size(data.get("enrollment", 0))
-    label = n
-    title_html = f"""
-        <b>{n}: {data.get('title','')}</b><br>
-        Level: {data.get('level','')} | Prefix: {data.get('prefix','')} | Number: {data.get('number','')}<br>
-        Instructors: {', '.join(instrs)}<br>
-        Term: {data.get('typical_term','')} | Modality: {data.get('modality','')}<br>
-        Enrollment: {data.get('enrollment',0)}<br>
-        Keywords: {', '.join(data.get('keywords', []))}<br>
-        Cross-listed: {data.get('is_crosslisted', False)} ({', '.join(data.get('crosslist_with', []))})<br>
-        Island: {data.get('island', 0)}
-    """
-    net.add_node(n, label=label, title=title_html, color=color, size=size, shape="dot")
-
-# Add edges
-for u, v, ed in G.edges(data=True):
-    et = ed.get("edge_type", "overlap")
-    dashes = True if et == "crosslist" else False
-    width = 1 if et == "crosslist" else max(1, 2 if ed.get("weight", 1) >= 2 else 1)
-    title_e = f"{et} — {ed.get('note','')}"
-    net.add_edge(u, v, title=title_e, width=width, physics=True, smooth=True, dashes=dashes)
-
-# Render to HTML and display
-with tempfile.NamedTemporaryFile(delete=False, suffix=".html") as tmp:
-    net.show(tmp.name)
-    html_code = open(tmp.name, "r", encoding="utf-8").read()
-    html(html_code, height=820)
+# Build interactive network (PyVis if available; else Plotly fallback)
+if HAS_PYVIS:
+    net = Network(height="800px", width="100%", bgcolor="#ffffff", font_color="#222")
+    net.force_atlas_2based(gravity=-50, central_gravity=0.02, spring_length=120, spring_strength=0.05,
+                           damping=0.4, overlap=1.5)
+    # Add nodes
+    for n in G.nodes():
+        data = G.nodes[n]
+        instrs = data["instructors"]
+        color = color_map[instrs[0]] if instrs else "#777777"
+        size = scale_size(data.get("enrollment", 0))
+        title_html = f"""
+            <b>{n}: {data.get('title','')}</b><br>
+            Level: {data.get('level','')} | Prefix: {data.get('prefix','')} | Number: {data.get('number','')}<br>
+            Instructors: {', '.join(instrs)}<br>
+            Term: {data.get('typical_term','')} | Modality: {data.get('modality','')}<br>
+            Enrollment: {data.get('enrollment',0)}<br>
+            Keywords: {', '.join(data.get('keywords', []))}<br>
+            Cross-listed: {data.get('is_crosslisted', False)} ({', '.join(data.get('crosslist_with', []))})<br>
+            Island: {data.get('island', 0)}
+        """
+        net.add_node(n, label=n, title=title_html, color=color, size=size, shape="dot")
+    # Add edges
+    for u, v, ed in G.edges(data=True):
+        et = ed.get("edge_type", "overlap")
+        dashes = True if et == "crosslist" else False
+        width = 1 if et == "crosslist" else max(1, 2 if ed.get("weight", 1) >= 2 else 1)
+        title_e = f"{et} — {ed.get('note','')}"
+        net.add_edge(u, v, title=title_e, width=width, physics=True, smooth=True, dashes=dashes)
+    import tempfile
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".html") as tmp:
+        net.show(tmp.name)
+        html_code = open(tmp.name, "r", encoding="utf-8").read()
+        html(html_code, height=820)
+else:
+    # Plotly fallback (no PyVis installed)
+    st.warning("PyVis not found. Using a Plotly fallback (less interactive). Add 'pyvis==0.3.2' to requirements.txt for rich interactivity.")
+    pos = nx.spring_layout(G, seed=42, k=0.6)
+    edge_x, edge_y = [], []
+    for u, v in G.edges():
+        x0, y0 = pos[u]
+        x1, y1 = pos[v]
+        edge_x += [x0, x1, None]
+        edge_y += [y0, y1, None]
+    edge_trace = go.Scatter(x=edge_x, y=edge_y, mode='lines', hoverinfo='none', line=dict(width=1))
+    node_x, node_y, text, sizes, colors = [], [], [], [], []
+    for n, data in G.nodes(data=True):
+        x, y = pos[n]
+        node_x.append(x); node_y.append(y)
+        text.append(f"{n}: {data.get('title','')}")
+        sizes.append(scale_size(data.get('enrollment',0)))
+        instrs = data.get('instructors', ['(Unassigned)'])
+        colors.append(color_map.get(instrs[0], '#777777'))
+    node_trace = go.Scatter(x=node_x, y=node_y, mode='markers', text=text, hoverinfo='text',
+                            marker=dict(size=sizes, color=colors, line=dict(width=0.5)))
+    fig = go.Figure(data=[edge_trace, node_trace])
+    fig.update_layout(template=None, showlegend=False, margin=dict(l=10, r=10, t=10, b=10))
+    st.plotly_chart(fig, use_container_width=True)
 
 # --------------------------- Legends & Summaries ---------------------------
 
