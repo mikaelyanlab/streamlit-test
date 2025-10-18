@@ -17,3 +17,4 @@ xgboost
 yfinance
 python-dateutil
 pytz
+pyvis==0.3.2
