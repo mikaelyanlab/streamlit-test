@@ -1,3 +1,4 @@
+# app.py
 # EPP Course Network — Streamlit app
 # -------------------------------------------------------------
 # Features
@@ -5,39 +6,43 @@
 # - Course attributes: id, title, number, prefix, level, instructors, term, modality,
 #   crosslisting, enrollment, keywords
 # - Dynamic network:
-#     * edges by shared keywords (threshold slider)
+#     * edges by shared keywords (threshold slider) or by Jaccard similarity
 #     * optional cross-list edges
 #     * node size = enrollment (scalable)
 #     * node color = instructor (active coloring)
 #     * community detection ("islands") via greedy modularity
 # - Import/export CSV; reset dataset
-# - PyVis interactive network rendered in-app
+# - PyVis interactive network rendered in-app (safe for Streamlit Cloud)
 #
-# Requirements (add these to requirements.txt):
+# Requirements (requirements.txt):
 # streamlit>=1.36
 # pandas>=2.0
 # networkx>=3.2
-# pyvis>=0.3.2
+# pyvis==0.3.2
+# jinja2>=3.0
 #
 # Run:  streamlit run app.py
 # -------------------------------------------------------------
 
+from __future__ import annotations
+
 import io
-import math
+import pathlib
 import tempfile
 from typing import List, Dict
 
 import pandas as pd
 import streamlit as st
 import networkx as nx
-# Try PyVis first; fall back to Plotly if unavailable
+
+# Prefer PyVis; fall back to Plotly if unavailable
 try:
     from pyvis.network import Network  # type: ignore
     from streamlit.components.v1 import html
     HAS_PYVIS = True
 except Exception:
     HAS_PYVIS = False
-    import plotly.graph_objects as go
+    import plotly.graph_objects as go  # type: ignore
 
 # --------------------------- Utility ---------------------------
 
@@ -108,12 +113,10 @@ st.set_page_config(page_title="EPP Course Network", layout="wide")
 if "courses" not in st.session_state:
     st.session_state.courses = pd.DataFrame(SAMPLE_ROWS, columns=DEFAULT_COLUMNS)
 
-if "editing_idx" not in st.session_state:
-    st.session_state.editing_idx = None
-
 # --------------------------- Sidebar ---------------------------
 
 st.sidebar.title("EPP Course Network")
+
 with st.sidebar.expander("Data IO", expanded=True):
     # Download current dataset
     csv_buf = io.StringIO()
@@ -145,8 +148,11 @@ with st.sidebar.expander("Data IO", expanded=True):
 with st.sidebar.expander("Network Settings", expanded=True):
     min_shared = st.slider("Min shared keywords for an edge", 1, 5, 1, help="Higher values yield sparser graphs.")
     include_cross = st.checkbox("Include cross-list edges", value=True)
-    use_jaccard = st.checkbox("Use Jaccard similarity instead of raw count", value=False,
-                              help="If on, edge forms when Jaccard ≥ threshold (slider below).")
+    use_jaccard = st.checkbox(
+        "Use Jaccard similarity instead of raw count",
+        value=False,
+        help="If on, edge forms when Jaccard ≥ threshold (slider below).",
+    )
     jaccard_thr = st.slider("Jaccard threshold", 0.0, 1.0, 0.2, 0.05)
     size_min, size_max = st.slider("Node size range (px)", 5, 60, (12, 38))
 
@@ -160,18 +166,18 @@ with st.sidebar.expander("Filters", expanded=False):
 st.markdown("## Add / Edit Courses")
 
 with st.form("add_course"):
-    col1, col2, col3, col4 = st.columns([1,1,1,1])
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
     course_id = col1.text_input("Course ID", placeholder="ENT425")
     title = col2.text_input("Title", placeholder="General Entomology")
     prefix = col3.text_input("Prefix", value="ENT")
     number = col4.number_input("Number", min_value=0, max_value=999, value=425)
 
-    col5, col6, col7 = st.columns([1,1,1])
+    col5, col6, col7 = st.columns([1, 1, 1])
     level = col5.selectbox("Level", ["UG", "GR"], index=0)
     instructors = col6.text_input("Instructor(s)", placeholder="LastName or Last1, Last2")
     enrollment = col7.number_input("Enrollment", min_value=0, max_value=10000, value=50)
 
-    col8, col9, col10 = st.columns([1,1,1])
+    col8, col9, col10 = st.columns([1, 1, 1])
     typical_term = col8.text_input("Typical term", placeholder="Fall")
     modality = col9.text_input("Modality", placeholder="In-person/Hybrid/Online")
     is_crosslisted = col10.checkbox("Cross-listed?", value=False)
@@ -179,9 +185,9 @@ with st.form("add_course"):
     crosslist_with = st.text_input("Crosslist with (optional comma-separated IDs)", placeholder="PB501, MB501")
     keywords = st.text_area("Keywords (comma-separated)", placeholder="morphology, physiology, ecology")
 
-    submit, clear = st.columns([0.2, 0.2])
-    submitted = submit.form_submit_button("Add / Update")
-    cleared = clear.form_submit_button("Clear fields")
+    submit_col, clear_col = st.columns([0.2, 0.2])
+    submitted = submit_col.form_submit_button("Add / Update")
+    cleared = clear_col.form_submit_button("Clear fields")
 
     if submitted:
         if not course_id:
@@ -209,7 +215,7 @@ with st.form("add_course"):
                 st.session_state.courses = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
                 st.success(f"Added {course_id}.")
     if cleared:
-        st.experimental_rerun()
+        st.rerun()
 
 st.markdown("---")
 
@@ -227,7 +233,7 @@ if pick_level:
 
 st.dataframe(df_show, use_container_width=True, hide_index=True)
 
-colA, colB, colC = st.columns([0.3, 0.3, 0.4])
+colA, colB, _ = st.columns([0.3, 0.3, 0.4])
 with colA:
     to_del = st.text_input("Delete course by ID")
     if st.button("Delete"):
@@ -242,8 +248,7 @@ with colB:
         df = st.session_state.courses
         if to_load in df["course_id"].values:
             r = df.loc[df["course_id"] == to_load].iloc[0].to_dict()
-            # Pre-fill by re-rendering with query params (simple approach: display guidance)
-            st.info("Scroll up and paste values into the form. (Inline auto-fill is kept simple to avoid side effects.)")
+            st.info("Scroll up and paste values into the form.")
             st.json(r)
         else:
             st.warning("Unknown course ID.")
@@ -259,7 +264,6 @@ G = nx.Graph()
 for _, row in df_show.iterrows():
     kws = _clean_keywords(row["keywords"])  # list
     instr_list = _split_multi(row["instructors"]) or ["(Unassigned)"]
-
     G.add_node(
         row["course_id"],
         title=row["title"],
@@ -292,7 +296,12 @@ for i in range(len(nodes)):
                 G.add_edge(a, b, edge_type="topical_overlap", weight=jac, note=f"Jaccard {jac:.2f}")
         else:
             if len(inter) >= min_shared:
-                G.add_edge(a, b, edge_type="topical_overlap", weight=len(inter), note=f"Shared: {', '.join(sorted(inter))}")
+                G.add_edge(
+                    a, b,
+                    edge_type="topical_overlap",
+                    weight=len(inter),
+                    note=f"Shared: {', '.join(sorted(inter))}"
+                )
 
 # Cross-list edges
 if include_cross:
@@ -301,25 +310,21 @@ if include_cross:
         xlist = G.nodes[n]["crosslist_with"]
         for x in xlist:
             if x in id_set and n != x:
-                # Avoid double-adding parallel edge in Graph() — safe to add; NX dedups
                 G.add_edge(n, x, edge_type="crosslist", weight=1, note="cross-listed")
 
-# Compute communities (islands)
+# Communities (islands)
 if G.number_of_edges() > 0 and G.number_of_nodes() > 2:
     communities = list(nx.algorithms.community.greedy_modularity_communities(G))
-    # Map node -> community index
     comm_map: Dict[str, int] = {}
     for i, comm in enumerate(communities):
         for n in comm:
             comm_map[n] = i
 else:
     comm_map = {n: 0 for n in G.nodes()}
-
 nx.set_node_attributes(G, comm_map, name="island")
 
 # Instructor-based color mapping
 all_instructors = sorted({instr for n in G.nodes() for instr in G.nodes[n]["instructors"]})
-# generate a palette
 PALETTE = [
     "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
     "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
@@ -327,23 +332,26 @@ PALETTE = [
 ]
 color_map = {name: PALETTE[i % len(PALETTE)] for i, name in enumerate(all_instructors)}
 
-# Node sizes by enrollment
+# Node size scaling by enrollment
 enrollments = [G.nodes[n].get("enrollment", 0) for n in G.nodes()]
 if enrollments:
     e_min, e_max = min(enrollments), max(enrollments)
-    def scale_size(x):
+
+    def scale_size(x: int | float) -> float:
         if e_max == e_min:
             return (size_min + size_max) / 2
         return size_min + (size_max - size_min) * ((x - e_min) / (e_max - e_min))
 else:
-    def scale_size(x):
+    def scale_size(x: int | float) -> float:
         return (size_min + size_max) / 2
 
-# Build interactive network (PyVis if available; else Plotly fallback)
+# --------------------------- Render Graph ---------------------------
+
 if HAS_PYVIS:
     net = Network(height="800px", width="100%", bgcolor="#ffffff", font_color="#222")
     net.force_atlas_2based(gravity=-50, central_gravity=0.02, spring_length=120, spring_strength=0.05,
                            damping=0.4, overlap=1.5)
+
     # Add nodes
     for n in G.nodes():
         data = G.nodes[n]
@@ -361,21 +369,27 @@ if HAS_PYVIS:
             Island: {data.get('island', 0)}
         """
         net.add_node(n, label=n, title=title_html, color=color, size=size, shape="dot")
+
     # Add edges
     for u, v, ed in G.edges(data=True):
         et = ed.get("edge_type", "overlap")
-        dashes = True if et == "crosslist" else False
+        dashes = (et == "crosslist")
         width = 1 if et == "crosslist" else max(1, 2 if ed.get("weight", 1) >= 2 else 1)
         title_e = f"{et} — {ed.get('note','')}"
         net.add_edge(u, v, title=title_e, width=width, physics=True, smooth=True, dashes=dashes)
-    import tempfile
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".html") as tmp:
-        net.show(tmp.name)
-        html_code = open(tmp.name, "r", encoding="utf-8").read()
-        html(html_code, height=820)
+
+    # IMPORTANT: do not call net.show(); write HTML and embed it
+    tmp_path = pathlib.Path(tempfile.NamedTemporaryFile(delete=False, suffix=".html").name)
+    net.write_html(tmp_path.as_posix(), notebook=False, local=True)
+    with open(tmp_path, "r", encoding="utf-8") as f:
+        html_code = f.read()
+    html(html_code, height=820, scrolling=True)
+
 else:
-    # Plotly fallback (no PyVis installed)
-    st.warning("PyVis not found. Using a Plotly fallback (less interactive). Add 'pyvis==0.3.2' to requirements.txt for rich interactivity.")
+    # Plotly fallback (less interactive)
+    st.warning(
+        "PyVis not found. Using a Plotly fallback (add 'pyvis==0.3.2' to requirements.txt for richer interactivity)."
+    )
     pos = nx.spring_layout(G, seed=42, k=0.6)
     edge_x, edge_y = [], []
     for u, v in G.edges():
@@ -387,13 +401,16 @@ else:
     node_x, node_y, text, sizes, colors = [], [], [], [], []
     for n, data in G.nodes(data=True):
         x, y = pos[n]
-        node_x.append(x); node_y.append(y)
+        node_x.append(x)
+        node_y.append(y)
         text.append(f"{n}: {data.get('title','')}")
-        sizes.append(scale_size(data.get('enrollment',0)))
+        sizes.append(scale_size(data.get('enrollment', 0)))
         instrs = data.get('instructors', ['(Unassigned)'])
         colors.append(color_map.get(instrs[0], '#777777'))
-    node_trace = go.Scatter(x=node_x, y=node_y, mode='markers', text=text, hoverinfo='text',
-                            marker=dict(size=sizes, color=colors, line=dict(width=0.5)))
+    node_trace = go.Scatter(
+        x=node_x, y=node_y, mode='markers', text=text, hoverinfo='text',
+        marker=dict(size=sizes, color=colors, line=dict(width=0.5))
+    )
     fig = go.Figure(data=[edge_trace, node_trace])
     fig.update_layout(template=None, showlegend=False, margin=dict(l=10, r=10, t=10, b=10))
     st.plotly_chart(fig, use_container_width=True)
@@ -403,12 +420,16 @@ else:
 st.markdown("### Legends")
 
 # Instructor legend
-leg_cols = st.columns(min(4, len(all_instructors) if all_instructors else 1))
-for idx, name in enumerate(all_instructors):
-    with leg_cols[idx % len(leg_cols)]:
-        st.markdown(f"<div style='display:flex;align-items:center;gap:8px;'>"
-                    f"<div style='width:14px;height:14px;background:{color_map[name]};border-radius:50%;'></div>"
-                    f"<span>{name}</span></div>", unsafe_allow_html=True)
+if all_instructors:
+    leg_cols = st.columns(min(4, len(all_instructors)))
+    for idx, name in enumerate(all_instructors):
+        with leg_cols[idx % len(leg_cols)]:
+            st.markdown(
+                f"<div style='display:flex;align-items:center;gap:8px;'>"
+                f"<div style='width:14px;height:14px;background:{color_map[name]};border-radius:50%;'></div>"
+                f"<span>{name}</span></div>",
+                unsafe_allow_html=True,
+            )
 
 # Island summary
 if G.number_of_nodes() > 0:
@@ -417,8 +438,11 @@ if G.number_of_nodes() > 0:
         "island": [G.nodes[n]["island"] for n in G.nodes()],
         "instructors": [", ".join(G.nodes[n]["instructors"]) for n in G.nodes()],
         "enrollment": [G.nodes[n]["enrollment"] for n in G.nodes()],
-    }).sort_values(["island", "course_id"]) 
+    }).sort_values(["island", "course_id"])
     with st.expander("Island composition (communities)", expanded=False):
         st.dataframe(df_islands, use_container_width=True, hide_index=True)
 
-st.caption("Edges: solid = topical overlap; dashed = cross-listed. Node color = instructor (first listed). Node size = enrollment.")
+st.caption(
+    "Edges: solid = topical overlap; dashed = cross-listed. "
+    "Node color = instructor (first listed). Node size = enrollment."
+)
