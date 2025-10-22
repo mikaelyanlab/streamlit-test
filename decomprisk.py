@@ -1,6 +1,6 @@
 import streamlit as st
 import numpy as np
-import plotly.express as px
+import plotly.graph_objects as go
 import pandas as pd
 
 st.title("Decomposer Biodiversity Risk Model")
@@ -14,10 +14,7 @@ with col1:
     F = st.slider("Fuel Load (kg/m²)", 5.0, 50.0, 25.0)
     M = st.slider("Soil Moisture (%)", 10, 90, 50)
     C = st.selectbox("Climate Zone", ["arid", "temperate", "humid"])
-    if st.button("Update Map"):
-        st.rerun()
 
-# Expanded country data
 countries_data = {
     'arid': ['AUS', 'SAU', 'EGY', 'IRQ', 'ARE', 'LBY', 'DZA', 'AFG', 'PAK', 'MNG', 'CHL', 'PER', 'NAM', 'MEX', 'ESP', 'ZAF', 'MAR', 'TUN', 'OMN', 'YEM'],
     'temperate': ['GBR', 'FRA', 'DEU', 'ITA', 'PRT', 'GRC', 'TUR', 'JPN', 'KOR', 'USA', 'CAN', 'ARG', 'NOR', 'SWE', 'FIN', 'RUS', 'CHN', 'IND', 'BRA', 'POL', 'NLD', 'BEL', 'CHE', 'AUT'],
@@ -74,14 +71,18 @@ with col2:
         rr = - (0.4 * p_red + 0.3 * d_whc / 10 + 0.2 * sc / 10)
         risks.append(rr)
 
+    import plotly.express as px
     fig_line = px.line(x=biodiversity_range, y=risks, labels={"x": "Biodiversity Index", "y": "Risk Adjustment (%)"},
                        title="Risk Liability vs Biodiversity")
     st.plotly_chart(fig_line, use_container_width=True)
 
-    fig_map = px.choropleth(df_map, locations="iso_alpha",
-                            color="risk_adj",
-                            color_continuous_scale="RdYlGn_r",
-                            labels={'risk_adj': 'Risk Adjustment (%)'},
-                            title="Global Risk Reduction by Biomes (Dynamic Heatmap)")
-    fig_map.update_layout(coloraxis_colorbar=dict(title="Risk Adj (%)"))
+    # Dynamic choropleth with graph_objects
+    fig_map = go.Figure(data=go.Choropleth(
+        locations=df_map['iso_alpha'],
+        z=df_map['risk_adj'],
+        colorscale='RdYlGn_r',
+        colorbar_title="Risk Adj (%)",
+        locationmode='ISO-3'
+    ))
+    fig_map.update_layout(title="Global Risk Reduction by Biomes", geo=dict(showframe=False, showcoastlines=False))
     st.plotly_chart(fig_map, use_container_width=True)
