@@ -76,7 +76,7 @@ with col2:
                        title="Risk Liability vs Biodiversity")
     st.plotly_chart(fig_line, use_container_width=True)
 
-    # Dynamic choropleth with graph_objects
+    # Dynamic choropleth with key for forced update
     fig_map = go.Figure(data=go.Choropleth(
         locations=df_map['iso_alpha'],
         z=df_map['risk_adj'],
@@ -85,4 +85,4 @@ with col2:
         locationmode='ISO-3'
     ))
     fig_map.update_layout(title="Global Risk Reduction by Biomes", geo=dict(showframe=False, showcoastlines=False))
-    st.plotly_chart(fig_map, use_container_width=True)
+    st.plotly_chart(fig_map, use_container_width=True, key=f"map_{B}_{int(D*10)}_{F}_{M}_{C}")
