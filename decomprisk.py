@@ -38,6 +38,7 @@ for zone in C_factor:
     adj_per_zone[zone] = - (2.0 * pct_red_zone + 1.0 * delta_whc_zone / 5 + 1.0 * score_zone / 5)
 
 df_map['risk_adj'] = df_map['climate'].map(adj_per_zone)
+df_map['risk_adj'] = pd.to_numeric(df_map['risk_adj'], errors='coerce').fillna(0)
 
 k = k_base * (1 + 0.5 * B / 100) * D * C_factor[C]
 F_remaining = F * np.exp(-k * 1)
@@ -80,7 +81,7 @@ with col2:
     df_map['text'] = df_map['iso_alpha'] + "<br>Risk Adj: " + df_map['risk_adj'].round(2).astype(str)
     fig_map = go.Figure(data=go.Choropleth(
         locations=df_map['iso_alpha'],
-        z=df_map['risk_adj'],
+        z=df_map['risk_adj'],  # Now safe and numeric
         text=df_map['text'],
         hoverinfo='text',
         colorscale='RdYlGn_r',
