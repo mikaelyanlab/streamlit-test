@@ -15,11 +15,11 @@ with col1:
     M = st.slider("Soil Moisture (%)", 10, 90, 50)
     C = st.selectbox("Climate Zone", ["arid", "temperate", "humid"])
 
-# Sample country data for map (ISO3 codes grouped by approximate climate zone)
+# Expanded country data for denser map
 countries_data = {
-    'arid': ['AUS', 'SAU', 'EGY', 'IRQ', 'ARE', 'LBY', 'DZA', 'AFG', 'PAK', 'MNG', 'CHL', 'PER', 'NAM'],
-    'temperate': ['GBR', 'FRA', 'DEU', 'ITA', 'ESP', 'PRT', 'GRC', 'TUR', 'JPN', 'KOR', 'USA', 'CAN', 'ARG'],
-    'humid': ['BRA', 'COL', 'ECU', 'VEN', 'IDN', 'MYS', 'SGP', 'PHL', 'VNM', 'THA', 'SSD', 'TZA', 'KEN']
+    'arid': ['AUS', 'SAU', 'EGY', 'IRQ', 'ARE', 'LBY', 'DZA', 'AFG', 'PAK', 'MNG', 'CHL', 'PER', 'NAM', 'MEX', 'ESP', 'ZAF', 'MAR', 'TUN', 'OMN', 'YEM'],
+    'temperate': ['GBR', 'FRA', 'DEU', 'ITA', 'PRT', 'GRC', 'TUR', 'JPN', 'KOR', 'USA', 'CAN', 'ARG', 'NOR', 'SWE', 'FIN', 'RUS', 'CHN', 'IND', 'BRA', 'POL', 'NLD', 'BEL', 'CHE', 'AUT'],
+    'humid': ['BRA', 'COL', 'ECU', 'VEN', 'IDN', 'MYS', 'SGP', 'PHL', 'VNM', 'THA', 'SSD', 'TZA', 'KEN', 'IND', 'LKA', 'CRI', 'PAN', 'DOM', 'BOL', 'PER', 'GUY', 'SUR', 'URY', 'PRY', 'NIC']
 }
 
 # Create df for map
@@ -87,11 +87,11 @@ with col2:
                        title="Risk Liability vs Biodiversity")
     st.plotly_chart(fig_line, use_container_width=True)
 
-    # World Map: Biomes colored by risk adjustment (heatmap-style choropleth)
+    # World Map: Biomes colored by risk adjustment (dynamic choropleth heatmap)
     fig_map = px.choropleth(df_map, locations="iso_alpha",
                             color="risk_adj",
                             color_continuous_scale="RdYlGn_r",
                             labels={'risk_adj': 'Risk Adjustment (%)'},
-                            title="Global Risk Reduction by Biomes (Heatmap)")
+                            title="Global Risk Reduction by Biomes (Dynamic Heatmap)")
     fig_map.update_layout(coloraxis_colorbar=dict(title="Risk Adj (%)"))
     st.plotly_chart(fig_map, use_container_width=True)
