@@ -13,25 +13,36 @@ with col1:
     D = st.slider("Decomposition Rate Factor (0.5-2.0x)", 0.5, 2.0, 1.0)
     F = st.slider("Fuel Load (kg/m²)", 5.0, 50.0, 25.0)
     M = st.slider("Soil Moisture (%)", 10, 90, 50)
-
-countries = ['USA', 'CAN', 'BRA', 'FRA', 'ZAF', 'AUS', 'CHN', 'IND', 'RUS', 'EGY']
-
-# Country-specific fuel multipliers (higher for fire-prone)
-fuel_mult = {'USA': 1.5, 'CAN': 1.2, 'BRA': 1.0, 'FRA': 0.8, 'ZAF': 1.3, 'AUS': 2.0, 'CHN': 1.1, 'IND': 0.9, 'RUS': 1.4, 'EGY': 1.6}
+    C = st.selectbox("Climate Zone", ["arid", "temperate", "humid"])
 
 k_base = 0.1
-k = k_base * (1 + 0.5 * B / 100) * D
+C_factor = {"arid": 0.8, "temperate": 1.0, "humid": 1.2}
 
-# Per-country risk_adj with multipliers
-base_values = np.array([fuel_mult[c] for c in countries])
-risk_adj = base_values * (1 + 10 * k) * (1 - M/100) * (F/50)  # Now varies uniquely
-
-df_map = pd.DataFrame({
-    'iso_alpha': countries,
-    'risk': risk_adj
+# Real-context biomes with sample areas (km²)
+biomes = pd.DataFrame({
+    'biome': ['Arid Deserts', 'Temperate Forests', 'Humid Tropics'],
+    'area_km2': [5000000, 10000000, 15000000],
+    'baseline_risk': [0.3, 0.2, 0.15]  # Hypothetical baseline liability fraction
 })
 
-k_val = k_base * (1 + 0.5 * B / 100) * D
+# Compute impacts per biome
+impacts = []
+for _, row in biomes.iterrows():
+    zone = row['biome'].split()[0].lower()
+    k_zone = k_base * (1 + 0.5 * B / 100) * D * C_factor[zone]
+    F_remaining_zone = F * np.exp(-k_zone * 1)
+    fire_intensity_base = F ** 1.5
+    fire_intensity_red_zone = F_remaining_zone ** 1.5
+    pct_red_zone = (1 - fire_intensity_red_zone / fire_intensity_base) * 100
+    delta_whc_zone = 5 * (k_zone * B / 100) * (M / 100)
+    score_zone = 5 * (1 - np.exp(-0.05 * k_zone * B)) + 2 * (M / 100)
+    adj_zone = - (2.0 * pct_red_zone + 1.0 * delta_whc_zone / 5 + 1.0 * score_zone / 5)
+    total_impact = adj_zone * row['area_km2'] * row['baseline_risk'] / 100  # Scaled ecological liability reduction ($ equiv.)
+    impacts.append({'biome': row['biome'], 'risk_reduction_%': adj_zone, 'total_impact': total_impact})
+
+df_impacts = pd.DataFrame(impacts)
+
+k_val = k_base * (1 + 0.5 * B / 100) * D * C_factor[C]
 F_remaining = F * np.exp(-k_val * 1)
 fire_intensity_base = F ** 1.5
 fire_intensity_red = F_remaining ** 1.5
@@ -53,7 +64,7 @@ with col2:
     biodiversity_range = np.linspace(0, 100, 50)
     risks = []
     for b in biodiversity_range:
-        kk = k_base * (1 + 0.5 * b / 100) * D
+        kk = k_base * (1 + 0.5 * b / 100) * D * C_factor[C]
         ff_rem = F * np.exp(-kk * 1)
         ii_base = F ** 1.5
         ii_red = ff_rem ** 1.5
@@ -67,11 +78,8 @@ with col2:
                        title="Risk Liability vs Biodiversity")
     st.plotly_chart(fig_line, use_container_width=True)
 
-    # Dynamic map
-    fig_map = px.choropleth(df_map, locations="iso_alpha",
-                            color="risk",
-                            locationmode='ISO-3',
-                            color_continuous_scale="RdYlGn_r",
-                            labels={'risk': 'Risk Adj'},
-                            title="Dynamic Risk Map")
-    st.plotly_chart(fig_map, use_container_width=True)
+    # Bar chart: Ecological impact by biome (real-scale total reduction)
+    fig_bar = px.bar(df_impacts, x='biome', y='total_impact',
+                     labels={'total_impact': 'Total Liability Reduction ($M equiv.)', 'biome': 'Biome'},
+                     title="Ecological Impact Across Biomes")
+    st.plotly_chart(fig_bar, use_container_width=True)
