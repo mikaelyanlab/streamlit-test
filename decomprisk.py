@@ -16,9 +16,9 @@ with col1:
     C = st.selectbox("Climate Zone", ["arid", "temperate", "humid"])
 
 countries_data = {
-    'arid': ['AUS', 'SAU', 'EGY', 'IRQ', 'ARE', 'LBY', 'DZA', 'AFG', 'PAK', 'MNG', 'CHL', 'PER', 'NAM', 'MEX', 'ESP', 'ZAF', 'MAR', 'TUN', 'OMN', 'YEM'],
-    'temperate': ['GBR', 'FRA', 'DEU', 'ITA', 'PRT', 'GRC', 'TUR', 'JPN', 'KOR', 'USA', 'CAN', 'ARG', 'NOR', 'SWE', 'FIN', 'RUS', 'CHN', 'IND', 'BRA', 'POL', 'NLD', 'BEL', 'CHE', 'AUT'],
-    'humid': ['BRA', 'COL', 'ECU', 'VEN', 'IDN', 'MYS', 'SGP', 'PHL', 'VNM', 'THA', 'SSD', 'TZA', 'KEN', 'IND', 'LKA', 'CRI', 'PAN', 'DOM', 'BOL', 'PER', 'GUY', 'SUR', 'URY', 'PRY', 'NIC']
+    'arid': ['AUS', 'SAU', 'EGY', 'IRQ', 'ARE', 'LBY', 'DZA', 'AFG', 'PAK', 'MNG', 'CHL', 'NAM', 'MEX', 'ESP', 'ZAF', 'MAR', 'TUN', 'OMN', 'YEM'],
+    'temperate': ['GBR', 'FRA', 'DEU', 'ITA', 'PRT', 'GRC', 'TUR', 'JPN', 'KOR', 'USA', 'CAN', 'ARG', 'NOR', 'SWE', 'FIN', 'RUS', 'CHN', 'POL', 'NLD', 'BEL', 'CHE', 'AUT'],
+    'humid': ['COL', 'ECU', 'VEN', 'IDN', 'MYS', 'SGP', 'PHL', 'VNM', 'THA', 'SSD', 'TZA', 'KEN', 'LKA', 'CRI', 'PAN', 'DOM', 'BOL', 'GUY', 'SUR', 'URY', 'PRY', 'NIC']
 }
 
 df_map = pd.DataFrame([{'iso_alpha': iso, 'climate': zone} for zone, isos in countries_data.items() for iso in isos])
@@ -35,7 +35,7 @@ for zone in C_factor:
     pct_red_zone = (1 - fire_intensity_red_zone / fire_intensity_base) * 100
     delta_whc_zone = 5 * (k_zone * B / 100) * (M / 100)
     score_zone = 5 * (1 - np.exp(-0.05 * k_zone * B)) + 2 * (M / 100)
-    adj_per_zone[zone] = - (0.4 * pct_red_zone + 0.3 * delta_whc_zone / 10 + 0.2 * score_zone / 10)
+    adj_per_zone[zone] = - (2.0 * pct_red_zone + 1.0 * delta_whc_zone / 5 + 1.0 * score_zone / 5)
 
 df_map['risk_adj'] = df_map['climate'].map(adj_per_zone)
 
@@ -68,7 +68,7 @@ with col2:
         p_red = (1 - ii_red / ii_base) * 100
         d_whc = 5 * (kk * b / 100) * (M / 100)
         sc = 5 * (1 - np.exp(-0.05 * kk * b)) + 2 * (M / 100)
-        rr = - (0.4 * p_red + 0.3 * d_whc / 10 + 0.2 * sc / 10)
+        rr = - (2.0 * p_red + 1.0 * d_whc / 5 + 1.0 * sc / 5)
         risks.append(rr)
 
     import plotly.express as px
@@ -77,9 +77,12 @@ with col2:
     st.plotly_chart(fig_line, use_container_width=True)
 
     # Plotting the choropleth map dynamically
+    df_map['text'] = df_map['iso_alpha'] + "<br>Risk Adj: " + df_map['risk_adj'].round(2).astype(str)
     fig_map = go.Figure(data=go.Choropleth(
         locations=df_map['iso_alpha'],
         z=df_map['risk_adj'],
+        text=df_map['text'],
+        hoverinfo='text',
         colorscale='RdYlGn_r',
         colorbar_title="Risk Adj (%)",
         locationmode='ISO-3'
