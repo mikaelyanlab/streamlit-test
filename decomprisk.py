@@ -16,12 +16,15 @@ with col1:
 
 countries = ['USA', 'CAN', 'BRA', 'FRA', 'ZAF', 'AUS', 'CHN', 'IND', 'RUS', 'EGY']
 
+# Country-specific fuel multipliers (higher for fire-prone)
+fuel_mult = {'USA': 1.5, 'CAN': 1.2, 'BRA': 1.0, 'FRA': 0.8, 'ZAF': 1.3, 'AUS': 2.0, 'CHN': 1.1, 'IND': 0.9, 'RUS': 1.4, 'EGY': 1.6}
+
 k_base = 0.1
 k = k_base * (1 + 0.5 * B / 100) * D
 
-# Amplified for visibility
-base_values = np.linspace(10, 30, len(countries))
-risk_adj = base_values * (1 + 10 * k) * (1 - M/100) * (F/50)  # Amplified by 10x
+# Per-country risk_adj with multipliers
+base_values = np.array([fuel_mult[c] for c in countries])
+risk_adj = base_values * (1 + 10 * k) * (1 - M/100) * (F/50)  # Now varies uniquely
 
 df_map = pd.DataFrame({
     'iso_alpha': countries,
@@ -64,11 +67,11 @@ with col2:
                        title="Risk Liability vs Biodiversity")
     st.plotly_chart(fig_line, use_container_width=True)
 
-    # Dynamic map with px for better reactivity
+    # Dynamic map
     fig_map = px.choropleth(df_map, locations="iso_alpha",
                             color="risk",
                             locationmode='ISO-3',
                             color_continuous_scale="RdYlGn_r",
                             labels={'risk': 'Risk Adj'},
                             title="Dynamic Risk Map")
-    st.plotly_chart(fig_map, use_container_width=True, key=f"map_{B}_{D}_{F}_{M}")
+    st.plotly_chart(fig_map, use_container_width=True)
