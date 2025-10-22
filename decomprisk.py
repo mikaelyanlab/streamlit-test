@@ -18,26 +18,29 @@ with col1:
 k_base = 0.1
 C_factor = {"arid": 0.8, "temperate": 1.0, "humid": 1.2}
 
-# Real-context biomes with sample areas (km²)
+# Real-context biomes with sample areas (km²) and biome-specific sensitivities
 biomes = pd.DataFrame({
     'biome': ['Arid Deserts', 'Temperate Forests', 'Humid Tropics'],
     'area_km2': [5000000, 10000000, 15000000],
-    'baseline_risk': [0.3, 0.2, 0.15]  # Hypothetical baseline liability fraction
+    'baseline_risk': [0.3, 0.2, 0.15],
+    'fuel_sens': [1.5, 1.0, 0.7],  # Higher fuel sensitivity in arid
+    'moisture_sens': [0.5, 1.0, 1.5]  # Higher moisture benefit in humid
 })
 
-# Compute impacts per biome
+# Compute impacts per biome with non-linear sensitivities
 impacts = []
 for _, row in biomes.iterrows():
     zone = row['biome'].split()[0].lower()
     k_zone = k_base * (1 + 0.5 * B / 100) * D * C_factor[zone]
-    F_remaining_zone = F * np.exp(-k_zone * 1)
-    fire_intensity_base = F ** 1.5
+    F_zone = F * row['fuel_sens']  # Biome-specific fuel
+    F_remaining_zone = F_zone * np.exp(-k_zone * 1)
+    fire_intensity_base = F_zone ** 1.5
     fire_intensity_red_zone = F_remaining_zone ** 1.5
     pct_red_zone = (1 - fire_intensity_red_zone / fire_intensity_base) * 100
-    delta_whc_zone = 5 * (k_zone * B / 100) * (M / 100)
-    score_zone = 5 * (1 - np.exp(-0.05 * k_zone * B)) + 2 * (M / 100)
+    delta_whc_zone = 5 * (k_zone * B / 100) * (M / 100) * row['moisture_sens']  # Scaled by sens
+    score_zone = 5 * (1 - np.exp(-0.05 * k_zone * B * row['fuel_sens'])) + 2 * (M / 100)  # Non-linear
     adj_zone = - (2.0 * pct_red_zone + 1.0 * delta_whc_zone / 5 + 1.0 * score_zone / 5)
-    total_impact = adj_zone * row['area_km2'] * row['baseline_risk'] / 100  # Scaled ecological liability reduction ($ equiv.)
+    total_impact = adj_zone * row['area_km2'] * row['baseline_risk'] / 100
     impacts.append({'biome': row['biome'], 'risk_reduction_%': adj_zone, 'total_impact': total_impact})
 
 df_impacts = pd.DataFrame(impacts)
@@ -78,7 +81,7 @@ with col2:
                        title="Risk Liability vs Biodiversity")
     st.plotly_chart(fig_line, use_container_width=True)
 
-    # Bar chart: Ecological impact by biome (real-scale total reduction)
+    # Bar chart: Ecological impact by biome (now with varying relative heights)
     fig_bar = px.bar(df_impacts, x='biome', y='total_impact',
                      labels={'total_impact': 'Total Liability Reduction ($M equiv.)', 'biome': 'Biome'},
                      title="Ecological Impact Across Biomes")
