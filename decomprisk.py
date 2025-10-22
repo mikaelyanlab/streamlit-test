@@ -1,6 +1,7 @@
 import streamlit as st
 import numpy as np
 import plotly.express as px
+import pandas as pd
 
 st.title("Decomposer Biodiversity Risk Model")
 
@@ -8,11 +9,25 @@ col1, col2 = st.columns([1, 2])
 
 with col1:
     st.header("Controls")
-    B = st.slider("Biodiversity Index", 0, 100, 50)
-    D = st.slider("Decomp Rate Factor", 0.5, 2.0, 1.0)
+    B = st.slider("Biodiversity Index (0-100)", 0, 100, 50)
+    D = st.slider("Decomposition Rate Factor (0.5-2.0x)", 0.5, 2.0, 1.0)
     F = st.slider("Fuel Load (kg/m²)", 5.0, 50.0, 25.0)
     M = st.slider("Soil Moisture (%)", 10, 90, 50)
     C = st.selectbox("Climate Zone", ["arid", "temperate", "humid"])
+
+# Sample country data for map (ISO3 codes grouped by approximate climate zone)
+countries_data = {
+    'arid': ['AUS', 'SAU', 'EGY', 'IRQ', 'ARE', 'LBY', 'DZA', 'AFG', 'PAK', 'MNG', 'CHL', 'PER', 'NAM'],
+    'temperate': ['GBR', 'FRA', 'DEU', 'ITA', 'ESP', 'PRT', 'GRC', 'TUR', 'JPN', 'KOR', 'USA', 'CAN', 'ARG'],
+    'humid': ['BRA', 'COL', 'ECU', 'VEN', 'IDN', 'MYS', 'SGP', 'PHL', 'VNM', 'THA', 'SSD', 'TZA', 'KEN']
+}
+
+# Create df for map
+df_map = []
+for zone, isos in countries_data.items():
+    for iso in isos:
+        df_map.append({'iso_alpha': iso, 'climate': zone})
+df_map = pd.DataFrame(df_map)
 
 # Constants
 k_base = 0.1
@@ -27,6 +42,9 @@ pct_red = (1 - fire_intensity_red / fire_intensity_base) * 100
 delta_whc = 5 * (k * B / 100) * (M / 100)
 score = 5 * (1 - np.exp(-0.05 * k * B)) + 2 * (M / 100)
 adj = - (0.4 * pct_red + 0.3 * delta_whc / 10 + 0.2 * score / 10)
+
+# Map df with risk (color by adj for selected zone, 0 otherwise)
+df_map['risk_adj'] = np.where(df_map['climate'] == C, adj, 0)
 
 with col2:
     st.header("Outputs")
@@ -52,6 +70,15 @@ with col2:
         rr = - (0.4 * p_red + 0.3 * d_whc / 10 + 0.2 * sc / 10)
         risks.append(rr)
 
-    fig = px.line(x=biodiversity_range, y=risks, labels={"x": "Biodiversity Index", "y": "Risk Adjustment (%)"},
-                  title="Risk Liability vs Biodiversity")
-    st.plotly_chart(fig)
+    fig_line = px.line(x=biodiversity_range, y=risks, labels={"x": "Biodiversity Index", "y": "Risk Adjustment (%)"},
+                       title="Risk Liability vs Biodiversity")
+    st.plotly_chart(fig_line, use_container_width=True)
+
+    # World Map: Biomes colored by risk adjustment for selected zone
+    fig_map = px.choropleth(df_map, locations="iso_alpha",
+                            color="risk_adj",
+                            color_continuous_scale="RdYlGn_r",  # Red to green, reversed for negative adj (reduction)
+                            labels={'risk_adj': 'Risk Adjustment (%)'},
+                            title=f"Global Risk Reduction by {C.capitalize()} Biomes")
+    fig_map.update_layout(coloraxis_colorbar=dict(title="Risk Adj (%)"))
+    st.plotly_chart(fig_map, use_container_width=True)
