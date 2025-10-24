@@ -10,7 +10,7 @@
 #     * node color = module (active coloring)
 #     * community detection by module or keyword overlap
 # - Import/export CSV; reset dataset
-# - PyVis interactive network rendered in-app
+# - PyVis interactive network rendered in‑app
 #
 # Requirements:
 # streamlit>=1.36
@@ -57,7 +57,7 @@ SAMPLE_ROWS = [
         "notes": "Define terms; systems diagram", "connect_with": ""
     },
     {
-        "session_id": "W1-Th", "date": "2025‑01‑16", "title": "Symbiosis – scope & examples",
+        "session_id": "W1-Th", "date": "2025‑01‑16", "title": "Symbiosis — scope & examples",
         "instructor": "You", "module": "Foundations",
         "activity": "Mini case‑studies", "keywords": "commensalism, amensalism, insect symbiosis",
         "notes": "", "connect_with": "W1‑Tu"
@@ -141,10 +141,10 @@ with st.form("add_session"):
     title = col3.text_input("Title", placeholder="Ch 3 – Nutritional Symbioses")
     instructor = col4.text_input("Instructor(s)", placeholder="You")
     col5, col6, col7 = st.columns([1,1,1])
-    module = col5.text_input("Module", placeholder="Nutritional Symbioses")
+    module = col5.text_input("Module", placeholder="Nutritional Symbiosis")
     activity = col6.text_input("Activity", placeholder="Case discussion / Lab")
     keywords = col7.text_area("Keywords (comma-separated)", placeholder="aphid, buchnera, nitrogen")
-    notes = st.text_area("Notes", placeholder="Reading: Chapter 3, bring laptop for modeling")
+    notes = st.text_area("Notes", placeholder="Reading: Chapter 3, bring laptop for modeling")
     connect_with = st.text_input("Connect with (optional comma-separated session IDs)", placeholder="W2‑Th, W3‑Tu")
     submitted = st.form_submit_button("Add / Update")
     if submitted:
@@ -156,7 +156,7 @@ with st.form("add_session"):
                 "date": date.strftime("%Y‑%m‑%d"),
                 "title": title.strip(),
                 "instructor": instructor.strip(),
-                "module": module.strip(),
+                "module": module.strip() if module.strip() else "Unassigned",
                 "activity": activity.strip(),
                 "keywords": keywords.strip(),
                 "notes": notes.strip(),
@@ -217,55 +217,56 @@ G = nx.Graph()
 for _, row in df_show.iterrows():
     kws = _clean_keywords(row["keywords"])
     instr_list = _split_multi(row["instructor"]) or ["(Unassigned)"]
+    module_value = row.get("module", "").strip() or "Unassigned"
     G.add_node(
         row["session_id"],
         title=row["title"],
         date=row["date"],
         instructor=instr_list,
-        module=row["module"],
+        module=module_value,
         activity=row["activity"],
         keywords=kws,
         notes=row["notes"],
         connect_with=_split_multi(row["connect_with"])
     )
 
-# Keyword overlap edges
+# Edge creation
 nodes = list(G.nodes())
 for i in range(len(nodes)):
     for j in range(i+1, len(nodes)):
         a, b = nodes[i], nodes[j]
         ak = set(G.nodes[a]["keywords"])
         bk = set(G.nodes[b]["keywords"])
-        if not ak or not bk:
-            continue
-        inter = ak & bk
-        if use_jaccard:
-            union = ak | bk
-            jac = len(inter) / len(union) if union else 0.0
-            if jac >= jaccard_thr:
-                G.add_edge(a, b, edge_type="keyword_overlap", weight=jac, note=f"Jaccard {jac:.2f}")
-        else:
-            if len(inter) >= min_shared:
-                G.add_edge(a, b, edge_type="keyword_overlap", weight=len(inter), note=f"Shared: {', '.join(sorted(inter))}")
+        if ak and bk:
+            if use_jaccard:
+                union = ak | bk
+                jac = len(ak & bk) / len(union) if union else 0.0
+                if jac >= jaccard_thr:
+                    G.add_edge(a, b, edge_type="keyword_overlap", weight=jac,
+                               note=f"Jaccard {jac:.2f}")
+            else:
+                shared = len(ak & bk)
+                if shared >= min_shared:
+                    G.add_edge(a, b, edge_type="keyword_overlap", weight=shared,
+                               note=f"Shared: {', '.join(sorted(ak & bk))}")
 
-# Manual connect edges
 if include_manual:
     for n in nodes:
-        connects = G.nodes[n]["connect_with"]
+        connects = G.nodes[n].get("connect_with", [])
         for m in connects:
             if m in nodes and m != n:
                 G.add_edge(n, m, edge_type="manual_connect", weight=1, note="manual connect")
 
-# Communities based on module
-comm_map: Dict[str,int] = {n: idx for idx, mod in enumerate(sorted({G.nodes[n]["module"] for n in G.nodes()})) for n in G.nodes()}
+# Community mapping by module
+modules = sorted({G.nodes[n]["module"] for n in G.nodes()})
+mod_index = {mod: idx for idx, mod in enumerate(modules)}
+comm_map: Dict[str, int] = {n: mod_index.get(G.nodes[n]["module"], 0) for n in G.nodes()}
 nx.set_node_attributes(G, comm_map, name="community")
 
 # Module‑based color mapping
-modules = sorted({G.nodes[n]["module"] for n in G.nodes()})
 PALETTE = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]
 color_map = {mod: PALETTE[i % len(PALETTE)] for i, mod in enumerate(modules)}
 
-# Node size (fixed or based on something like session importance)
 def scale_size(x: float) -> float:
     return (size_min + size_max) / 2
 
