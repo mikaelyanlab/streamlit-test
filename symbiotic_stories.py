@@ -217,7 +217,7 @@ G = nx.Graph()
 for _, row in df_show.iterrows():
     kws = _clean_keywords(row["keywords"])
     instr_list = _split_multi(row["instructor"]) or ["(Unassigned)"]
-    module_value = row.get("module", "").strip() or "Unassigned"
+    module_value = row["module"].strip() if pd.notna(row["module"]) else "Unassigned"
     G.add_node(
         row["session_id"],
         title=row["title"],
