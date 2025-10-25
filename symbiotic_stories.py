@@ -1,29 +1,15 @@
-# app.py — Insect–Microbe Systems Course Network (Final Build)
-# ----------------------------------------------------------------------
-# Features:
-# ✅ Robust CSV import with validation (handles smart quotes & commas)
-# ✅ Add / edit / delete sessions
-# ✅ Inline data_editor
-# ✅ PyVis network with clickable nodes (no hover clutter)
-# ✅ “Session Passport” panel showing full details on click
-# ----------------------------------------------------------------------
-
+# app.py — Insect–Microbe Systems Course Network (Auto-clean CSV + Clickable Passport)
+# ------------------------------------------------------------------------------------
 from __future__ import annotations
-import io
-import csv
-import pathlib
-import tempfile
+import io, csv, pathlib, tempfile
 import pandas as pd
-import streamlit as st
 import networkx as nx
+import streamlit as st
 import streamlit.components.v1 as components
-from typing import List, Dict
-
+from typing import List
 from pyvis.network import Network
 
-# ----------------------------------------------------------------------
-# Utility functions
-# ----------------------------------------------------------------------
+# ---------------------- Utility ----------------------
 
 DEFAULT_COLUMNS = [
     "session_id", "date", "title", "instructor", "module",
@@ -42,34 +28,22 @@ SAMPLE_ROWS = [
     }
 ]
 
-REQUIRED_COLS = DEFAULT_COLUMNS
-
-
-def _clean_keywords(s: str) -> List[str]:
-    if pd.isna(s) or not str(s).strip():
-        return []
+def _clean_keywords(s: str) -> list[str]:
+    if pd.isna(s) or not str(s).strip(): return []
     toks = [t.strip().lower() for t in str(s).replace(";", ",").split(",")]
     return sorted(list({t for t in toks if t}))
 
-
-def _split_multi(s: str) -> List[str]:
-    if pd.isna(s) or not str(s).strip():
-        return []
+def _split_multi(s: str) -> list[str]:
+    if pd.isna(s) or not str(s).strip(): return []
     return [t.strip() for t in str(s).replace(";", ",").split(",") if t.strip()]
 
-
-# ----------------------------------------------------------------------
-# Streamlit page config
-# ----------------------------------------------------------------------
+# ---------------------- App Setup ----------------------
 st.set_page_config(page_title="Insect–Microbe Systems Network", layout="wide")
 
 if "sessions" not in st.session_state:
     st.session_state.sessions = pd.DataFrame(SAMPLE_ROWS, columns=DEFAULT_COLUMNS)
 
-# ----------------------------------------------------------------------
-# Sidebar — Data management and settings
-# ----------------------------------------------------------------------
-
+# ---------------------- Sidebar ----------------------
 st.sidebar.title("Course Session Network")
 
 with st.sidebar.expander("📂 Data IO", expanded=True):
@@ -79,84 +53,72 @@ with st.sidebar.expander("📂 Data IO", expanded=True):
     st.download_button("⬇️ Download sessions.csv", csv_buf.getvalue(),
                        "sessions.csv", "text/csv")
 
-    # Upload
     up = st.file_uploader("Upload sessions.csv", type=["csv"])
     if up is not None:
         try:
-            raw_bytes = up.read()
-            text = raw_bytes.decode("utf-8", errors="replace")
-            text = text.replace("\r\n", "\n").replace("\r", "\n")
-            text = (text.replace("“", '"').replace("”", '"')
+            raw = up.read().decode("utf-8", errors="replace")
+            text = (raw.replace("\r\n", "\n")
+                        .replace("\r", "\n")
+                        .replace("“", '"').replace("”", '"')
                         .replace("’", "'").replace("‘", "'")
-                        .replace("\u00A0", " "))
-            text = text.strip()
+                        .replace("\u00A0", " ")).strip()
 
-            # Validator
-            rdr = csv.reader(io.StringIO(text))
-            rows = list(rdr)
-            if not rows:
-                raise ValueError("Empty file.")
-            header = rows[0]
-            expected_n = len(REQUIRED_COLS)
-            if header != REQUIRED_COLS:
-                st.warning(f"Header mismatch.\nExpected: {REQUIRED_COLS}\nFound: {header}")
-
-            problems = []
-            for idx, r in enumerate(rows[1:], start=2):
-                if len(r) != expected_n:
-                    problems.append((idx, len(r), r[:3]))
-            if problems:
-                st.error(f"{len(problems)} malformed row(s) found. Expected {expected_n} columns.")
-                for ln, ncols, preview in problems[:5]:
-                    st.write(f"Line {ln}: {ncols} cols → {preview}")
-
-            # Parse robustly
+            # --- first try normal parse
             try:
                 df_up = pd.read_csv(io.StringIO(text), dtype=str, keep_default_na=False)
             except Exception:
-                df_up = pd.read_csv(io.StringIO(text), dtype=str, keep_default_na=False,
-                                    engine="python", sep=",", quotechar='"', escapechar="\\")
+                df_up = None
 
-            missing = [c for c in REQUIRED_COLS if c not in df_up.columns]
+            # --- if malformed, re-quote & pad
+            if df_up is None or len(df_up.columns) != 9:
+                reader = csv.reader(io.StringIO(text))
+                rows = list(reader)
+                clean_rows = []
+                for r in rows:
+                    if not r: continue
+                    if len(r) < 9: r += ['']*(9-len(r))
+                    elif len(r) > 9: r = r[:9]
+                    clean_rows.append(r)
+                buf2 = io.StringIO()
+                writer = csv.writer(buf2, quoting=csv.QUOTE_MINIMAL)
+                writer.writerows(clean_rows)
+                buf2.seek(0)
+                df_up = pd.read_csv(buf2, dtype=str, keep_default_na=False)
+
+            missing = [c for c in DEFAULT_COLUMNS if c not in df_up.columns]
             if missing:
-                st.error(f"Missing columns: {missing}")
-            else:
-                df_up = df_up[REQUIRED_COLS].fillna("")
-                st.session_state.sessions = df_up.copy()
-                st.success("✅ Dataset loaded successfully.")
+                df_up.columns = DEFAULT_COLUMNS[:len(df_up.columns)]
+                for c in DEFAULT_COLUMNS:
+                    if c not in df_up.columns: df_up[c] = ""
+            df_up = df_up[DEFAULT_COLUMNS].fillna("")
+            st.session_state.sessions = df_up.copy()
+            st.success("✅ CSV loaded and cleaned automatically.")
         except Exception as e:
-            st.error(f"Upload failed. Please re-download the template and paste your data.\n\nDetails: {e}")
+            st.error(f"Upload failed. Details: {e}")
 
     if st.button("Reset to sample dataset"):
-        st.session_state.sessions = pd.DataFrame(SAMPLE_ROWS, columns=REQUIRED_COLS)
+        st.session_state.sessions = pd.DataFrame(SAMPLE_ROWS, columns=DEFAULT_COLUMNS)
         st.success("Reset complete.")
 
 with st.sidebar.expander("⚙️ Network Settings", expanded=True):
     min_shared = st.slider("Min shared keywords for edge", 1, 5, 1)
-    include_manual = st.checkbox("Include manual connect_with edges", value=True)
-    use_jaccard = st.checkbox("Use Jaccard similarity", value=False)
+    include_manual = st.checkbox("Include manual connect_with edges", True)
+    use_jaccard = st.checkbox("Use Jaccard similarity", False)
     jaccard_thr = st.slider("Jaccard threshold", 0.0, 1.0, 0.2, 0.05)
     size_min, size_max = st.slider("Node size range", 5, 60, (14, 38))
 
-# ----------------------------------------------------------------------
-# Main tabs
-# ----------------------------------------------------------------------
-
+# ---------------------- Tabs ----------------------
 tab_data, tab_graph = st.tabs(["📋 Data / Edit", "🕸️ Graph Explorer"])
 
-# ----------------------------------------------------------------------
-# Data / Edit tab
-# ----------------------------------------------------------------------
-
+# ---------------------- Data Tab ----------------------
 with tab_data:
     st.markdown("## Add / Edit Session")
-
     with st.form("add_session"):
         c1, c2, c3, c4 = st.columns(4)
-        session_id = c1.text_input("Session ID", placeholder="W2-Tu")
+        sid = c1.text_input("Session ID", placeholder="W2-Tu")
         date = c2.text_input("Date (YYYY-MM-DD)")
         title = c3.text_input("Title")
-        instructor = c4.text_input("Instructor(s)", value="You")
+        instructor = c4.text_input("Instructor", value="You")
 
         c5, c6, c7 = st.columns(3)
         module = c5.text_input("Module")
@@ -165,31 +127,24 @@ with tab_data:
 
         notes = st.text_area("Notes")
         connect_with = st.text_input("Connect with (IDs comma-separated)")
-
         submitted = st.form_submit_button("Add / Update")
-        if submitted:
-            if not session_id.strip():
-                st.warning("Session ID required.")
+
+        if submitted and sid.strip():
+            row = {
+                "session_id": sid.strip(), "date": date.strip(), "title": title.strip(),
+                "instructor": instructor.strip(),
+                "module": module.strip() or "Unassigned",
+                "activity": activity.strip(), "keywords": keywords.strip(),
+                "notes": notes.strip(), "connect_with": connect_with.strip()
+            }
+            df = st.session_state.sessions
+            if sid in df["session_id"].values:
+                st.session_state.sessions.loc[df["session_id"] == sid, :] = row
+                st.success(f"Updated {sid}")
             else:
-                row = {
-                    "session_id": session_id.strip(),
-                    "date": date.strip(),
-                    "title": title.strip(),
-                    "instructor": instructor.strip(),
-                    "module": module.strip() or "Unassigned",
-                    "activity": activity.strip(),
-                    "keywords": keywords.strip(),
-                    "notes": notes.strip(),
-                    "connect_with": connect_with.strip()
-                }
-                df = st.session_state.sessions
-                if session_id in df["session_id"].values:
-                    st.session_state.sessions.loc[df["session_id"] == session_id, :] = row
-                    st.success(f"Updated {session_id}")
-                else:
-                    st.session_state.sessions = pd.concat(
-                        [df, pd.DataFrame([row])], ignore_index=True)
-                    st.success(f"Added {session_id}")
+                st.session_state.sessions = pd.concat([df, pd.DataFrame([row])],
+                                                      ignore_index=True)
+                st.success(f"Added {sid}")
 
     st.markdown("### Inline Table Edit")
     edited = st.data_editor(
@@ -203,10 +158,7 @@ with tab_data:
         st.session_state.sessions = edited.copy()
         st.info("Table updated in memory.")
 
-# ----------------------------------------------------------------------
-# Graph tab
-# ----------------------------------------------------------------------
-
+# ---------------------- Graph Tab ----------------------
 with tab_graph:
     st.markdown("## Interactive Course Graph")
 
@@ -229,7 +181,7 @@ with tab_graph:
             connect_with=_split_multi(row["connect_with"])
         )
 
-    # Edge logic
+    # Edges
     nodes = list(G.nodes())
     for i in range(len(nodes)):
         for j in range(i + 1, len(nodes)):
@@ -257,20 +209,19 @@ with tab_graph:
     color_map = {mod: PALETTE[i % len(PALETTE)] for i, mod in enumerate(modules)}
     def scale_size(x): return (size_min + size_max) / 2
 
-    # Build PyVis network
     net = Network(height="700px", width="100%", bgcolor="#ffffff", font_color="#111111")
     net.force_atlas_2based(gravity=-50, central_gravity=0.02, spring_length=120,
                            spring_strength=0.05, damping=0.4, overlap=1.5)
     for n in G.nodes():
-        data = G.nodes[n]
-        color = color_map.get(data["module"], "#777777")
-        net.add_node(n, label=n, color=color, size=scale_size(1), title=data["title"])
+        d = G.nodes[n]
+        color = color_map.get(d["module"], "#777777")
+        net.add_node(n, label=n, color=color, size=scale_size(1), title=d["title"])
     for u, v, ed in G.edges(data=True):
         dashes = (ed.get("edge_type") == "manual")
         width = max(1, 2 if ed.get("weight", 1) >= 2 else 1)
         net.add_edge(u, v, width=width, physics=True, smooth=True, dashes=dashes)
 
-    # JS click capture
+    # Capture clicks
     click_js = """
     <script type="text/javascript">
         var inputEl = window.parent.document.getElementById("clickedNode");
@@ -299,18 +250,15 @@ with tab_graph:
     clicked_node = st.text_input("clicked", key="clickedNode", label_visibility="collapsed")
 
     st.markdown("---")
-
-    # Session Passport
     if clicked_node:
         if clicked_node in df_show["session_id"].values:
             row = df_show[df_show["session_id"] == clicked_node].iloc[0]
             color = color_map.get(row["module"], "#888888")
             st.markdown(f"""
             <div style='border-left:6px solid {color};
-                        background:#f9f9f9;
-                        border-radius:8px;
+                        background:#f9f9f9;border-radius:8px;
                         padding:0.8em 1em;'>
-            <h3 style='margin-top:0'>🪲 {row["title"]}</h3>
+            <h3>🪲 {row["title"]}</h3>
             <p><strong>Date:</strong> {row["date"]} &nbsp;|&nbsp;
                <strong>Module:</strong> {row["module"]} &nbsp;|&nbsp;
                <strong>Activity:</strong> {row["activity"]}</p>
