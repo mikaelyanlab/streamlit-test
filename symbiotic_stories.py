@@ -140,11 +140,13 @@ with tab_graph:
         d = G.nodes[n]
         node_x.append(x); node_y.append(y)
         connect = f"<br><b>Connect with:</b> {d['connect_with']}" if d['connect_with'] else ""
-        hover = (f"<b>{d['title']}</b>"
-                 f"<br><b>Date:</b> {d['date']} | <b>Module:</b> {d['module']} | <b>Activity:</b> {d['activity']}"
-                 f"<br><b>Instructor:</b> {d['instructor']}"
-                 f"<br><b>Keywords:</b> <code>{d['keywords']}</code>"
-                 f"<br><b>Notes:</b><br>{d['notes']}{connect}")
+        hover = (
+            f"#### 🪲 **{d['title']}**\n"
+            f"**Date:** {d['date']} | **Module:** {d['module']} | **Activity:** {d['activity']}\n"
+            f"**Instructor:** {d['instructor']}\n"
+            f"**Keywords:** `{d['keywords']}`\n"
+            f"**Notes:**\n{d['notes']}{connect}"
+        )
         node_hover.append(hover)
         node_color.append(color_map.get(d["module"], "#777"))
         node_size.append(30)
@@ -152,7 +154,7 @@ with tab_graph:
     node_trace = go.Scatter(
         x=node_x, y=node_y, mode="markers+text", text=[n for n in nodes],
         textposition="top center", marker=dict(size=node_size, color=node_color),
-        hovertemplate="%{hovertext}<extra></extra>", hovertext=node_hover
+        hovertemplate="%{text}<extra></extra>", hovertext=node_hover
     )
 
     fig = go.Figure(data=[edge_trace, node_trace], layout=go.Layout(
@@ -164,3 +166,4 @@ with tab_graph:
     ))
 
     st.plotly_chart(fig, use_container_width=True)
+    st.caption("Hover over nodes to view full session details.")
