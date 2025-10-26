@@ -1,4 +1,4 @@
-# app.py — Insect–Microbe Systems Course Network (Stable Click-to-Passport)
+# app.py — Insect–Microbe Systems Course Network (Final Stable Interactive Version)
 # -----------------------------------------------------------------------
 from __future__ import annotations
 import io
@@ -10,38 +10,36 @@ from typing import List
 
 # ------------------ Utility functions ------------------
 DEFAULT_COLUMNS = [
-    "session_id", "date", "title", "instructor", "module",
-    "activity", "keywords", "notes", "connect_with"
+    "session_id","date","title","instructor","module",
+    "activity","keywords","notes","connect_with"
 ]
 
-SAMPLE_ROWS = [{
-    "session_id": "W1-Tu",
-    "date": "2026-01-13",
-    "title": "Systems Bootcamp – Insects as Systems within Systems",
-    "instructor": "You",
-    "module": "Systems Bootcamp",
-    "activity": "Interactive lecture",
-    "keywords": "systems thinking, feedback loops",
-    "notes": "Define balancing and reinforcing loops.",
-    "connect_with": ""
+SAMPLE_ROWS=[{
+    "session_id":"W1-Tu","date":"2026-01-13",
+    "title":"Systems Bootcamp – Insects as Systems within Systems",
+    "instructor":"You","module":"Systems Bootcamp",
+    "activity":"Interactive lecture",
+    "keywords":"systems thinking, feedback loops",
+    "notes":"Define balancing and reinforcing loops.",
+    "connect_with":""
 }]
 
-def _clean_keywords(s: str) -> list[str]:
-    if pd.isna(s) or not str(s).strip():
-        return []
-    toks = [t.strip().lower() for t in str(s).replace(";", ",").split(",")]
+def _clean_keywords(s:str)->List[str]:
+    if pd.isna(s) or not str(s).strip(): return []
+    toks=[t.strip().lower() for t in str(s).replace(";",",").split(",")]
     return sorted({t for t in toks if t})
 
-def _split_multi(s: str) -> list[str]:
-    if pd.isna(s) or not str(s).strip():
-        return []
-    return [t.strip() for t in str(s).replace(";", ",").split(",") if t.strip()]
+def _split_multi(s:str)->List[str]:
+    if pd.isna(s) or not str(s).strip(): return []
+    return [t.strip() for t in str(s).replace(";",",").split(",") if t.strip()]
 
 # ------------------ App setup ------------------
 st.set_page_config(page_title="Insect–Microbe Systems", layout="wide")
 
 if "sessions" not in st.session_state:
     st.session_state.sessions = pd.DataFrame(SAMPLE_ROWS, columns=DEFAULT_COLUMNS)
+if "clicked_node" not in st.session_state:
+    st.session_state.clicked_node = None
 
 # ------------------ Sidebar ------------------
 st.sidebar.title("Course Session Network")
@@ -71,19 +69,17 @@ tab_data, tab_graph = st.tabs(["Data / Edit", "Graph Explorer"])
 with tab_data:
     st.markdown("## Add / Edit Session")
     with st.form("add_session"):
-        c1, c2, c3, c4 = st.columns(4)
+        c1,c2,c3,c4 = st.columns(4)
         sid = c1.text_input("Session ID", placeholder="W2-Tu")
         date = c2.text_input("Date (YYYY-MM-DD)")
         title = c3.text_input("Title")
-        instr = c4.text_input("Instructor", "You")
-
-        c5, c6, c7 = st.columns(3)
+        instr = c4.text_input("Instructor","You")
+        c5,c6,c7 = st.columns(3)
         module = c5.text_input("Module")
         activity = c6.text_input("Activity")
         kws = c7.text_input("Keywords (comma-separated)")
         notes = st.text_area("Notes")
         connect = st.text_input("Connect with (IDs comma-separated)")
-
         if st.form_submit_button("Add / Update") and sid.strip():
             r = {
                 "session_id": sid.strip(),
@@ -94,15 +90,14 @@ with tab_data:
                 "activity": activity.strip(),
                 "keywords": kws.strip(),
                 "notes": notes.strip(),
-                "connect_with": connect.strip(),
+                "connect_with": connect.strip()
             }
             df = st.session_state.sessions
             if sid in df["session_id"].values:
-                idx = df.index[df["session_id"] == sid][0]
-                for k, v in r.items():
-                    df.at[idx, k] = v
+                idx = df.index[df["session_id"]==sid][0]
+                for k,v in r.items(): df.at[idx,k]=v
             else:
-                st.session_state.sessions = pd.concat([df, pd.DataFrame([r])], ignore_index=True)
+                st.session_state.sessions = pd.concat([df,pd.DataFrame([r])],ignore_index=True)
             st.success(f"Saved {sid}")
 
     st.markdown("### Inline Table Edit")
@@ -118,35 +113,31 @@ with tab_data:
 with tab_graph:
     df = st.session_state.sessions.copy()
     G = nx.Graph()
-
     for _, row in df.iterrows():
         kws = _clean_keywords(row["keywords"])
         node_data = row.to_dict()
         node_data["keywords"] = kws
         G.add_node(row["session_id"], **node_data)
-
     nodes = list(G.nodes())
     for i in range(len(nodes)):
-        for j in range(i + 1, len(nodes)):
-            a, b = nodes[i], nodes[j]
+        for j in range(i+1,len(nodes)):
+            a,b = nodes[i],nodes[j]
             shared = len(set(G.nodes[a]["keywords"]) & set(G.nodes[b]["keywords"]))
             if shared >= min_shared:
-                G.add_edge(a, b)
+                G.add_edge(a,b)
     if include_manual:
         for n in nodes:
             for m in _split_multi(G.nodes[n]["connect_with"]):
                 if m in nodes and m != n:
-                    G.add_edge(n, m)
+                    G.add_edge(n,m)
 
     net = Network(height="700px", width="100%", directed=False, bgcolor="#ffffff", font_color="#222222")
     net.barnes_hut()
 
-    palette = [
-        "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
-        "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
-    ]
-    mods = sorted({G.nodes[n]["module"] for n in nodes})
-    color_map = {m: palette[i % len(palette)] for i, m in enumerate(mods)}
+    palette=["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd",
+             "#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
+    mods=sorted({G.nodes[n]["module"] for n in nodes})
+    color_map={m:palette[i%len(palette)] for i,m in enumerate(mods)}
 
     for n in G.nodes():
         d = G.nodes[n]
@@ -160,63 +151,61 @@ with tab_graph:
             n,
             label=n,
             title=hover,
-            color=color_map.get(d["module"], "#999"),
+            color=color_map.get(d["module"],"#999"),
             size=25,
             shape="dot"
         )
+    for u,v in G.edges(): net.add_edge(u,v,color="#cccccc")
 
-    for u, v in G.edges():
-        net.add_edge(u, v, color="#cccccc")
-
-    # FIX 1: valid JSON & disable node drag
+    # Restore physics and disable click-stickiness
     net.set_options("""
     {
       "interaction": {
         "hover": true,
         "navigationButtons": true,
-        "dragNodes": false
+        "multiselect": false,
+        "selectConnectedEdges": false
       },
-      "nodes": {"borderWidth": 1, "shadow": false},
-      "edges": {"color": {"inherit": true}, "smooth": false},
-      "physics": {"barnesHut": {"springLength": 150}, "minVelocity": 0.75}
+      "physics": {
+        "enabled": true,
+        "barnesHut": {"springLength":150},
+        "minVelocity":0.75
+      },
+      "nodes": {"borderWidth":1,"shadow":false},
+      "edges": {"color":{"inherit":true},"smooth":false}
     }
     """)
 
-    # FIX 2: click -> update query param -> reload Streamlit
+    # Click handler that updates Streamlit session_state
     js_callback = """
-    network.on("click", function (params) {
-        if (params.nodes.length > 0) {
-            const nodeId = params.nodes[0];
-            const url = new URL(window.location);
-            url.searchParams.set('clicked', nodeId);
-            window.history.pushState({}, '', url);
-            window.parent.postMessage({ isStreamlitMessage: true, type: 'setQueryParams', query: {clicked: nodeId} }, '*');
+    network.on("selectNode", function (params) {
+        const nodeId = params.nodes[0];
+        if (nodeId) {
+            window.parent.postMessage({type: 'streamlit:setComponentValue', value: nodeId}, '*');
         }
     });
     """
 
     net.save_graph("network.html")
-    html = open("network.html", "r", encoding="utf-8").read()
+    html = open("network.html","r",encoding="utf-8").read()
     html = html.replace("</script>", js_callback + "</script>")
-    st.components.v1.html(html, height=750)
+    selected_id = st.components.v1.html(html, height=750, key="graph")
 
-    # --- Session Passport ---
     st.markdown("---")
     st.markdown("### Session Passport")
 
-    # FIX 3: replace deprecated call
-    query = st.query_params
-    clicked = query.get("clicked")
+    # when a node is clicked, Streamlit sets component value
+    if selected_id and isinstance(selected_id, str):
+        st.session_state.clicked_node = selected_id
 
-    # fallback selector
-    selected = clicked or st.selectbox(
+    selected = st.session_state.clicked_node or st.selectbox(
         "Select a session:",
         sorted(df["session_id"]),
         format_func=lambda x: f"{x} — {df.loc[df['session_id']==x,'title'].values[0]}"
     )
 
     if selected in df["session_id"].values:
-        d = df.loc[df["session_id"] == selected].iloc[0]
+        d = df.loc[df["session_id"]==selected].iloc[0]
         st.markdown(f"#### {d['title']}")
         st.markdown(
             f"**Date:** {d['date']}  \n"
