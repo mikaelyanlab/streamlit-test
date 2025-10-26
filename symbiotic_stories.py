@@ -126,7 +126,7 @@ with tab_graph:
                 if m in nodes and m != n:
                     G.add_edge(n, m)
     mods = sorted({G.nodes[n]["module"] for n in nodes})
-    PALETTE = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
+    PALETTE = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e Jaguar","#7f7f7f","#bcbd22","#17becf"]
     color_map = {m: PALETTE[i%len(PALETTE)] for i, m in enumerate(mods)}
     pos = nx.spring_layout(G, k=3, iterations=50, seed=42)
 
@@ -150,7 +150,7 @@ with tab_graph:
         x=node_x, y=node_y, mode="markers+text", text=[n for n in nodes],
         textposition="top center", marker=dict(size=node_size, color=node_color),
         hovertext=node_text, hovertemplate="%{hovertext}<extra></extra>",
-        customdata=[ [nid] for nid in node_ids ]
+        customdata=[[nid] for nid in node_ids]
     )
 
     fig = go.Figure(data=[edge_trace, node_trace], layout=go.Layout(
@@ -166,13 +166,26 @@ with tab_graph:
         event = st.plotly_chart(fig, use_container_width=True, key="graph_click", on_select="rerun")
     with col2:
         st.markdown("### Session Passport")
-        if event and event.get("selection") and event["selection"].get("points"):
-            point = event["selection"]["points"][0]
-            node_id = point["customdata"][0]
-            st.session_state.selected_node = node_id
+        st.markdown("**Debug:**")
+        if event:
+            st.write("Event received:", event)
+            if event.get("selection") and event["selection"].get("points"):
+                point = event["selection"]["points"][0]
+                st.write("Point:", point)
+                if "customdata" in point and point["customdata"]:
+                    node_id = point["customdata"][0]
+                    st.write("Node ID:", node_id)
+                    st.session_state.selected_node = node_id
+                else:
+                    st.write("No customdata")
+            else:
+                st.write("No points in selection")
+        else:
+            st.write("No event")
+
         if st.session_state.selected_node:
             r = df[df["session_id"] == st.session_state.selected_node].iloc[0]
-            st.markdown(f"#### 🪲 **{r['title']}**")
+            st.markdown(f"#### **{r['title']}**")
             st.markdown(f"**Date:** {r['date']} | **Module:** {r['module']} | **Activity:** {r['activity']}")
             st.markdown(f"**Instructor:** {r['instructor']}")
             st.markdown(f"**Keywords:** `{r['keywords']}`")
