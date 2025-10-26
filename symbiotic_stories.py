@@ -1,142 +1,161 @@
-# app_basic.py — Stable PyVis build (tooltip = passport)
-# ---------------------------------------------------------------
-# Guaranteed to display your network from course_cleaned.csv
-# ---------------------------------------------------------------
-
+import streamlit as st
 import pandas as pd
 import networkx as nx
 from pyvis.network import Network
-import streamlit as st
-import tempfile, pathlib, io, csv
+import tempfile, pathlib, json, os
 
-st.set_page_config(page_title="Insect–Microbe Systems", layout="wide")
-st.title("🪲 Insect–Microbe Systems Course Network")
+# -------------------------------------------
+# Setup
+# -------------------------------------------
+st.set_page_config(page_title="Clickable Course Network", layout="wide")
+st.title("🪲 Insect–Microbe Systems — Clickable Course Network")
 
-# --------------------------------------------------------------------
-# Utilities
-# --------------------------------------------------------------------
+CSV_PATH = "/mnt/data/course_cleaned.csv"
+CLICK_PATH = pathlib.Path(tempfile.gettempdir()) / "clicked_node.json"
+
 DEFAULT_COLUMNS = [
     "session_id","date","title","instructor","module",
     "activity","keywords","notes","connect_with"
 ]
 
+# -------------------------------------------
+# Helpers
+# -------------------------------------------
 def _clean_keywords(s):
-    if pd.isna(s) or not str(s).strip(): return []
-    toks=[t.strip().lower() for t in str(s).replace(";",",").split(",")]
-    return sorted({t for t in toks if t})
+    if pd.isna(s) or not str(s).strip():
+        return []
+    return [t.strip().lower() for t in str(s).replace(";",",").split(",") if t.strip()]
 
 def _split_multi(s):
-    if pd.isna(s) or not str(s).strip(): return []
+    if pd.isna(s) or not str(s).strip():
+        return []
     return [t.strip() for t in str(s).replace(";",",").split(",") if t.strip()]
 
-def _load_csv_uploaded(file_obj):
-    raw=file_obj.read().decode("utf-8",errors="replace")
-    raw=(raw.replace("\r\n","\n").replace("\r","\n")
-            .replace("“",'"').replace("”",'"')
-            .replace("‘","'").replace("’","'")
-            .replace("\u00A0"," "))
-    reader=csv.reader(io.StringIO(raw))
-    rows=[r for r in reader if any(r)]
-    clean=[]
-    for r in rows:
-        if len(r)<9: r+=['']*(9-len(r))
-        elif len(r)>9: r=r[:9]
-        clean.append(r)
-    header = clean[0] if set(clean[0]) & set(DEFAULT_COLUMNS) else DEFAULT_COLUMNS
-    data = clean[1:] if header==clean[0] else clean
-    df = pd.DataFrame(data, columns=header).fillna("")
-    for c in DEFAULT_COLUMNS:
-        if c not in df.columns:
-            df[c] = ""
-    return df[DEFAULT_COLUMNS]
-
-# --------------------------------------------------------------------
-# Load data
-# --------------------------------------------------------------------
-path = "/mnt/data/course_cleaned.csv"
+# -------------------------------------------
+# Load CSV
+# -------------------------------------------
 try:
-    df = pd.read_csv(path)
-    st.success(f"Loaded {len(df)} sessions from default file.")
+    df = pd.read_csv(CSV_PATH)
+    st.success(f"Loaded {len(df)} sessions from {CSV_PATH}")
 except Exception as e:
-    st.warning(f"Could not load default CSV ({e}). Upload manually below.")
-    df = pd.DataFrame(columns=DEFAULT_COLUMNS)
-
-up = st.file_uploader("Upload sessions.csv (optional)", type=["csv"])
-if up is not None:
-    df = _load_csv_uploaded(up)
-    st.success(f"Loaded {len(df)} rows from uploaded file.")
-
-if df.empty:
+    st.error(f"Failed to load default CSV: {e}")
     st.stop()
 
-# --------------------------------------------------------------------
-# Network controls
-# --------------------------------------------------------------------
-min_shared = st.sidebar.slider("Min shared keywords", 1, 5, 1)
-include_manual = st.sidebar.checkbox("Include manual connects", True)
-
-# --------------------------------------------------------------------
-# Build graph
-# --------------------------------------------------------------------
+# -------------------------------------------
+# Build networkx graph
+# -------------------------------------------
 G = nx.Graph()
-for _,r in df.iterrows():
-    sid = r["session_id"]
-    if not sid: 
+for _, r in df.iterrows():
+    sid = str(r["session_id"]).strip()
+    if not sid:
         continue
-    kws = _clean_keywords(r["keywords"])
-    title_html = (
-        f"<b>{r['title']}</b><br>"
-        f"<b>Date:</b> {r['date']} | <b>Module:</b> {r['module']}<br>"
-        f"<b>Activity:</b> {r['activity']}<br>"
-        f"<b>Instructor:</b> {r['instructor']}<br>"
-        f"<b>Keywords:</b> {r['keywords']}<br>"
-        f"<b>Notes:</b> {r['notes']}"
+    G.add_node(
+        sid,
+        title=r["title"],
+        module=r["module"],
+        date=r["date"],
+        activity=r["activity"],
+        instructor=r["instructor"],
+        keywords=_clean_keywords(r["keywords"]),
+        notes=r["notes"],
     )
-    G.add_node(sid, module=r["module"], title=title_html, keywords=kws)
 
-nodes=list(G.nodes())
-for i in range(len(nodes)):
-    for j in range(i+1,len(nodes)):
-        a,b=nodes[i],nodes[j]
-        shared=len(set(G.nodes[a]["keywords"]) & set(G.nodes[b]["keywords"]))
-        if shared>=min_shared:
-            G.add_edge(a,b)
+# Shared keyword edges
+for i, a in enumerate(G.nodes()):
+    for j, b in enumerate(list(G.nodes())[i+1:]):
+        shared = len(set(G.nodes[a]["keywords"]) & set(G.nodes[b]["keywords"]))
+        if shared >= 1:
+            G.add_edge(a, b)
 
-if include_manual:
-    for _,r in df.iterrows():
-        a=r["session_id"]
-        for b in _split_multi(r["connect_with"]):
-            if b in G.nodes and b!=a:
-                G.add_edge(a,b)
+# Manual connects
+for _, r in df.iterrows():
+    for m in _split_multi(r.get("connect_with", "")):
+        if m in G.nodes and m != r["session_id"]:
+            G.add_edge(r["session_id"], m)
 
-# --------------------------------------------------------------------
-# PyVis network
-# --------------------------------------------------------------------
-net = Network(height="700px", width="100%", bgcolor="#ffffff", font_color="#111")
+# -------------------------------------------
+# PyVis rendering
+# -------------------------------------------
+net = Network(height="750px", width="100%", bgcolor="#ffffff", font_color="#111")
 net.force_atlas_2based(gravity=-50, central_gravity=0.02, spring_length=120)
 
-modules = sorted({G.nodes[n]["module"] for n in G.nodes})
 palette = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd",
-            "#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
-color_map = {m:palette[i%len(palette)] for i,m in enumerate(modules)}
+           "#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
+modules = sorted({G.nodes[n]["module"] for n in G.nodes})
+color_map = {m: palette[i % len(palette)] for i, m in enumerate(modules)}
 
-for n in G.nodes:
-    d=G.nodes[n]
+for n in G.nodes():
+    d = G.nodes[n]
     net.add_node(
         n,
         label=n,
-        title=d["title"],
         color=color_map.get(d["module"], "#777"),
-        shape="dot",
-        size=18
+        title=f"{d['title']}<br><b>Module:</b> {d['module']}",
+        size=18,
     )
-for u,v in G.edges():
-    net.add_edge(u,v,width=1)
+for u, v in G.edges():
+    net.add_edge(u, v, width=1)
 
-# Render to HTML temp file
+# Inject JS click listener that writes clicked node to file
 html_path = pathlib.Path(tempfile.NamedTemporaryFile(delete=False, suffix=".html").name)
 net.write_html(html_path.as_posix(), notebook=False, local=True)
 with open(html_path, "r", encoding="utf-8") as f:
-    html=f.read()
+    html = f.read()
 
-st.components.v1.html(html, height=750, scrolling=False)
+click_js = f"""
+<script>
+const path = "{CLICK_PATH.as_posix().replace('\\','/')}";
+network.on("selectNode", function(params) {{
+  if(params.nodes.length > 0){{
+    const nodeId = params.nodes[0];
+    // Write to file via Streamlit-provided endpoint
+    fetch("streamlit-file://" + path + "?data=" + encodeURIComponent(nodeId))
+    .catch(err => console.error(err));
+  }}
+}});
+</script>
+"""
+html = html.replace("</body>", click_js + "</body>")
+
+# -------------------------------------------
+# Layout
+# -------------------------------------------
+left, right = st.columns([3, 2])
+with left:
+    st.components.v1.html(html, height=760, scrolling=False)
+
+# -------------------------------------------
+# Check clicked node (poll the temp file)
+# -------------------------------------------
+clicked_node = None
+if CLICK_PATH.exists():
+    try:
+        with open(CLICK_PATH) as f:
+            node_id = f.read().strip()
+            if node_id:
+                clicked_node = node_id
+    except Exception:
+        pass
+
+# -------------------------------------------
+# Passport panel
+# -------------------------------------------
+with right:
+    st.markdown("### 📘 Session Passport")
+    if clicked_node and clicked_node in df["session_id"].values:
+        r = df[df["session_id"] == clicked_node].iloc[0]
+        st.markdown(f"""
+        <div style='border-left:6px solid #1f77b4;
+                    background:#f9f9f9;border-radius:8px;
+                    padding:0.8em 1em;'>
+        <h3>{r["title"]}</h3>
+        <p><b>Date:</b> {r["date"]}<br>
+        <b>Module:</b> {r["module"]}<br>
+        <b>Activity:</b> {r["activity"]}<br>
+        <b>Instructor:</b> {r["instructor"]}</p>
+        <p><b>Keywords:</b> {r["keywords"]}</p>
+        <p><b>Notes:</b><br>{r["notes"]}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.info("Click a node in the network to view its details.")
