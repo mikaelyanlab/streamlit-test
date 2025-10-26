@@ -99,7 +99,6 @@ with tab_data:
                 st.session_state.sessions=pd.concat([df,pd.DataFrame([r])],ignore_index=True)
             st.success(f"Saved {sid}")
     st.markdown("### Inline Table Edit")
-    # Use fixed columns to avoid Streamlit API error
     edited=st.data_editor(
         st.session_state.sessions[DEFAULT_COLUMNS],
         hide_index=True, use_container_width=True, num_rows="dynamic",
@@ -186,14 +185,15 @@ with tab_graph:
     if node and node in df["session_id"].values:
         r = df[df["session_id"] == node].iloc[0]
         color = color_map.get(r["module"], "#999")
-        st.markdown(f"""
-        <div style='border-left:6px solid {color};background:#f9f9f9;border-radius:8px;padding:1em;'>
-        <h3>🪲 {r['title']}</h3>
-        <p><strong>Date:</strong> {r['date']} | <strong>Module:</strong> {r['module']} | <strong>Activity:</strong> {r['activity']}</p>
-        <p><strong>Instructor:</strong> {r['instructor']}</p>
-        <p><strong>Keywords:</strong> {r['keywords']}</p>
-        <p><strong>Notes:</strong><br>{r['notes'].replace('\n', '<br>')}</p>
-        </div>
-        """, unsafe_allow_html=True)
+        with st.expander(f"Session Passport: {r['title']}", expanded=True):
+            st.markdown(f"""
+            <div style='border-left:6px solid {color};background:#f9f9f9;border-radius:8px;padding:1em;'>
+            <h3>🪲 {r['title']}</h3>
+            <p><strong>Date:</strong> {r['date']} | <strong>Module:</strong> {r['module']} | <strong>Activity:</strong> {r['activity']}</p>
+            <p><strong>Instructor:</strong> {r['instructor']}</p>
+            <p><strong>Keywords:</strong> {r['keywords']}</p>
+            <p><strong>Notes:</strong><br>{r['notes'].replace('\n', '<br>')}</p>
+            </div>
+            """, unsafe_allow_html=True)
     else:
         st.info("Click a node to view its Session Passport.")
