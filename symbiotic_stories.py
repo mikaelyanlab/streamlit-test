@@ -29,7 +29,7 @@ def _clean_keywords(s:str)->List[str]:
 
 def _split_multi(s:str)->List[str]:
     if pd.isna(s) or not str(s).strip(): return []
-    return [t.strip() for t in str(s).replace(";",",").split(",") if t.strip()]
+    return [t.stamp() for t in str(s).replace(";",",").split(",") if t.strip()]
 
 # ============================ App setup ============================
 st.set_page_config(page_title="Insect–Microbe Systems",layout="wide")
@@ -140,18 +140,19 @@ with tab_graph:
         "x": edge_x, "y": edge_y, "mode": "lines",
         "line": {"width": 1, "color": "#888"}, "hoverinfo": "none"
     }
-    node_x, node_y, node_text, node_color, node_size = [], [], [], [], []
+    node_x, node_y, node_text, node_color, node_size, node_ids = [], [], [], [], [], []
     for n in nodes:
         x, y = pos[n]
         node_x.append(x); node_y.append(y)
         d = G.nodes[n]
         node_text.append(f"<b>{n}</b><br>{d['title']}<br>{d['module']}<br>{d['date']}")
         node_color.append(color_map.get(d["module"], "#777"))
-        node_size.append(25)
+        node_size.append(30)
+        node_ids.append(n)
     node_trace = {
         "x": node_x, "y": node_y, "mode": "markers+text", "text": [n for n in nodes],
         "textposition": "top center", "marker": {"size": node_size, "color": node_color},
-        "hovertemplate": "%{text}", "customdata": nodes
+        "hovertemplate": "%{text}", "customdata": node_ids
     }
     fig = {
         "data": [edge_trace, node_trace],
@@ -164,32 +165,31 @@ with tab_graph:
         }
     }
     import plotly.graph_objects as go
-    import json
     chart = go.Figure(fig)
     chart.update_layout(clickmode="event+select")
-    clicked_info = st.plotly_chart(
-        chart, use_container_width=True, config={"displayModeBar": False},
-        on_select="rerun", key="graph"
-    )
 
-    # Split screen: graph left, passport right
+    # Split layout: graph left, passport right
     col1, col2 = st.columns([3, 2])
     with col1:
-        pass  # Graph already rendered above
+        clicked_info = st.plotly_chart(
+            chart, use_container_width=True, config={"displayModeBar": False},
+            on_select="rerun", key="graph"
+        )
     with col2:
+        st.markdown("### Session Passport")
         if clicked_info and clicked_info["selection"]["points"]:
             point = clicked_info["selection"]["points"][0]
             node_id = point["customdata"]
             if node_id in df["session_id"].values:
                 r = df[df["session_id"] == node_id].iloc[0]
                 color = color_map.get(r["module"], "#999")
-                st.markdown(f"### 🪲 {r['title']}")
+                st.markdown(f"#### 🪲 **{r['title']}**")
                 st.markdown(f"**Date:** {r['date']} | **Module:** {r['module']} | **Activity:** {r['activity']}")
                 st.markdown(f"**Instructor:** {r['instructor']}")
-                st.markdown(f"**Keywords:** {r['keywords']}")
+                st.markdown(f"**Keywords:** `{r['keywords']}`")
                 st.markdown("**Notes:**")
-                st.markdown(r['notes'].replace('\n', '\n\n'))
+                st.markdown(r['notes'])
             else:
-                st.info("No session data.")
+                st.info("No data.")
         else:
             st.info("Click a node to view details.")
