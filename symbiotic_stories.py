@@ -11,7 +11,7 @@ from pyvis.network import Network
 
 # ============================ Utilities ============================
 DEFAULT_COLUMNS = [
-    "session_id","date","title","instructor","module",
+    "session_id","session_id","date","title","instructor","module",
     "activity","keywords","notes","connect_with"
 ]
 SAMPLE_ROWS=[{
@@ -146,7 +146,7 @@ with tab_graph:
         "</body>",
         """
         <script>
-        network.on("selectNode", function(params) {
+        network.on("click", function(params) {
             if (params.nodes.length > 0) {
                 const nodeId = params.nodes[0];
                 window.parent.postMessage({clickedNode: nodeId}, "*");
@@ -157,20 +157,22 @@ with tab_graph:
         """
     )
     components.html(html, height=750, scrolling=False)
+    # Hidden input to capture click
+    st.markdown('<input type="text" id="click-capture" style="display:none;">', unsafe_allow_html=True)
     st.markdown("""
     <script>
     window.addEventListener("message", function(e) {
         if (e.data.clickedNode) {
-            const input = document.querySelector('input[data-testid="stTextInput"]');
+            const input = document.getElementById('click-capture');
             if (input) {
                 input.value = e.data.clickedNode;
-                input.dispatchEvent(new Event("input", {bubbles: true}));
+                input.dispatchEvent(new Event('input', {bubbles: true}));
             }
         }
     });
     </script>
     """, unsafe_allow_html=True)
-    clicked = st.text_input("", key="clicked_node", label_visibility="collapsed")
+    clicked = st.text_input("", key="click_capture", label_visibility="collapsed")
     if clicked:
         st.session_state.selected_node = clicked
         st.rerun()
