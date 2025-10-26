@@ -1,4 +1,4 @@
-# app.py — WORKING: Click node → passport (PyVis + Streamlit.msg bridge)
+# app.py — WORKING: Click node → passport (PyVis + URL update)
 import io
 import pandas as pd
 import networkx as nx
@@ -32,7 +32,7 @@ with tab_data:
         sid = st.text_input("ID")
         title = st.text_input("Title")
         if st.form_submit_button("Add") and sid:
-            r = {k:"" for k in DEFAULT_COLUMNS}; r["session_id"]=sid; r["title"]=title
+            r = {k:"" for k in DEFAULT_COLUMNS}; r["session_id"]=sid; r["title"]=title or "Untitled"
             st.session_state.sessions = pd.concat([st.session_state.sessions, pd.DataFrame([r])], ignore_index=True)
     st.data_editor(st.session_state.sessions[DEFAULT_COLUMNS], hide_index=True, num_rows="dynamic")
 
@@ -61,13 +61,15 @@ with tab_graph:
 
     net.set_options('{"physics":{"barnesHut":{"springLength":150}}}')
 
-    # Inject bridge
+    # JS: update parent URL → trigger rerun
     js = """
     <script>
-    const net = window.network;
-    net.on("click", (p) => {
-      if (p.nodes.length) {
-        Streamlit.setComponentValue(p.nodes[0]);
+    window.network.on("click", function(params) {
+      if (params.nodes.length > 0) {
+        const node = params.nodes[0];
+        const url = new URL(window.parent.location);
+        url.searchParams.set("node", node);
+        window.parent.location = url;
       }
     });
     </script>
@@ -75,14 +77,16 @@ with tab_graph:
     html = net.generate_html()
     html = html.replace("</body>", js + "</body>")
 
-    # Custom component
-    component = st.components.v1.html(html, height=700, key="pyvis")
-    selected = component  # Direct from JS
+    st.components.v1.html(html, height=700)
 
+    # Read from URL
+    qp = st.experimental_get_query_params()
+    selected = qp.get("node", [None])[0]
     if selected and selected in df["session_id"].values:
         d = df[df["session_id"] == selected].iloc[0]
         st.markdown("### Session Passport")
         st.markdown(f"#### {d['title']}")
         st.markdown(f"**Date:** {d['date']}\n**Instructor:** {d['instructor']}\n**Module:** {d['module']}\n**Keywords:** {d['keywords']}\n**Notes:** {d['notes']}")
+        if st.button("Clear selection"): st.experimental_set_query_params()
     else:
         st.markdown("_Click a node to view its Session Passport._")
