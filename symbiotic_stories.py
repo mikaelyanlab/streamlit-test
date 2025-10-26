@@ -34,8 +34,6 @@ def _split_multi(s:str)->List[str]:
 st.set_page_config(page_title="Insect–Microbe Systems",layout="wide")
 if "sessions" not in st.session_state:
     st.session_state.sessions=pd.DataFrame(SAMPLE_ROWS,columns=DEFAULT_COLUMNS)
-if "selected_node" not in st.session_state:
-    st.session_state.selected_node = None
 
 # ============================ Sidebar ==============================
 st.sidebar.title("Course Session Network")
@@ -126,7 +124,7 @@ with tab_graph:
                 if m in nodes and m != n:
                     G.add_edge(n, m)
     mods = sorted({G.nodes[n]["module"] for n in nodes})
-    PALETTE = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e Jaguar","#7f7f7f","#bcbd22","#17becf"]
+    PALETTE = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
     color_map = {m: PALETTE[i%len(PALETTE)] for i, m in enumerate(mods)}
     pos = nx.spring_layout(G, k=3, iterations=50, seed=42)
 
@@ -136,21 +134,25 @@ with tab_graph:
         edge_x += [x0, x1, None]; edge_y += [y0, y1, None]
     edge_trace = go.Scatter(x=edge_x, y=edge_y, mode="lines", line=dict(width=1, color="#888"), hoverinfo="none")
 
-    node_x, node_y, node_text, node_color, node_size, node_ids = [], [], [], [], [], []
+    node_x, node_y, node_hover, node_color, node_size = [], [], [], [], []
     for n in nodes:
         x, y = pos[n]
         d = G.nodes[n]
         node_x.append(x); node_y.append(y)
-        node_text.append(f"<b>{n}</b><br>{d['title']}<br>{d['module']}<br>{d['date']}")
+        connect = f"<br><b>Connect with:</b> {d['connect_with']}" if d['connect_with'] else ""
+        hover = (f"<b>{d['title']}</b>"
+                 f"<br><b>Date:</b> {d['date']} | <b>Module:</b> {d['module']} | <b>Activity:</b> {d['activity']}"
+                 f"<br><b>Instructor:</b> {d['instructor']}"
+                 f"<br><b>Keywords:</b> <code>{d['keywords']}</code>"
+                 f"<br><b>Notes:</b><br>{d['notes']}{connect}")
+        node_hover.append(hover)
         node_color.append(color_map.get(d["module"], "#777"))
         node_size.append(30)
-        node_ids.append(n)
 
     node_trace = go.Scatter(
         x=node_x, y=node_y, mode="markers+text", text=[n for n in nodes],
         textposition="top center", marker=dict(size=node_size, color=node_color),
-        hovertext=node_text, hovertemplate="%{hovertext}<extra></extra>",
-        customdata=[[nid] for nid in node_ids]
+        hovertemplate="%{hovertext}<extra></extra>", hovertext=node_hover
     )
 
     fig = go.Figure(data=[edge_trace, node_trace], layout=go.Layout(
@@ -161,35 +163,4 @@ with tab_graph:
         height=700, paper_bgcolor="white", plot_bgcolor="white"
     ))
 
-    col1, col2 = st.columns([3, 2])
-    with col1:
-        event = st.plotly_chart(fig, use_container_width=True, key="graph_click", on_select="rerun")
-    with col2:
-        st.markdown("### Session Passport")
-        st.markdown("**Debug:**")
-        if event:
-            st.write("Event received:", event)
-            if event.get("selection") and event["selection"].get("points"):
-                point = event["selection"]["points"][0]
-                st.write("Point:", point)
-                if "customdata" in point and point["customdata"]:
-                    node_id = point["customdata"][0]
-                    st.write("Node ID:", node_id)
-                    st.session_state.selected_node = node_id
-                else:
-                    st.write("No customdata")
-            else:
-                st.write("No points in selection")
-        else:
-            st.write("No event")
-
-        if st.session_state.selected_node:
-            r = df[df["session_id"] == st.session_state.selected_node].iloc[0]
-            st.markdown(f"#### **{r['title']}**")
-            st.markdown(f"**Date:** {r['date']} | **Module:** {r['module']} | **Activity:** {r['activity']}")
-            st.markdown(f"**Instructor:** {r['instructor']}")
-            st.markdown(f"**Keywords:** `{r['keywords']}`")
-            st.markdown("**Notes:**"); st.markdown(r['notes'])
-            if r['connect_with']: st.markdown(f"**Connect with:** {r['connect_with']}")
-        else:
-            st.info("Click a node to view details.")
+    st.plotly_chart(fig, use_container_width=True)
