@@ -53,7 +53,7 @@ with st.sidebar.expander("Data IO",expanded=True):
                  .replace("“",'"').replace("”",'"')
                  .replace("‘","'").replace("’","'")
                  .replace("\u00A0"," "))
-            df=pd.read_csv(io.StringIO(raw), dtype=str)
+            df=pd.read_csv(io.StringIO(raw), dtype=str, quoting=csv.QUOTE_ALL)
             missing = set(DEFAULT_COLUMNS) - set(df.columns)
             if missing: raise ValueError(f"Missing columns: {missing}")
             st.session_state.sessions=df[DEFAULT_COLUMNS].fillna("")
@@ -133,7 +133,7 @@ with tab_graph:
     PALETTE=["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
     color_map={m:PALETTE[i%len(PALETTE)] for i,m in enumerate(mods)}
     net=Network(height="700px",width="100%",bgcolor="#fff",font_color="#111")
-    net.force_atlas_2based(gravity=-50,central_gravity=0.02,spring_length=120)
+    net.force_atlas_2based(gravity=-50,central_gravity in_gravity=0.02,spring_length=120)
     for n in nodes:
         d=G.nodes[n]
         net.add_node(n,label=n,color=color_map.get(d["module"],"#777"),
