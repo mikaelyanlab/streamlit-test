@@ -6,7 +6,6 @@ import pandas as pd
 import networkx as nx
 import streamlit as st
 from typing import List
-
 # ============================ Utilities ============================
 DEFAULT_COLUMNS = [
     "session_id","date","title","instructor","module",
@@ -21,21 +20,17 @@ SAMPLE_ROWS=[{
     "notes":"Define balancing and reinforcing loops.",
     "connect_with":""
 }]
-
 def _clean_keywords(s:str)->List[str]:
     if pd.isna(s) or not str(s).strip(): return []
     toks=[t.strip().lower() for t in str(s).replace(";",",").split(",")]
     return sorted({t for t in toks if t})
-
 def _split_multi(s:str)->List[str]:
     if pd.isna(s) or not str(s).strip(): return []
-    return [t.stamp() for t in str(s).replace(";",",").split(",") if t.strip()]
-
+    return [t.strip() for t in str(s).replace(";",",").split(",") if t.strip()]
 # ============================ App setup ============================
 st.set_page_config(page_title="Insect–Microbe Systems",layout="wide")
 if "sessions" not in st.session_state:
     st.session_state.sessions=pd.DataFrame(SAMPLE_ROWS,columns=DEFAULT_COLUMNS)
-
 # ============================ Sidebar ==============================
 st.sidebar.title("Course Session Network")
 with st.sidebar.expander("Data IO",expanded=True):
@@ -62,10 +57,8 @@ with st.sidebar.expander("Data IO",expanded=True):
 with st.sidebar.expander("Network Settings",expanded=True):
     min_shared=st.slider("Min shared keywords",1,5,1)
     include_manual=st.checkbox("Include manual connects",True)
-
 # ============================ Tabs ================================
 tab_data,tab_graph=st.tabs(["Data / Edit","Graph Explorer"])
-
 # ============================ Data Tab ============================
 with tab_data:
     st.markdown("## Add / Edit Session")
@@ -101,7 +94,6 @@ with tab_data:
     )
     if not edited.equals(st.session_state.sessions[DEFAULT_COLUMNS]):
         st.session_state.sessions=edited.copy()
-
 # ============================ Graph Tab ===========================
 with tab_graph:
     st.markdown("## Interactive Course Graph")
@@ -127,7 +119,6 @@ with tab_graph:
     mods=sorted({G.nodes[n]["module"] for n in nodes})
     PALETTE=["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
     color_map={m:PALETTE[i%len(PALETTE)] for i,m in enumerate(mods)}
-
     # Layout
     pos = nx.spring_layout(G, k=3, iterations=50, seed=42)
     edge_x, edge_y = [], []
@@ -152,7 +143,8 @@ with tab_graph:
     node_trace = {
         "x": node_x, "y": node_y, "mode": "markers+text", "text": [n for n in nodes],
         "textposition": "top center", "marker": {"size": node_size, "color": node_color},
-        "hovertemplate": "%{text}", "customdata": node_ids
+        "hovertext": node_text, "hovertemplate": "%{hovertext}<extra></extra>",
+        "customdata": node_ids
     }
     fig = {
         "data": [edge_trace, node_trace],
@@ -166,30 +158,25 @@ with tab_graph:
     }
     import plotly.graph_objects as go
     chart = go.Figure(fig)
-    chart.update_layout(clickmode="event+select")
-
     # Split layout: graph left, passport right
     col1, col2 = st.columns([3, 2])
     with col1:
-        clicked_info = st.plotly_chart(
-            chart, use_container_width=True, config={"displayModeBar": False},
-            on_select="rerun", key="graph"
+        st.plotly_chart(
+            chart, use_container_width=True, config={"displayModeBar": True}
         )
     with col2:
         st.markdown("### Session Passport")
-        if clicked_info and clicked_info["selection"]["points"]:
-            point = clicked_info["selection"]["points"][0]
-            node_id = point["customdata"]
-            if node_id in df["session_id"].values:
-                r = df[df["session_id"] == node_id].iloc[0]
-                color = color_map.get(r["module"], "#999")
-                st.markdown(f"#### 🪲 **{r['title']}**")
-                st.markdown(f"**Date:** {r['date']} | **Module:** {r['module']} | **Activity:** {r['activity']}")
-                st.markdown(f"**Instructor:** {r['instructor']}")
-                st.markdown(f"**Keywords:** `{r['keywords']}`")
-                st.markdown("**Notes:**")
-                st.markdown(r['notes'])
-            else:
-                st.info("No data.")
+        selected = st.selectbox("Select session", ["None"] + sorted(nodes))
+        if selected != "None":
+            r = df[df["session_id"] == selected].iloc[0]
+            color = color_map.get(r["module"], "#999")
+            st.markdown(f"#### 🪲 **{r['title']}**")
+            st.markdown(f"**Date:** {r['date']} | **Module:** {r['module']} | **Activity:** {r['activity']}")
+            st.markdown(f"**Instructor:** {r['instructor']}")
+            st.markdown(f"**Keywords:** `{r['keywords']}`")
+            st.markdown("**Notes:**")
+            st.markdown(r['notes'])
+            if r['connect_with']:
+                st.markdown(f"**Connect with:** {r['connect_with']}")
         else:
-            st.info("Click a node to view details.")
+            st.info("Select a session to view details.")
