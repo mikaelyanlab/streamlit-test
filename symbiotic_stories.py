@@ -1,14 +1,15 @@
-# app.py — Insect–Microbe Systems Course Network (Final Stable Interactive Version)
-# -----------------------------------------------------------------------
+# app.py — Insect–Microbe Systems Course Network (PyVis + click → passport via streamlit-pyvis)
 from __future__ import annotations
 import io
+from typing import List
+
 import pandas as pd
 import networkx as nx
 from pyvis.network import Network
 import streamlit as st
-from typing import List
+from streamlit_pyvis import stvis  # <-- the component that returns click selections
 
-# ------------------ Utility functions ------------------
+# ------------------ Utility ------------------
 DEFAULT_COLUMNS = [
     "session_id","date","title","instructor","module",
     "activity","keywords","notes","connect_with"
@@ -38,8 +39,8 @@ st.set_page_config(page_title="Insect–Microbe Systems", layout="wide")
 
 if "sessions" not in st.session_state:
     st.session_state.sessions = pd.DataFrame(SAMPLE_ROWS, columns=DEFAULT_COLUMNS)
-if "clicked_node" not in st.session_state:
-    st.session_state.clicked_node = None
+if "selected_session" not in st.session_state:
+    st.session_state.selected_session = None
 
 # ------------------ Sidebar ------------------
 st.sidebar.title("Course Session Network")
@@ -112,12 +113,15 @@ with tab_data:
 # ------------------ Graph Tab ------------------
 with tab_graph:
     df = st.session_state.sessions.copy()
+
+    # Build graph
     G = nx.Graph()
     for _, row in df.iterrows():
         kws = _clean_keywords(row["keywords"])
         node_data = row.to_dict()
         node_data["keywords"] = kws
         G.add_node(row["session_id"], **node_data)
+
     nodes = list(G.nodes())
     for i in range(len(nodes)):
         for j in range(i+1,len(nodes)):
@@ -125,12 +129,14 @@ with tab_graph:
             shared = len(set(G.nodes[a]["keywords"]) & set(G.nodes[b]["keywords"]))
             if shared >= min_shared:
                 G.add_edge(a,b)
+
     if include_manual:
         for n in nodes:
             for m in _split_multi(G.nodes[n]["connect_with"]):
                 if m in nodes and m != n:
                     G.add_edge(n,m)
 
+    # PyVis network
     net = Network(height="700px", width="100%", directed=False, bgcolor="#ffffff", font_color="#222222")
     net.barnes_hut()
 
@@ -149,7 +155,7 @@ with tab_graph:
         )
         net.add_node(
             n,
-            label=n,
+            label=n,              # show session_id on the node
             title=hover,
             color=color_map.get(d["module"],"#999"),
             size=25,
@@ -157,7 +163,7 @@ with tab_graph:
         )
     for u,v in G.edges(): net.add_edge(u,v,color="#cccccc")
 
-    # Restore physics and disable click-stickiness
+    # Solid JSON options (PyVis expects JSON, not JS)
     net.set_options("""
     {
       "interaction": {
@@ -168,44 +174,42 @@ with tab_graph:
       },
       "physics": {
         "enabled": true,
-        "barnesHut": {"springLength":150},
-        "minVelocity":0.75
+        "barnesHut": {"springLength": 150},
+        "minVelocity": 0.75
       },
-      "nodes": {"borderWidth":1,"shadow":false},
-      "edges": {"color":{"inherit":true},"smooth":false}
+      "nodes": {"borderWidth": 1, "shadow": false},
+      "edges": {"color": {"inherit": true}, "smooth": false}
     }
     """)
 
-    # Click handler that updates Streamlit session_state
-    js_callback = """
-    network.on("selectNode", function (params) {
-        const nodeId = params.nodes[0];
-        if (nodeId) {
-            window.parent.postMessage({type: 'streamlit:setComponentValue', value: nodeId}, '*');
-        }
-    });
-    """
-
-    net.save_graph("network.html")
-    html = open("network.html","r",encoding="utf-8").read()
-    html = html.replace("</script>", js_callback + "</script>")
-    selected_id = st.components.v1.html(html, height=750, key="graph")
+    # Render via component that RETURNS selections
+    # stvis returns a dict like {"selected_nodes": ["W2-Tu"], ...}
+    events = stvis(net, height="750px", key="pyvis_graph")
 
     st.markdown("---")
     st.markdown("### Session Passport")
 
-    # when a node is clicked, Streamlit sets component value
-    if selected_id and isinstance(selected_id, str):
-        st.session_state.clicked_node = selected_id
+    selected_from_graph = None
+    if isinstance(events, dict):
+        sel = events.get("selected_nodes") or events.get("selected")  # component names vary by version
+        if sel:
+            selected_from_graph = sel[0] if isinstance(sel, (list, tuple)) else sel
 
-    selected = st.session_state.clicked_node or st.selectbox(
+    if selected_from_graph:
+        st.session_state.selected_session = selected_from_graph
+
+    # Fallback dropdown
+    fallback = st.selectbox(
         "Select a session:",
         sorted(df["session_id"]),
+        index=0 if st.session_state.selected_session is None else max(0, sorted(df["session_id"]).index(st.session_state.selected_session)),
         format_func=lambda x: f"{x} — {df.loc[df['session_id']==x,'title'].values[0]}"
     )
 
-    if selected in df["session_id"].values:
-        d = df.loc[df["session_id"]==selected].iloc[0]
+    chosen = st.session_state.selected_session or fallback
+
+    if chosen in df["session_id"].values:
+        d = df.loc[df["session_id"]==chosen].iloc[0]
         st.markdown(f"#### {d['title']}")
         st.markdown(
             f"**Date:** {d['date']}  \n"
