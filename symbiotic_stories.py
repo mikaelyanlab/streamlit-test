@@ -53,7 +53,7 @@ with st.sidebar.expander("Data IO",expanded=True):
                  .replace("“",'"').replace("”",'"')
                  .replace("‘","'").replace("’","'")
                  .replace("\u00A0"," "))
-            df=pd.read_csv(io.StringIO(raw), dtype=str)
+            df=pd.read_csv(io.StringIO(raw), dtype=str, quotechar='"', escapechar='\\')
             missing = set(DEFAULT_COLUMNS) - set(df.columns)
             if missing: raise ValueError(f"Missing columns: {missing}")
             st.session_state.sessions=df[DEFAULT_COLUMNS].fillna("")
@@ -128,42 +128,48 @@ with tab_graph:
     mods=sorted({G.nodes[n]["module"] for n in nodes})
     PALETTE=["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
     color_map={m:PALETTE[i%len(PALETTE)] for i,m in enumerate(mods)}
-    net=Network(height="700px",width="100%",bgcolor="#fff",font_color="#111")
-    net.set_options("""
-    var options = {
-      "nodes": {"font": {"size": 16}},
-      "physics": {"forceAtlas2Based": {"gravitationalConstant": -50, "centralGravity": 0.02, "springLength": 120}}
-    }
-    """)
+    net=Network(height="700px",width="100%",bgcolor="#fff",font_color="#111",select_connected_edges=False)
+    net.force_atlas_2based(gravity=-50,central_gravity=0.02,spring_length=120)
     for n in nodes:
         d=G.nodes[n]
-        hover_text = f"{d['title']}\\n{d['module']}\\n{d['date']}"
+        hover = f"<b>{d['title']}</b>\\n{d['module']}\\n{d['date']}"
         net.add_node(n,label=n,color=color_map.get(d["module"],"#777"),
-                     size=(size_min+size_max)/2, title=hover_text)
+                     size=(size_min+size_max)/2, title=hover)
     for u,v in G.edges():
         net.add_edge(u,v,width=1)
     # ----------- click→Streamlit bridge -----------
-    tmp = tempfile.NamedTemporaryFile(delete=False,suffix=".html")
-    html_path = pathlib.Path(tmp.name)
-    net.write_html(html_path.as_posix(),notebook=False,local=True)
+    html_path = tempfile.NamedTemporaryFile(delete=False,suffix=".html").name
+    net.write_html(html_path,notebook=False)
     html = open(html_path,"r",encoding="utf-8").read()
     html = html.replace(
         "</body>",
         """
         <script>
+        const network = window.network;
         network.on("click", function(params) {
             if (params.nodes.length > 0) {
-                const node = params.nodes[0];
-                window.parent.postMessage({clickedNode: node}, "*");
+                const nodeId = params.nodes[0];
+                window.parent.postMessage({type: 'node_click', node: nodeId}, "*");
             }
         });
         </script>
         </body>
         """
     )
-    components.html(html, height=750, scrolling=False)
-    # Hidden input for node click
-    clicked = st.text_input("", key="node_click", label_visibility="collapsed")
+    # Inject message handler
+    components.html(f"""
+    <script>
+    window.addEventListener('message', function(e) {{
+        if (e.data.type === 'node_click') {{
+            document.getElementById('node-input').value = e.data.node;
+            document.getElementById('node-input').dispatchEvent(new Event('input'));
+        }}
+    }});
+    </script>
+    <div>{html}</div>
+    """, height=750, scrolling=True)
+    # Hidden input
+    clicked = st.text_input("", key="node_input", label_visibility="collapsed")
     if clicked and clicked != st.session_state.selected_node:
         st.session_state.selected_node = clicked
         st.rerun()
@@ -174,10 +180,10 @@ with tab_graph:
         color = color_map.get(r["module"], "#999")
         st.markdown(f"""
         <div style='border-left:6px solid {color};background:#f9f9f9;border-radius:8px;padding:1em;'>
-        <h3>🪲 {r['title']}</h3>
+        <h3>Session: {r['title']}</h3>
         <p><strong>Date:</strong> {r['date']} | <strong>Module:</strong> {r['module']} | <strong>Activity:</strong> {r['activity']}</p>
         <p><strong>Instructor:</strong> {r['instructor']}</p>
-        <p><strong>Keywords!: {r['keywords']}</p>
+        <p><strong>Keywords:</strong> {r['keywords']}</p>
         <p><strong>Notes:</strong><br>{r['notes'].replace(chr(10), '<br>')}</p>
         </div>
         """, unsafe_allow_html=True)
