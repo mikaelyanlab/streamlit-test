@@ -1,4 +1,4 @@
-# app.py — Insect–Microbe Systems Course Network (Stable, HTML tooltips, click-to-passport)
+# app.py — Insect–Microbe Systems Course Network (HTML tooltips, no sticky nodes, click-to-passport)
 from __future__ import annotations
 import io
 import pandas as pd
@@ -164,11 +164,29 @@ with tab_graph:
     }
     """)
 
-    # JS: click → update query param (Streamlit listens via reload)
+    # ✅ Inject JavaScript for HTML tooltips and click → passport
     js = """
+    // Stop "jelly" after layout
     network.once("stabilizationIterationsDone", function () {
         network.setOptions({ physics: false });
     });
+
+    // Render real HTML tooltips (bold, italics, line breaks)
+    network.on("hoverNode", function (params) {
+        try {
+            const nodeId = params.node;
+            const node = network.body.data.nodes.get(nodeId);
+            const tip = document.querySelector('.vis-tooltip');
+            if (tip && node && node.title) {
+                tip.innerHTML = node.title;
+                tip.style.whiteSpace = 'normal';
+                tip.style.maxWidth = '420px';
+                tip.style.lineHeight = '1.25';
+            }
+        } catch(e) {}
+    });
+
+    // Click → update query param → Streamlit reload
     network.on("selectNode", function (p) {
         const id = p.nodes[0];
         if (id) {
@@ -179,6 +197,7 @@ with tab_graph:
         }
     });
     """
+
     net.save_graph("graph.html")
     html=open("graph.html","r",encoding="utf-8").read().replace("</script>",js+"</script>")
     st.components.v1.html(html,height=750)
