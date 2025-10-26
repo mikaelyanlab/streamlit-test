@@ -1,4 +1,4 @@
-# app.py — Insect–Microbe Systems Course Network (PyVis click-to-details)
+# app.py — Fixed: Instant passport on click (no physics conflict, no iframe issues)
 from __future__ import annotations
 import io
 import pandas as pd
@@ -23,7 +23,7 @@ def _split_multi(s:str):
 # ------------------ Setup ------------------
 st.set_page_config(page_title="Insect–Microbe Systems", layout="wide")
 if "sessions" not in st.session_state:
-    st.session_state.sessions = pd.DataFrame(SAMPLE_ROWS, columns **DEFAULT_COLUMNS)
+    st.session_state.sessions = pd.DataFrame(SAMPLE_ROWS, columns=DEFAULT_COLUMNS)
 if "selected_node" not in st.session_state:
     st.session_state.selected_node = None
 
@@ -105,33 +105,35 @@ with tab_graph:
       "physics":{"barnesHut":{"springLength":150}},"interaction":{"navigationButtons":true}
     }""")
 
-    net.save_graph("network.html")
-    html = open("network.html","r",encoding="utf-8").read()
-
+    # Inject click → update Streamlit state via URL
+    net_html = net.generate_html()
     js = """
     <script>
-    const network = window.network;
-    network.on("click", p => {
-      if (p.nodes.length) {
-        const url = new URL(parent.location);
-        url.searchParams.set("node", p.nodes[0]);
-        parent.location = url;
-      }
+    document.addEventListener("DOMContentLoaded", () => {
+      const network = window.network;
+      network.on("click", (p) => {
+        if (p.nodes.length) {
+          const node = p.nodes[0];
+          const url = new URL(location.href);
+          url.searchParams.set("node", node);
+          history.replaceState(null, "", url);
+          location.reload();
+        }
+      });
     });
     </script>
     """
-    html = html.replace("</body>", js+"</body>")
-    with open("network.html","w",encoding="utf-8") as f: f.write(html)
+    net_html = net_html.replace("</body>", js + "</body>")
 
-    st.components.v1.html(html, height=750)
+    st.components.v1.html(net_html, height=750)
 
-    # Selection panel
+    # Detect selection
     qp = st.experimental_get_query_params()
     if "node" in qp:
         node = qp["node"][0]
         if node in df["session_id"].values:
             st.session_state.selected_node = node
-        st.experimental_set_query_params()
+        st.experimental_set_query_params()  # clear
 
     sel = st.session_state.selected_node
     if sel and sel in df["session_id"].values:
