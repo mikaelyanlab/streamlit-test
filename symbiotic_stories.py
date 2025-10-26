@@ -22,26 +22,26 @@ SAMPLE_ROWS=[{
     "notes":"Define balancing and reinforcing loops.",
     "connect_with":""
 }]
-
 def _clean_keywords(s:str)->List[str]:
     if pd.isna(s) or not str(s).strip(): return []
     toks=[t.strip().lower() for t in str(s).replace(";",",").split(",")]
     return sorted({t for t in toks if t})
-
 def _split_multi(s:str)->List[str]:
     if pd.isna(s) or not str(s).strip(): return []
     return [t.strip() for t in str(s).replace(";",",").split(",") if t.strip()]
 
 # ------------------ App setup ------------------
 st.set_page_config(page_title="Insect–Microbe Systems", layout="wide")
-
 if "sessions" not in st.session_state:
     st.session_state.sessions = pd.DataFrame(SAMPLE_ROWS, columns=DEFAULT_COLUMNS)
+if "selected_node" not in st.session_state:
+    st.session_state.selected_node = None
 
 # ------------------ Sidebar ------------------
 st.sidebar.title("Course Session Network")
 with st.sidebar.expander("Data IO", expanded=True):
-    buf = io.StringIO(); st.session_state.sessions.to_csv(buf, index=False)
+    buf = io.StringIO()
+    st.session_state.sessions.to_csv(buf, index=False)
     st.download_button("Download sessions.csv", buf.getvalue(), "sessions.csv", "text/csv")
     up = st.file_uploader("Upload sessions.csv", type=["csv"])
     if up:
@@ -51,7 +51,6 @@ with st.sidebar.expander("Data IO", expanded=True):
     if st.button("Reset to sample"):
         st.session_state.sessions = pd.DataFrame(SAMPLE_ROWS, columns=DEFAULT_COLUMNS)
         st.success("Reset.")
-
 with st.sidebar.expander("Network Settings", expanded=True):
     min_shared = st.slider("Min shared keywords", 1, 5, 1)
     include_manual = st.checkbox("Include manual connects", True)
@@ -93,7 +92,6 @@ with tab_data:
             else:
                 st.session_state.sessions = pd.concat([df,pd.DataFrame([r])],ignore_index=True)
             st.success(f"Saved {sid}")
-
     st.markdown("### Inline Table Edit")
     edited = st.data_editor(
         st.session_state.sessions[DEFAULT_COLUMNS],
@@ -112,69 +110,96 @@ with tab_graph:
         node_data = row.to_dict()
         node_data["keywords"] = kws
         G.add_node(row["session_id"], **node_data)
+
     nodes = list(G.nodes())
     for i in range(len(nodes)):
-        for j in range(i+1,len(nodes)):
-            a,b = nodes[i],nodes[j]
+        for j in range(i+1, len(nodes)):
+            a, b = nodes[i], nodes[j]
             shared = len(set(G.nodes[a]["keywords"]) & set(G.nodes[b]["keywords"]))
             if shared >= min_shared:
-                G.add_edge(a,b)
+                G.add_edge(a, b)
     if include_manual:
         for n in nodes:
             for m in _split_multi(G.nodes[n]["connect_with"]):
                 if m in nodes and m != n:
-                    G.add_edge(n,m)
+                    G.add_edge(n, m)
 
     net = Network(height="700px", width="100%", directed=False, bgcolor="#ffffff", font_color="#222222")
     net.barnes_hut()
-
-    palette=["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd",
-             "#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
-    mods=sorted({G.nodes[n]["module"] for n in nodes})
-    color_map={m:palette[i%len(palette)] for i,m in enumerate(mods)}
+    palette = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
+    mods = sorted({G.nodes[n]["module"] for n in nodes})
+    color_map = {m: palette[i%len(palette)] for i, m in enumerate(mods)}
 
     for n in G.nodes():
         d = G.nodes[n]
-        hover = (
-            f"<b>{d['title']}</b><br>"
-            f"{d['date']} | {d['module']}<br>"
-            f"{d['activity']}<br>"
-            f"<i>{', '.join(d['keywords'])}</i>"
-        )
         net.add_node(
-            n,
-            label=n,
-            title=hover,
-            color=color_map.get(d["module"],"#999"),
-            size=25
+            n, label=n, title="", color=color_map.get(d["module"], "#999"), size=25
         )
-    for u,v in G.edges(): net.add_edge(u,v,color="#cccccc")
+    for u, v in G.edges():
+        net.add_edge(u, v, color="#cccccc")
 
     net.set_options("""
     var options = {
       "nodes": {"borderWidth":1,"shadow":false},
       "edges": {"color":{"inherit":true},"smooth":false},
-      "physics": {"barnesHut": {"springLength":150},"minVelocity":0.75}
+      "physics": {"barnesHut": {"springLength":150},"minVelocity":0.75},
+      "interaction": {"navigationButtons": true}
     }
     """)
+
     net.save_graph("network.html")
-    st.components.v1.html(open("network.html","r",encoding="utf-8").read(), height=750)
+    html = open("network.html", "r", encoding="utf-8").read()
 
-    st.markdown("---")
-    st.markdown("### Session Passport")
+    js_click = """
+    <script>
+    const network = window.network;
+    network.on("click", function(params) {
+        if (params.nodes.length > 0) {
+            const nodeId = params.nodes[0];
+            window.parent.postMessage({type: 'node_click', node: nodeId}, '*');
+        }
+    });
+    </script>
+    """
+    html = html.replace("</body>", js_click + "</body>")
+    with open("network.html", "w", encoding="utf-8") as f:
+        f.write(html)
 
-    selected = st.selectbox(
-        "Select a session:",
-        sorted(df["session_id"]),
-        format_func=lambda x: f"{x} — {df.loc[df['session_id']==x,'title'].values[0]}"
-    )
-    d = df.loc[df["session_id"]==selected].iloc[0]
-    st.markdown(f"#### {d['title']}")
-    st.markdown(
-        f"**Date:** {d['date']}  \n"
-        f"**Instructor:** {d['instructor']}  \n"
-        f"**Module:** {d['module']}  \n"
-        f"**Activity:** {d['activity']}  \n"
-        f"**Keywords:** {d['keywords']}  \n\n"
-        f"**Notes:**  \n{d['notes']}"
-    )
+    st.components.v1.html(html, height=750)
+
+    # Handle node selection
+    query_params = st.experimental_get_query_params()
+    if "node" in query_params:
+        node = query_params["node"][0]
+        if node in df["session_id"].values:
+            st.session_state.selected_node = node
+        st.experimental_set_query_params()  # Clear
+
+    selected = st.session_state.selected_node
+    if selected and selected in df["session_id"].values:
+        d = df.loc[df["session_id"] == selected].iloc[0]
+        st.markdown("### Session Passport")
+        st.markdown(f"#### {d['title']}")
+        st.markdown(
+            f"**Date:** {d['date']}  \n"
+            f"**Instructor:** {d['instructor']}  \n"
+            f"**Module:** {d['module']}  \n"
+            f"**Activity:** {d['activity']}  \n"
+            f"**Keywords:** {d['keywords']}  \n\n"
+            f"**Notes:**  \n{d['notes']}"
+        )
+    else:
+        st.markdown("_Click a node to view its Session Passport._")
+
+    # Listener for postMessage
+    st.write("""
+    <script>
+    window.addEventListener("message", function(event) {
+        if (event.data.type === "node_click") {
+            const url = new URL(window.location);
+            url.searchParams.set("node", event.data.node);
+            window.location = url;
+        }
+    });
+    </script>
+    """, unsafe_allow_html=True)
