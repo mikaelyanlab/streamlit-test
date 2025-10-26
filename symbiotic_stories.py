@@ -77,7 +77,7 @@ with tab_data:
     with st.form("add_session"):
         c1,c2,c3,c4=st.columns(4)
         sid=c1.text_input("Session ID",placeholder="W2-Tu")
-        date=c2.text_input("Date (YYYY-MM-DD)")
+        date=c2.text_input"Date (YYYY-MM-DD)")
         title=c3.text_input("Title")
         instr=c4.text_input("Instructor","You")
         c5,c6,c7=st.columns(3)
@@ -85,99 +85,4 @@ with tab_data:
         activity=c6.text_input("Activity")
         kws=c7.text_input("Keywords (comma-separated)")
         notes=st.text_area("Notes")
-        connect=st.text_input("Connect with (IDs comma-separated)")
-        if st.form_submit_button("Add / Update") and sid.strip():
-            r={"session_id":sid.strip(),"date":date.strip(),"title":title.strip(),
-               "instructor":instr.strip(),"module":module.strip() or "Unassigned",
-               "activity":activity.strip(),"keywords":kws.strip(),
-               "notes":notes.strip(),"connect_with":connect.strip()}
-            df=st.session_state.sessions
-            if sid in df["session_id"].values:
-                idx=df[df["session_id"]==sid].index[0]
-                for k,v in r.items(): df.at[idx,k]=v
-            else:
-                st.session_state.sessions=pd.concat([df,pd.DataFrame([r])],ignore_index=True)
-            st.success(f"Saved {sid}")
-    st.markdown("### Inline Table Edit")
-    edited=st.data_editor(st.session_state.sessions,hide_index=True,use_container_width=True,num_rows="dynamic",key="table_edit")
-    if not edited.equals(st.session_state.sessions):
-        st.session_state.sessions=edited.copy()
-
-# ============================ Graph Tab ===========================
-with tab_graph:
-    st.markdown("## Interactive Course Graph")
-    df=st.session_state.sessions.copy()
-    G=nx.Graph()
-    for _,row in df.iterrows():
-        kws=_clean_keywords(row["keywords"])
-        node_data = row.to_dict()
-        node_data["keywords"] = kws
-        G.add_node(row["session_id"], **node_data)
-    nodes=list(G.nodes())
-    for i in range(len(nodes)):
-        for j in range(i+1,len(nodes)):
-            a,b=nodes[i],nodes[j]
-            shared=len(set(G.nodes[a]["keywords"])&set(G.nodes[b]["keywords"]))
-            if shared>=min_shared:
-                G.add_edge(a,b)
-    if include_manual:
-        for n in nodes:
-            for m in _split_multi(G.nodes[n]["connect_with"]):
-                if m in nodes and m!=n:
-                    G.add_edge(n,m)
-    mods=sorted({G.nodes[n]["module"] for n in nodes})
-    PALETTE=["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
-    color_map={m:PALETTE[i%len(PALETTE)] for i,m in enumerate(mods)}
-    net=Network(height="700px",width="100%",bgcolor="#fff",font_color="#111")
-    net.force_atlas_2based(gravity=-50,central_gravity=0.02,spring_length=120)
-    for n in nodes:
-        d=G.nodes[n]
-        hover = f"{d['title']}\\n{d['module']}\\n{d['date']}"
-        net.add_node(n,label=n,color=color_map.get(d["module"],"#777"),
-                     size=(size_min+size_max)/2, title=hover)
-    for u,v in G.edges():
-        net.add_edge(u,v,width=1)
-    # ----------- click→Streamlit bridge -----------
-    html_file = tempfile.NamedTemporaryFile(delete=False,suffix=".html",mode="w",encoding="utf-8")
-    net.write_html(html_file.name)
-    html_file.close()
-    html = open(html_file.name,"r",encoding="utf-8").read()
-    html = html.replace(
-        "</body>",
-        """
-        <script>
-        network.on("click", function(params) {
-            if (params.nodes.length > 0) {
-                const nodeId = params.nodes[0];
-                window.parent.postMessage({clickedNode: nodeId}, "*");
-            }
-        });
-        </script>
-        </body>
-        """
-    )
-    components.html(html, height=750, scrolling=False)
-    # Capture click
-    placeholder = st.empty()
-    with placeholder.container():
-        clicked = st.text_input("", key="clicked_node", label_visibility="collapsed")
-    if clicked and clicked != st.session_state.selected_node:
-        st.session_state.selected_node = clicked
-        placeholder.empty()
-        st.rerun()
-    st.markdown("---")
-    node = st.session_state.selected_node
-    if node and node in df["session_id"].values:
-        r = df[df["session_id"] == node].iloc[0]
-        color = color_map.get(r["module"], "#999")
-        st.markdown(f"""
-        <div style='border-left:6px solid {color};background:#f9f9f9;border-radius:8px;padding:1em;'>
-        <h3>🪲 {r['title']}</h3>
-        <p><strong>Date:</strong> {r['date']} | <strong>Module:</strong> {r['module']} | <strong>Activity:</strong> {r['activity']}</p>
-        <p><strong>Instructor:</strong> {r['instructor']}</p>
-        <p><strong>Keywords:</strong> {r['keywords']}</p>
-        <p><strong>Notes:</strong><br>{r['notes'].replace(chr(10), '<br>')}</p>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.info("Click a node to view its Session Passport.")
+        connect=st.text_input("
