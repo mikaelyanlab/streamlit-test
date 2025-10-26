@@ -1,7 +1,7 @@
 # app.py — Insect–Microbe Systems Course Network (PyVis click-to-details)
 # -----------------------------------------------------------------------
 from __future__ import annotations
-import io, csv
+import io
 import pandas as pd
 import networkx as nx
 from pyvis.network import Network
@@ -27,14 +27,12 @@ SAMPLE_ROWS = [{
 }]
 
 def _clean_keywords(s: str) -> List[str]:
-    """Split and normalize keywords."""
     if pd.isna(s) or not str(s).strip():
         return []
     toks = [t.strip().lower() for t in str(s).replace(";", ",").split(",")]
     return sorted({t for t in toks if t})
 
 def _split_multi(s: str) -> List[str]:
-    """Split comma- or semicolon-separated fields."""
     if pd.isna(s) or not str(s).strip():
         return []
     return [t.strip() for t in str(s).replace(";", ",").split(",") if t.strip()]
@@ -121,14 +119,12 @@ with tab_graph:
     df = st.session_state.sessions.copy()
     G = nx.Graph()
 
-    # Add nodes
     for _, row in df.iterrows():
         kws = _clean_keywords(row["keywords"])
         node_data = row.to_dict()
         node_data["keywords"] = kws
         G.add_node(row["session_id"], **node_data)
 
-    # Add edges based on shared keywords
     nodes = list(G.nodes())
     for i in range(len(nodes)):
         for j in range(i + 1, len(nodes)):
@@ -136,18 +132,16 @@ with tab_graph:
             shared = len(set(G.nodes[a]["keywords"]) & set(G.nodes[b]["keywords"]))
             if shared >= min_shared:
                 G.add_edge(a, b)
-    # Add manual connections
+
     if include_manual:
         for n in nodes:
             for m in _split_multi(G.nodes[n]["connect_with"]):
                 if m in nodes and m != n:
                     G.add_edge(n, m)
 
-    # Create PyVis network
     net = Network(height="700px", width="100%", directed=False, bgcolor="#ffffff", font_color="#222222")
     net.barnes_hut()
 
-    # Module color mapping
     palette = [
         "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
         "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
@@ -155,7 +149,6 @@ with tab_graph:
     mods = sorted({G.nodes[n]["module"] for n in nodes})
     color_map = {m: palette[i % len(palette)] for i, m in enumerate(mods)}
 
-    # Add nodes to PyVis
     for n in G.nodes():
         d = G.nodes[n]
         hover = (
@@ -173,21 +166,20 @@ with tab_graph:
             shape="dot"
         )
 
-    # Add edges
     for u, v in G.edges():
         net.add_edge(u, v, color="#cccccc")
 
-    # PyVis config and JS click handler
+    # ✅ FIX: valid JSON instead of JS
     net.set_options("""
-    var options = {
-      nodes: {borderWidth:1, shadow:false},
-      edges: {color:{inherit:true}, smooth:false},
-      physics: {barnesHut:{springLength:150}, minVelocity:0.75},
-      interaction: {hover:true, navigationButtons:true}
+    {
+      "nodes": {"borderWidth":1, "shadow":false},
+      "edges": {"color":{"inherit":true}, "smooth":false},
+      "physics": {"barnesHut": {"springLength":150}, "minVelocity":0.75},
+      "interaction": {"hover":true, "navigationButtons":true}
     }
     """)
 
-    # Inject JavaScript to sync node click → Streamlit query param
+    # Add JS click handler
     js_callback = """
     network.on("click", function (params) {
         if (params.nodes.length > 0) {
@@ -200,20 +192,17 @@ with tab_graph:
     });
     """
 
-    # Save and inject callback
     net.save_graph("network.html")
     html = open("network.html", "r", encoding="utf-8").read()
     html = html.replace("</script>", js_callback + "</script>")
     st.components.v1.html(html, height=750)
 
-    # --- Session Passport ---
     st.markdown("---")
     st.markdown("### Session Passport")
 
     query = st.experimental_get_query_params()
     clicked = query.get("clicked", [None])[0]
 
-    # Dropdown fallback
     selected = clicked or st.selectbox(
         "Select a session:",
         sorted(df["session_id"]),
