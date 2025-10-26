@@ -1,5 +1,4 @@
-# app.py — Insect–Microbe Systems Course Network
-# Formatted HTML tooltips + working node-click → passport
+# app.py — Final: single custom HTML tooltip + working click→passport
 from __future__ import annotations
 import io
 import pandas as pd
@@ -31,7 +30,6 @@ def _split_multi(s:str)->List[str]:
     if pd.isna(s) or not str(s).strip(): return []
     return [t.strip() for t in str(s).replace(";",",").split(",") if t.strip()]
 
-# -----------------------------------------------------------------
 st.set_page_config(page_title="Insect–Microbe Systems", layout="wide")
 
 if "sessions" not in st.session_state:
@@ -119,14 +117,15 @@ with tab_graph:
 
     for n in G.nodes():
         d=G.nodes[n]
-        hover=(f"<div style='font-family:sans-serif;font-size:13px;'>"
-               f"<b>{d['title']}</b><br>"
-               f"{d['date']} | {d['module']}<br>"
-               f"{d['activity']}<br>"
-               f"<i>{', '.join(d['keywords'])}</i></div>")
+        html_tip=(f"<b>{d['title']}</b><br>"
+                  f"{d['date']} | {d['module']}<br>"
+                  f"{d['activity']}<br>"
+                  f"<i>{', '.join(d['keywords'])}</i>")
+        # store formatted HTML separately; disable PyVis built-in tooltip
         net.add_node(
-            n,label=n,title=hover,
-            color=color_map.get(d["module"],"#999"),size=25,shape="dot"
+            n,label=n,title="",  # empty title disables vis.js tooltip
+            color=color_map.get(d["module"],"#999"),size=25,shape="dot",
+            custom_html=html_tip
         )
     for u,v in G.edges(): net.add_edge(u,v,color="#ccc")
 
@@ -141,80 +140,70 @@ with tab_graph:
     }
     """)
 
-    # ---- Custom JS: our own tooltip + working click → passport ----
+    # --- JS: single custom tooltip + click→passport ---
     js = """
-    const tooltip = document.createElement('div');
-    tooltip.style.position = 'fixed';
-    tooltip.style.background = '#ffffe6';
-    tooltip.style.border = '1px solid #aaa';
-    tooltip.style.padding = '6px 8px';
-    tooltip.style.borderRadius = '4px';
-    tooltip.style.boxShadow = '2px 2px 4px rgba(0,0,0,0.2)';
-    tooltip.style.display = 'none';
-    tooltip.style.pointerEvents = 'none';
-    document.body.appendChild(tooltip);
+    const tip = document.createElement('div');
+    tip.style.position = 'fixed';
+    tip.style.background = '#ffffe6';
+    tip.style.border = '1px solid #aaa';
+    tip.style.padding = '6px 8px';
+    tip.style.borderRadius = '4px';
+    tip.style.boxShadow = '2px 2px 4px rgba(0,0,0,0.2)';
+    tip.style.display = 'none';
+    tip.style.pointerEvents = 'none';
+    tip.style.maxWidth = '400px';
+    tip.style.lineHeight = '1.25';
+    document.body.appendChild(tip);
 
-    network.once("stabilizationIterationsDone", function () {
-        network.setOptions({ physics: false });
+    network.once("stabilizationIterationsDone", ()=>network.setOptions({physics:false}));
+
+    network.on("hoverNode", (params)=>{
+      const node = network.body.data.nodes.get(params.node);
+      if(node && node.custom_html){
+        tip.innerHTML = node.custom_html;
+        tip.style.display = 'block';
+      }
+    });
+    network.on("blurNode", ()=>tip.style.display='none');
+    network.on("dragging", ()=>tip.style.display='none');
+    document.addEventListener('mousemove', (e)=>{
+      tip.style.left = (e.clientX + 12)+'px';
+      tip.style.top = (e.clientY + 12)+'px';
     });
 
-    network.on("hoverNode", function(params) {
-        const nodeId = params.node;
-        const node = network.body.data.nodes.get(nodeId);
-        if (node && node.title) {
-            tooltip.innerHTML = node.title;
-            tooltip.style.display = 'block';
-        }
-    });
-    network.on("blurNode", function() {
-        tooltip.style.display = 'none';
-    });
-    network.on("dragging", function(){ tooltip.style.display = 'none'; });
-    network.on("hoverEdge", function(){ tooltip.style.display = 'none'; });
-
-    document.addEventListener('mousemove', function(e){
-        tooltip.style.left = (e.clientX + 12) + 'px';
-        tooltip.style.top = (e.clientY + 12) + 'px';
-    });
-
-    network.on("selectNode", function(p) {
-        const id = p.nodes[0];
-        if (id) {
-            localStorage.setItem('clicked', id);
-            window.parent.postMessage({ type: 'nodeClick', id: id }, "*");
-        }
+    network.on("selectNode", (p)=>{
+      const id = p.nodes[0];
+      if(id){
+        localStorage.setItem('clicked', id);
+        window.parent.postMessage({type:'nodeClick', id:id}, '*');
+      }
     });
     """
     net.save_graph("graph.html")
     html=open("graph.html","r",encoding="utf-8").read().replace("</script>",js+"</script>")
     st.components.v1.html(html,height=750)
 
-    # --- handle clicks from iframe ---
-    clicked_id = None
-    try:
-        clicked_id = st.session_state.get("clicked")
-    except: pass
-
     st.markdown("---")
     st.markdown("### Session Passport")
 
     st.markdown("""
-        <script>
-        window.addEventListener("message", (e)=>{
-            if(e.data && e.data.type==="nodeClick"){
-                const id=e.data.id;
-                window.localStorage.setItem('clicked', id);
-                window.location.reload();
-            }
-        });
-        </script>
+    <script>
+    window.addEventListener("message", (e)=>{
+        if(e.data && e.data.type==="nodeClick"){
+            const id=e.data.id;
+            window.localStorage.setItem('clicked', id);
+            window.location.reload();
+        }
+    });
+    </script>
     """, unsafe_allow_html=True)
 
-    # Get node id stored by JS
-    query = st.query_params
-    clicked_id = query.get("clicked") or None
+    # read selected id from localStorage or query
+    clicked_id = st.query_params.get("clicked")
     if clicked_id:
         clicked_id = clicked_id[0] if isinstance(clicked_id, list) else clicked_id
+    else:
+        clicked_id = None
 
     selected = clicked_id or st.selectbox(
         "Select a session:",
