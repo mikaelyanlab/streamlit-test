@@ -11,7 +11,7 @@ from pyvis.network import Network
 
 # ============================ Utilities ============================
 DEFAULT_COLUMNS = [
-    "session_id","session_id","date","title","instructor","module",
+    "session_id","date","title","instructor","module",
     "activity","keywords","notes","connect_with"
 ]
 SAMPLE_ROWS=[{
@@ -99,8 +99,13 @@ with tab_data:
                 st.session_state.sessions=pd.concat([df,pd.DataFrame([r])],ignore_index=True)
             st.success(f"Saved {sid}")
     st.markdown("### Inline Table Edit")
-    edited=st.data_editor(st.session_state.sessions,hide_index=True,use_container_width=True,num_rows="dynamic",key="table_edit")
-    if not edited.equals(st.session_state.sessions):
+    # Use fixed columns to avoid Streamlit API error
+    edited=st.data_editor(
+        st.session_state.sessions[DEFAULT_COLUMNS],
+        hide_index=True, use_container_width=True, num_rows="dynamic",
+        key="table_edit"
+    )
+    if not edited.equals(st.session_state.sessions[DEFAULT_COLUMNS]):
         st.session_state.sessions=edited.copy()
 
 # ============================ Graph Tab ===========================
