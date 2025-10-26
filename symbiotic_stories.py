@@ -34,6 +34,8 @@ def _split_multi(s:str)->List[str]:
 st.set_page_config(page_title="Insect–Microbe Systems",layout="wide")
 if "sessions" not in st.session_state:
     st.session_state.sessions=pd.DataFrame(SAMPLE_ROWS,columns=DEFAULT_COLUMNS)
+if "selected_node" not in st.session_state:
+    st.session_state.selected_node = None
 
 # ============================ Sidebar ==============================
 st.sidebar.title("Course Session Network")
@@ -148,7 +150,7 @@ with tab_graph:
         x=node_x, y=node_y, mode="markers+text", text=[n for n in nodes],
         textposition="top center", marker=dict(size=node_size, color=node_color),
         hovertext=node_text, hovertemplate="%{hovertext}<extra></extra>",
-        customdata=node_ids
+        customdata=[ [nid] for nid in node_ids ]
     )
 
     fig = go.Figure(data=[edge_trace, node_trace], layout=go.Layout(
@@ -161,13 +163,15 @@ with tab_graph:
 
     col1, col2 = st.columns([3, 2])
     with col1:
-        clicked = st.plotly_chart(fig, use_container_width=True, key="graph_click", on_select="rerun")
+        event = st.plotly_chart(fig, use_container_width=True, key="graph_click", on_select="rerun")
     with col2:
         st.markdown("### Session Passport")
-        if "graph_click" in st.session_state and st.session_state.graph_click:
-            point = st.session_state.graph_click["points"][0]
-            node_id = point["customdata"]
-            r = df[df["session_id"] == node_id].iloc[0]
+        if event and event.get("selection") and event["selection"].get("points"):
+            point = event["selection"]["points"][0]
+            node_id = point["customdata"][0]
+            st.session_state.selected_node = node_id
+        if st.session_state.selected_node:
+            r = df[df["session_id"] == st.session_state.selected_node].iloc[0]
             st.markdown(f"#### 🪲 **{r['title']}**")
             st.markdown(f"**Date:** {r['date']} | **Module:** {r['module']} | **Activity:** {r['activity']}")
             st.markdown(f"**Instructor:** {r['instructor']}")
