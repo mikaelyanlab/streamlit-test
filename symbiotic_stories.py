@@ -75,8 +75,9 @@ with st.sidebar.expander("📂 Data IO",expanded=True):
                 if len(r)<9: r+=['']*(9-len(r))
                 elif len(r)>9: r=r[:9]
                 clean.append(r)
-            df=pd.DataFrame(clean[1:],columns=DEFAULT_COLUMNS)
-            st.session_state.sessions=df.fillna("")
+            # Always coerce header to DEFAULT_COLUMNS to be robust to header quirks
+            df=pd.DataFrame(clean[1:],columns=DEFAULT_COLUMNS).fillna("")
+            st.session_state.sessions=df
             st.success("✅ CSV loaded and cleaned.")
         except Exception as e:
             st.error(f"Upload failed: {e}")
@@ -141,20 +142,28 @@ with tab_graph:
     df=st.session_state.sessions.copy()
     G=nx.Graph()
     for _,r in df.iterrows():
-        kws=_clean_keywords(r["keywords"])
-        G.add_node(r["session_id"],**r.to_dict(),keywords=kws)
+        # FIX: avoid passing duplicate 'keywords' kwarg; add cleaned list as 'kwlist'
+        kwlist=_clean_keywords(r["keywords"])
+        attrs=r.to_dict()
+        attrs["kwlist"]=kwlist  # cleaned tokens for graph logic
+        G.add_node(r["session_id"], **attrs)
+
     nodes=list(G.nodes())
     for i in range(len(nodes)):
         for j in range(i+1,len(nodes)):
             a,b=nodes[i],nodes[j]
-            shared=len(set(G.nodes[a]["keywords"])&set(G.nodes[b]["keywords"]))
-            if shared>=min_shared: G.add_edge(a,b)
+            # FIX: use 'kwlist' for overlap (the cleaned tokens), not the raw string
+            shared=len(set(G.nodes[a].get("kwlist",[])) & set(G.nodes[b].get("kwlist",[])))
+            if shared>=min_shared:
+                G.add_edge(a,b)
+
     if include_manual:
         for n in nodes:
-            for m in _split_multi(G.nodes[n]["connect_with"]):
-                if m in nodes and m!=n: G.add_edge(n,m)
+            for m in _split_multi(G.nodes[n].get("connect_with","")):
+                if m in nodes and m!=n:
+                    G.add_edge(n,m)
 
-    mods=sorted({G.nodes[n]["module"] for n in nodes})
+    mods=sorted({G.nodes[n].get("module","Unassigned") for n in nodes})
     PALETTE=["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd",
              "#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
     color_map={m:PALETTE[i%len(PALETTE)] for i,m in enumerate(mods)}
@@ -163,15 +172,22 @@ with tab_graph:
     net.force_atlas_2based(gravity=-50,central_gravity=0.02,spring_length=120)
     for n in nodes:
         d=G.nodes[n]
-        net.add_node(n,label=n,color=color_map.get(d["module"],"#777"),
-                     size=(size_min+size_max)/2,
-                     title=f"{d['title']}<br>{d['module']}")
-    for u,v in G.edges(): net.add_edge(u,v,width=1)
+        net.add_node(
+            n,
+            label=n,
+            color=color_map.get(d.get("module","Unassigned"),"#777"),
+            size=(size_min+size_max)/2,
+            title=f"{d.get('title','')}"
+                  f"<br>{d.get('module','Unassigned')}"
+        )
+    for u,v in G.edges():
+        net.add_edge(u,v,width=1)
 
     # ----------- click→Streamlit bridge -----------
     html_path=pathlib.Path(tempfile.NamedTemporaryFile(delete=False,suffix=".html").name)
     net.write_html(html_path.as_posix(),notebook=False,local=True)
-    html=open(html_path,"r",encoding="utf-8").read()
+    with open(html_path,"r",encoding="utf-8") as f:
+        html=f.read()
     html=html.replace(
         "</body>",
         """
@@ -188,9 +204,12 @@ with tab_graph:
     <script>
     window.addEventListener("message",(e)=>{
         if(e.data.clickedNode){
-            const el=document.querySelector('input[data-testid="stTextInput"]');
-            if(el){el.value=e.data.clickedNode;
-                   el.dispatchEvent(new Event('input',{bubbles:true}));}
+            const el=document.querySelector('input[data-testid="stTextInput"][aria-label="clicked"]')
+                      || document.querySelector('input[data-testid="stTextInput"]');
+            if(el){
+                el.value=e.data.clickedNode;
+                el.dispatchEvent(new Event('input',{bubbles:true}));
+            }
         }
     });
     </script>
