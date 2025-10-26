@@ -87,8 +87,10 @@ with tab_data:
         notes=st.text_area("Notes")
         connect=st.text_input("Connect with (IDs comma-separated)")
         if st.form_submit_button("Add / Update") and sid.strip():
-            r={k:v.strip() for k,v in locals().items() if k in DEFAULT_COLUMNS}
-            r["module"]=r["module"] or "Unassigned"
+            r={"session_id":sid.strip(),"date":date.strip(),"title":title.strip(),
+               "instructor":instr.strip(),"module":module.strip() or "Unassigned",
+               "activity":activity.strip(),"keywords":kws.strip(),
+               "notes":notes.strip(),"connect_with":connect.strip()}
             df=st.session_state.sessions
             if sid in df["session_id"].values:
                 idx=df[df["session_id"]==sid].index[0]
@@ -130,9 +132,10 @@ with tab_graph:
     net.force_atlas_2based(gravity=-50,central_gravity=0.02,spring_length=120)
     for n in nodes:
         d=G.nodes[n]
+        hover_html = f"<b>{d['title']}</b><br>{d['module']}<br><i>{d['date']}</i>"
         net.add_node(n,label=n,color=color_map.get(d["module"],"#777"),
                      size=(size_min+size_max)/2,
-                     title=f"{d['title']}<br>{d['module']}")
+                     title=hover_html)
     for u,v in G.edges():
         net.add_edge(u,v,width=1)
     # ----------- click→Streamlit bridge -----------
@@ -145,8 +148,10 @@ with tab_graph:
         """
         <script>
         network.on("selectNode", function(params){
-            const node=params.nodes[0];
-            window.parent.postMessage({clickedNode: node},"*");
+            if (params.nodes.length === 1) {
+                const node = params.nodes[0];
+                window.parent.postMessage({clickedNode: node}, "*");
+            }
         });
         </script></body>
         """
@@ -154,32 +159,36 @@ with tab_graph:
     components.html(html,height=750,scrolling=False)
     st.markdown("""
     <script>
-    window.addEventListener("message",(e)=>{
-        if(e.data.clickedNode){
-            const el=document.querySelector('#click-input input[data-testid="stTextInput"]');
-            if(el){el.value=e.data.clickedNode; el.dispatchEvent(new Event('input',{bubbles:true}));}
+    window.addEventListener("message", (e) => {
+        if (e.data.clickedNode) {
+            const el = document.querySelector('#click-input input[data-testid="stTextInput"]');
+            if (el) {
+                el.value = e.data.clickedNode;
+                el.dispatchEvent(new Event('input', {bubbles: true}));
+            }
         }
     });
     </script>
-    """,unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
     st.markdown('<div id="click-input">', unsafe_allow_html=True)
     clicked=st.text_input("clicked",key="clickedNode",label_visibility="collapsed")
     st.markdown('</div>', unsafe_allow_html=True)
     if clicked:
-        st.session_state.selected_node=clicked
+        st.session_state.selected_node = clicked
+        st.rerun()
     st.markdown("---")
-    node=st.session_state.selected_node
+    node = st.session_state.selected_node
     if node and node in df["session_id"].values:
-        r=df[df["session_id"]==node].iloc[0]
-        color=color_map.get(r["module"],"#999")
+        r = df[df["session_id"] == node].iloc[0]
+        color = color_map.get(r["module"], "#999")
         st.markdown(f"""
-        <div style='border-left:6px solid {color};background:#f9f9f9;border-radius:8px;padding:0.8em 1em;'>
-        <h3>{r["title"]}</h3>
-        <p><strong>Date:</strong> {r["date"]} | <strong>Module:</strong> {r["module"]} | <strong>Activity:</strong> {r["activity"]}</p>
-        <p><strong>Instructor:</strong> {r["instructor"]}</p>
-        <p><strong>Keywords:</strong> {r["keywords"]}</p>
-        <p><strong>Notes:</strong><br>{r["notes"]}</p>
+        <div style='border-left:6px solid {color};background:#f9f9f9;border-radius:8px;padding:1em;'>
+        <h3>🪲 {r['title']}</h3>
+        <p><strong>Date:</strong> {r['date']} | <strong>Module:</strong> {r['module']} | <strong>Activity:</strong> {r['activity']}</p>
+        <p><strong>Instructor:</strong> {r['instructor']}</p>
+        <p><strong>Keywords:</strong> {r['keywords']}</p>
+        <p><strong>Notes:</strong><br>{r['notes'].replace(chr(10), '<br>')}</p>
         </div>
-        """,unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
     else:
         st.info("Click a node to view its Session Passport.")
