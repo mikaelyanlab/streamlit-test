@@ -132,24 +132,24 @@ with tab_graph:
     net.force_atlas_2based(gravity=-50,central_gravity=0.02,spring_length=120)
     for n in nodes:
         d=G.nodes[n]
-        hover = f"<b>{d['title']}</b><br>{d['module']}<br>{d['date']}"
         net.add_node(n,label=n,color=color_map.get(d["module"],"#777"),
-                     size=(size_min+size_max)/2, title=hover)
+                     size=(size_min+size_max)/2, title=d["title"])
     for u,v in G.edges():
         net.add_edge(u,v,width=1)
     # ----------- click→Streamlit bridge -----------
-    html_file = tempfile.NamedTemporaryFile(delete=False,suffix=".html")
-    net.write_html(html_file.name,notebook=False)
-    with open(html_file.name, "r", encoding="utf-8") as f:
-        html = f.read()
+    html_file = tempfile.NamedTemporaryFile(delete=False,suffix=".html",mode="w+",encoding="utf-8")
+    net.write_html(html_file.name)
+    html_file.seek(0)
+    html = html_file.read()
+    html_file.close()
     html = html.replace(
         "</body>",
         """
         <script>
         network.on("selectNode", function(params) {
             if (params.nodes.length > 0) {
-                var nodeId = params.nodes[0];
-                parent.postMessage({"clickedNode": nodeId}, "*");
+                const nodeId = params.nodes[0];
+                window.parent.postMessage({clickedNode: nodeId}, "*");
             }
         });
         </script>
@@ -159,23 +159,20 @@ with tab_graph:
     components.html(html, height=750, scrolling=False)
     st.markdown("""
     <script>
-    window.addEventListener('message', function(e) {
+    window.addEventListener("message", function(e) {
         if (e.data.clickedNode) {
-            var input = document.querySelector('#node-click-input input');
+            const input = document.querySelector('input[data-testid="stTextInput"]');
             if (input) {
                 input.value = e.data.clickedNode;
-                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event("input", {bubbles: true}));
             }
         }
-    }, false);
+    });
     </script>
     """, unsafe_allow_html=True)
-    st.markdown('<div id="node-click-input">', unsafe_allow_html=True)
-    clicked = st.text_input(" ", key="clicked_node", label_visibility="collapsed")
-    st.markdown('</div>', unsafe_allow_html=True)
-    if clicked and clicked != st.session_state.get('last_clicked', ''):
+    clicked = st.text_input("", key="clicked_node", label_visibility="collapsed")
+    if clicked:
         st.session_state.selected_node = clicked
-        st.session_state.last_clicked = clicked
         st.rerun()
     st.markdown("---")
     node = st.session_state.selected_node
