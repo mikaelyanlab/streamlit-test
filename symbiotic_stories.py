@@ -1,11 +1,11 @@
-# app.py — Insect–Microbe Systems Course Network
+# app.py — Insect–Microbe Systems Course Network (final build)
 # -------------------------------------------------------------------
 # Features
-# - Robust CSV import / cleanup
+# - Self-healing CSV import (9 fields enforced)
 # - Add / edit / delete sessions
 # - Inline editable table
 # - PyVis interactive graph
-# - Click node → show “Session Passport”
+# - Click node → Session Passport
 # -------------------------------------------------------------------
 
 from __future__ import annotations
@@ -14,10 +14,10 @@ import pandas as pd
 import networkx as nx
 import streamlit as st
 import streamlit.components.v1 as components
-from typing import List
 from pyvis.network import Network
+from typing import List
 
-# ============================ Utilities ============================
+# ============================ Constants ============================
 
 DEFAULT_COLUMNS = [
     "session_id","date","title","instructor","module",
@@ -43,6 +43,27 @@ def _split_multi(s:str)->List[str]:
     if pd.isna(s) or not str(s).strip(): return []
     return [t.strip() for t in str(s).replace(";",",").split(",") if t.strip()]
 
+def _load_csv_safely(file_obj)->pd.DataFrame:
+    """Read uploaded CSV and enforce 9 columns."""
+    raw=file_obj.read().decode("utf-8",errors="replace")
+    raw=(raw.replace("\r\n","\n").replace("\r","\n")
+            .replace("“",'"').replace("”",'"')
+            .replace("‘","'").replace("’","'")
+            .replace("\u00A0"," "))
+    reader=csv.reader(io.StringIO(raw))
+    rows=[r for r in reader if any(r)]
+    clean=[]
+    for r in rows:
+        if len(r)<9: r+=['']*(9-len(r))
+        elif len(r)>9: r=r[:9]
+        clean.append(r)
+    # Handle potential missing header
+    if clean and any(h.lower().startswith("session") for h in clean[0]):
+        header=clean[0]; data=clean[1:]
+    else:
+        header=DEFAULT_COLUMNS; data=clean
+    return pd.DataFrame(data,columns=header).fillna("")
+
 # ============================ App setup ============================
 
 st.set_page_config(page_title="Insect–Microbe Systems",layout="wide")
@@ -62,23 +83,9 @@ with st.sidebar.expander("📂 Data IO",expanded=True):
     up=st.file_uploader("Upload sessions.csv",type=["csv"])
     if up is not None:
         try:
-            raw=up.read().decode("utf-8",errors="replace")
-            # clean line endings / quotes
-            raw=(raw.replace("\r\n","\n").replace("\r","\n")
-                    .replace("“",'"').replace("”",'"')
-                    .replace("‘","'").replace("’","'")
-                    .replace("\u00A0"," "))
-            reader=csv.reader(io.StringIO(raw))
-            rows=[r for r in reader if any(r)]
-            clean=[]
-            for r in rows:
-                if len(r)<9: r+=['']*(9-len(r))
-                elif len(r)>9: r=r[:9]
-                clean.append(r)
-            # Always coerce header to DEFAULT_COLUMNS to be robust to header quirks
-            df=pd.DataFrame(clean[1:],columns=DEFAULT_COLUMNS).fillna("")
+            df=_load_csv_safely(up)
             st.session_state.sessions=df
-            st.success("✅ CSV loaded and cleaned.")
+            st.success(f"✅ CSV loaded ({len(df)} sessions).")
         except Exception as e:
             st.error(f"Upload failed: {e}")
 
@@ -142,20 +149,16 @@ with tab_graph:
     df=st.session_state.sessions.copy()
     G=nx.Graph()
     for _,r in df.iterrows():
-        # FIX: avoid passing duplicate 'keywords' kwarg; add cleaned list as 'kwlist'
         kwlist=_clean_keywords(r["keywords"])
-        attrs=r.to_dict()
-        attrs["kwlist"]=kwlist  # cleaned tokens for graph logic
+        attrs=r.to_dict(); attrs["kwlist"]=kwlist
         G.add_node(r["session_id"], **attrs)
 
     nodes=list(G.nodes())
     for i in range(len(nodes)):
         for j in range(i+1,len(nodes)):
             a,b=nodes[i],nodes[j]
-            # FIX: use 'kwlist' for overlap (the cleaned tokens), not the raw string
             shared=len(set(G.nodes[a].get("kwlist",[])) & set(G.nodes[b].get("kwlist",[])))
-            if shared>=min_shared:
-                G.add_edge(a,b)
+            if shared>=min_shared: G.add_edge(a,b)
 
     if include_manual:
         for n in nodes:
@@ -180,50 +183,50 @@ with tab_graph:
             title=f"{d.get('title','')}"
                   f"<br>{d.get('module','Unassigned')}"
         )
-    for u,v in G.edges():
-        net.add_edge(u,v,width=1)
+    for u,v in G.edges(): net.add_edge(u,v,width=1)
 
-    # ----------- click→Streamlit bridge -----------
+    # ----------- click→Streamlit bridge (robust) -----------
     html_path=pathlib.Path(tempfile.NamedTemporaryFile(delete=False,suffix=".html").name)
     net.write_html(html_path.as_posix(),notebook=False,local=True)
-    with open(html_path,"r",encoding="utf-8") as f:
-        html=f.read()
-    html=html.replace(
-        "</body>",
-        """
+    with open(html_path,"r",encoding="utf-8") as f: html=f.read()
+
+    components.html(
+        html + """
         <script>
         network.on("selectNode", function(params){
-            const node=params.nodes[0];
-            window.parent.postMessage({clickedNode: node},"*");
+            if(params.nodes.length > 0){
+                const nodeId = params.nodes[0];
+                window.parent.postMessage({type:'NODE_CLICK', node:nodeId}, '*');
+            }
         });
-        </script></body>"""
+        </script>
+        """,
+        height=750,
+        scrolling=False,
     )
-    components.html(html,height=750,scrolling=False)
 
     st.markdown("""
     <script>
-    window.addEventListener("message",(e)=>{
-        if(e.data.clickedNode){
-            const el=document.querySelector('input[data-testid="stTextInput"][aria-label="clicked"]')
-                      || document.querySelector('input[data-testid="stTextInput"]');
-            if(el){
-                el.value=e.data.clickedNode;
-                el.dispatchEvent(new Event('input',{bubbles:true}));
-            }
+    window.addEventListener('message', (event) => {
+      if (event.data.type === 'NODE_CLICK') {
+        const input = window.parent.document.querySelector('input#clickedNode');
+        if (input) {
+          input.value = event.data.node;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
         }
+      }
     });
     </script>
-    """,unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-    clicked_node=st.text_input("clicked",key="clickedNode",label_visibility="collapsed")
-    if clicked_node:
-        st.session_state.selected_node=clicked_node
+    clicked = st.text_input("clicked", key="clickedNode", label_visibility="collapsed")
+    if clicked: st.session_state.selected_node = clicked
 
     st.markdown("---")
-    node=st.session_state.selected_node
+    node = st.session_state.selected_node
     if node and node in df["session_id"].values:
-        r=df[df["session_id"]==node].iloc[0]
-        color=color_map.get(r["module"],"#999")
+        r = df[df["session_id"]==node].iloc[0]
+        color = color_map.get(r["module"], "#999")
         st.markdown(f"""
         <div style='border-left:6px solid {color};background:#f9f9f9;
                     border-radius:8px;padding:0.8em 1em;'>
@@ -235,6 +238,6 @@ with tab_graph:
         <p><strong>Keywords:</strong> {r["keywords"]}</p>
         <p><strong>Notes:</strong><br>{r["notes"]}</p>
         </div>
-        """,unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
     else:
         st.info("Click a node to view its Session Passport.")
