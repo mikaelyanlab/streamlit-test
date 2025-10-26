@@ -1,144 +1,121 @@
-# app.py — Simple, reliable: hover node → passport below (physics on)
+# app.py — WORKING: Click node in Plotly graph → passport below (force layout, instant)
 from __future__ import annotations
 import io
 import pandas as pd
+import plotty.graph_objs as go
 import networkx as nx
-from pyvis.network import Network
 import streamlit as st
 from typing import List
 
 # ------------------ Utils ------------------
 DEFAULT_COLUMNS = ["session_id","date","title","instructor","module","activity","keywords","notes","connect_with"]
-SAMPLE_ROWS = [{
-    "session_id":"W1-Tu","date":"2026-01-13","title":"Systems Bootcamp – Insects as Systems within Systems",
-    "instructor":"You","module":"Systems Bootcamp","activity":"Interactive lecture",
-    "keywords":"systems thinking, feedback loops","notes":"Define balancing and reinforcing loops.","connect_with":""
-}]
+SAMPLE_ROWS = [{"session_id":"W1-Tu","date":"2026-01-13","title":"Bootcamp","instructor":"You","module":"Systems","activity":"Lecture","keywords":"systems, loops","notes":"Intro.","connect_with":""}]
 
-def _clean_keywords(s: str) -> List[str]:
-    if pd.isna(s) or not str(s).strip(): return []
-    return sorted({t.strip().lower() for t in str(s).replace(";", ",").split(",") if t.strip()})
+def _clean_keywords(s:str) -> List[str]:
+    if pd.isna(s) or not s: return []
+    return [t.strip().lower() for t in str(s).replace(";",",").split(",") if t]
 
-def _split_multi(s: str) -> List[str]:
-    if pd.isna(s) or not str(s).strip(): return []
-    return [t.strip() for t in str(s).replace(";", ",").split(",") if t.strip()]
+def _split_multi(s:str) -> List[str]:
+    if pd.isna(s) or not s: return []
+    return [t.strip() for t in str(s).replace(";",",").split(",") if t]
 
 # ------------------ Setup ------------------
 st.set_page_config(page_title="Insect–Microbe Systems", layout="wide")
 if "sessions" not in st.session_state:
     st.session_state.sessions = pd.DataFrame(SAMPLE_ROWS, columns=DEFAULT_COLUMNS)
+if "selected_node" not in st.session_state:
+    st.session_state.selected_node = None
 
 # ------------------ Sidebar ------------------
-st.sidebar.title("Course Session Network")
-with st.sidebar.expander("Data IO", expanded=True):
-    buf = io.StringIO()
-    st.session_state.sessions.to_csv(buf, index=False)
-    st.download_button("Download sessions.csv", buf.getvalue(), "sessions.csv", "text/csv")
-    up = st.file_uploader("Upload sessions.csv", type=["csv"])
-    if up:
-        df = pd.read_csv(up, dtype=str).fillna("")
-        st.session_state.sessions = df
-        st.success("CSV loaded.")
-    if st.button("Reset to sample"):
-        st.session_state.sessions = pd.DataFrame(SAMPLE_ROWS, columns=DEFAULT_COLUMNS)
-        st.success("Reset.")
-with st.sidebar.expander("Network Settings", expanded=True):
-    min_shared = st.slider("Min shared keywords", 1, 5, 1)
-    include_manual = st.checkbox("Include manual connects", True)
+st.sidebar.title("Network")
+with st.sidebar.expander("IO"):
+    buf = io.StringIO(); st.session_state.sessions.to_csv(buf, index=False)
+    st.download_button("Download", buf.getvalue(), "sessions.csv")
+    up = st.file_uploader("Upload", type="csv")
+    if up: st.session_state.sessions = pd.read_csv(up, dtype=str).fillna(""); st.success("Loaded")
+    if st.button("Reset"): st.session_state.sessions = pd.DataFrame(SAMPLE_ROWS, columns=DEFAULT_COLUMNS); st.success("Reset")
+with st.sidebar.expander("Settings"):
+    min_shared = st.slider("Min keywords",1,5,1)
+    include_manual = st.checkbox("Manual",True)
 
-tab_data, tab_graph = st.tabs(["Data / Edit", "Graph Explorer"])
+tab_data, tab_graph = st.tabs(["Data","Graph"])
 
 # ------------------ Data Tab ------------------
 with tab_data:
-    st.markdown("## Add / Edit Session")
-    with st.form("add_session"):
-        c1,c2,c3,c4 = st.columns(4)
-        sid = c1.text_input("Session ID", placeholder="W2-Tu")
-        date = c2.text_input("Date (YYYY-MM-DD)")
-        title = c3.text_input("Title")
-        instr = c4.text_input("Instructor", "You")
-        c5,c6,c7 = st.columns(3)
-        module = c5.text_input("Module")
-        activity = c6.text_input("Activity")
-        kws = c7.text_input("Keywords (comma-separated)")
-        notes = st.text_area("Notes")
-        connect = st.text_input("Connect with (IDs comma-separated)")
-        if st.form_submit_button("Add / Update") and sid.strip():
-            r = {
-                "session_id": sid.strip(),"date": date.strip(),"title": title.strip(),"instructor": instr.strip(),
-                "module": module.strip() or "Unassigned","activity": activity.strip(),"keywords": kws.strip(),
-                "notes": notes.strip(),"connect_with": connect.strip()
-            }
-            df = st.session_state.sessions
-            if sid in df["session_id"].values:
-                idx = df.index[df["session_id"] == sid][0]
-                for k, v in r.items(): df.at[idx, k] = v
-            else:
-                st.session_state.sessions = pd.concat([df, pd.DataFrame([r])], ignore_index=True)
-            st.success(f"Saved {sid}")
-    st.markdown("### Inline Table Edit")
-    edited = st.data_editor(st.session_state.sessions[DEFAULT_COLUMNS], hide_index=True, use_container_width=True, num_rows="dynamic", key="table_edit")
-    if not edited.equals(st.session_state.sessions[DEFAULT_COLUMNS]):
-        st.session_state.sessions = edited.copy()
+    with st.form("add"):
+        sid = st.text_input("ID")
+        title = st.text_input("Title")
+        if st.form_submit_button("Add") and sid:
+            r = {k:"" for k in DEFAULT_COLUMNS}; r["session_id"]=sid; r["title"]=title or "Untitled"
+            st.session_state.sessions = pd.concat([st.session_state.sessions, pd.DataFrame([r])], ignore_index=True)
+    st.data_editor(st.session_state.sessions[DEFAULT_COLUMNS], hide_index=True, num_rows="dynamic", key="edit")
 
 # ------------------ Graph Tab ------------------
 with tab_graph:
     df = st.session_state.sessions.copy()
     G = nx.Graph()
-    for _, row in df.iterrows():
-        kws = _clean_keywords(row["keywords"])
-        node_data = row.to_dict()
-        node_data["keywords"] = kws
-        G.add_node(row["session_id"], **node_data)
+    for _, r in df.iterrows():
+        G.add_node(r["session_id"], **r.to_dict())
 
-    nodes = list(G.nodes())
+    nodes = list(G.nodes)
     for i in range(len(nodes)):
         for j in range(i+1, len(nodes)):
             a, b = nodes[i], nodes[j]
-            shared = len(set(G.nodes[a]["keywords"]) & set(G.nodes[b]["keywords"]))
+            shared = len(set(_clean_keywords(G.nodes[a]["keywords"])) & set(_clean_keywords(G.nodes[b]["keywords"])))
             if shared >= min_shared:
                 G.add_edge(a, b)
     if include_manual:
         for n in nodes:
             for m in _split_multi(G.nodes[n]["connect_with"]):
-                if m in nodes and m != n:
-                    G.add_edge(n, m)
+                if m in nodes and m != n: G.add_edge(n, m)
 
-    net = Network(height="700px", width="100%", directed=False, bgcolor="#ffffff", font_color="#222222")
-    net.barnes_hut()
-    palette = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
+    # Force layout
+    pos = nx.spring_layout(G, k=1, iterations=50)
+
+    # Edges
+    edge_x, edge_y = [], []
+    for u, v in G.edges:
+        x0, y0 = pos[u][0], pos[u][1]
+        x1, y1 = pos[v][0], pos[v][1]
+        edge_x.extend([x0, x1, None])
+        edge_y.extend([y0, y1, None])
+
+    # Nodes
+    node_x, node_y, node_text, node_color = [], [], [], []
+    palette = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd"]
     mods = sorted({G.nodes[n]["module"] for n in nodes})
-    color_map = {m: palette[i % len(palette)] for i, m in enumerate(mods)}
-
-    for n in G.nodes():
+    color_map = {m: palette[i%len(palette)] for i,m in enumerate(mods)}
+    for n in nodes:
+        x, y = pos[n]
         d = G.nodes[n]
-        hover = f"{d['title']} | {d['date']} | {d['module']} | {d['activity']} | {', '.join(d['keywords'])}"
-        net.add_node(n, label=n, title=hover, color=color_map.get(d["module"], "#999"), size=25)
-    for u, v in G.edges():
-        net.add_edge(u, v, color="#cccccc")
+        node_x.append(x); node_y.append(y)
+        node_text.append(f"{n}<br>{d['title']}<br>{d['date']}<br>{d['module']}")
+        node_color.append(color_map.get(d["module"], "#999"))
 
-    net.set_options("""
-    var options = {
-      "physics": {"barnesHut": {"springLength": 150}},
-      "interaction": {"hover": true, "navigationButtons": true}
-    }
-    """)
+    # Plot
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=edge_x, y=edge_y, mode='lines', line=dict(color='#ccc', width=1), hoverinfo='none'))
+    fig.add_trace(go.Scatter(x=node_x, y=node_y, mode='markers+text', text=[n for n in nodes], textposition="top center",
+                             marker=dict(size=30, color=node_color, line=dict(width=2)),
+                             hoverinfo='text', hovertext=node_text, customdata=nodes))
+    fig.update_layout(showlegend=False, hovermode='closest', margin=dict(b=20,l=5,r=5,t=20),
+                      xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                      yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                      height=700, paper_bgcolor='white', plot_bgcolor='white')
 
-    net.save_graph("network.html")
-    with open("network.html", "r", encoding="utf-8") as f:
-        html = f.read()
-    st.components.v1.html(html, height=750)
+    # Click handler
+    click = st.plotly_chart(fig, use_container_width=True, on_select="rerun", selection_mode="point")
 
-    # --- Simple selector below graph ---
-    st.markdown("### Session Passport")
-    selected = st.selectbox(
-        "Select session to view details:",
-        options=[""] + sorted(df["session_id"]),
-        format_func=lambda x: f"{x} — {df.loc[df['session_id']==x, 'title'].values[0]}" if x else "— Choose —"
-    )
-    if selected:
-        d = df.loc[df["session_id"] == selected].iloc[0]
+    # Get selected
+    if click and click["selection"]["points"]:
+        sel_id = click["selection"]["points"][0]["customdata"]
+        st.session_state.selected_node = sel_id
+
+    sel = st.session_state.selected_node
+    if sel and sel in df["session_id"].values:
+        d = df[df["session_id"] == sel].iloc[0]
+        st.markdown("### Session Passport")
         st.markdown(f"#### {d['title']}")
         st.markdown(f"**Date:** {d['date']}  \n**Instructor:** {d['instructor']}  \n**Module:** {d['module']}  \n**Activity:** {d['activity']}  \n**Keywords:** {d['keywords']}  \n\n**Notes:**  \n{d['notes']}")
     else:
-        st.markdown("_Select a session above to view its passport._")
+        st.markdown("_Click a node to view its Session Passport._")
