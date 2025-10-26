@@ -1,4 +1,4 @@
-# app.py — Insect–Microbe Systems Course Network (PyVis click-to-details)
+# app.py — Insect–Microbe Systems Course Network (Stable Click-to-Passport)
 # -----------------------------------------------------------------------
 from __future__ import annotations
 import io
@@ -26,13 +26,13 @@ SAMPLE_ROWS = [{
     "connect_with": ""
 }]
 
-def _clean_keywords(s: str) -> List[str]:
+def _clean_keywords(s: str) -> list[str]:
     if pd.isna(s) or not str(s).strip():
         return []
     toks = [t.strip().lower() for t in str(s).replace(";", ",").split(",")]
     return sorted({t for t in toks if t})
 
-def _split_multi(s: str) -> List[str]:
+def _split_multi(s: str) -> list[str]:
     if pd.isna(s) or not str(s).strip():
         return []
     return [t.strip() for t in str(s).replace(";", ",").split(",") if t.strip()]
@@ -132,7 +132,6 @@ with tab_graph:
             shared = len(set(G.nodes[a]["keywords"]) & set(G.nodes[b]["keywords"]))
             if shared >= min_shared:
                 G.add_edge(a, b)
-
     if include_manual:
         for n in nodes:
             for m in _split_multi(G.nodes[n]["connect_with"]):
@@ -169,17 +168,21 @@ with tab_graph:
     for u, v in G.edges():
         net.add_edge(u, v, color="#cccccc")
 
-    # ✅ FIX: valid JSON instead of JS
+    # FIX 1: valid JSON & disable node drag
     net.set_options("""
     {
-      "nodes": {"borderWidth":1, "shadow":false},
-      "edges": {"color":{"inherit":true}, "smooth":false},
-      "physics": {"barnesHut": {"springLength":150}, "minVelocity":0.75},
-      "interaction": {"hover":true, "navigationButtons":true}
+      "interaction": {
+        "hover": true,
+        "navigationButtons": true,
+        "dragNodes": false
+      },
+      "nodes": {"borderWidth": 1, "shadow": false},
+      "edges": {"color": {"inherit": true}, "smooth": false},
+      "physics": {"barnesHut": {"springLength": 150}, "minVelocity": 0.75}
     }
     """)
 
-    # Add JS click handler
+    # FIX 2: click -> update query param -> reload Streamlit
     js_callback = """
     network.on("click", function (params) {
         if (params.nodes.length > 0) {
@@ -187,7 +190,7 @@ with tab_graph:
             const url = new URL(window.location);
             url.searchParams.set('clicked', nodeId);
             window.history.pushState({}, '', url);
-            window.parent.postMessage({ type: 'streamlit:setComponentValue', value: nodeId }, '*');
+            window.parent.postMessage({ isStreamlitMessage: true, type: 'setQueryParams', query: {clicked: nodeId} }, '*');
         }
     });
     """
@@ -197,16 +200,19 @@ with tab_graph:
     html = html.replace("</script>", js_callback + "</script>")
     st.components.v1.html(html, height=750)
 
+    # --- Session Passport ---
     st.markdown("---")
     st.markdown("### Session Passport")
 
-    query = st.experimental_get_query_params()
-    clicked = query.get("clicked", [None])[0]
+    # FIX 3: replace deprecated call
+    query = st.query_params
+    clicked = query.get("clicked")
 
+    # fallback selector
     selected = clicked or st.selectbox(
         "Select a session:",
         sorted(df["session_id"]),
-        format_func=lambda x: f"{x} — {df.loc[df['session_id'] == x, 'title'].values[0]}"
+        format_func=lambda x: f"{x} — {df.loc[df['session_id']==x,'title'].values[0]}"
     )
 
     if selected in df["session_id"].values:
