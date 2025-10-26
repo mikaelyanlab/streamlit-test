@@ -1,10 +1,13 @@
-# app.py — Insect–Microbe Systems Course Network (Stable, no sticky drag)
+# app.py — Insect–Microbe Systems Course Network (Stable, HTML tooltips, click-to-passport)
 from __future__ import annotations
-import io, pandas as pd, networkx as nx
+import io
+import pandas as pd
+import networkx as nx
 from pyvis.network import Network
 import streamlit as st
 from typing import List
 
+# ------------------ Utility functions ------------------
 DEFAULT_COLUMNS = [
     "session_id","date","title","instructor","module",
     "activity","keywords","notes","connect_with"
@@ -28,15 +31,18 @@ def _split_multi(s:str)->List[str]:
     if pd.isna(s) or not str(s).strip(): return []
     return [t.strip() for t in str(s).replace(";",",").split(",") if t.strip()]
 
-# -----------------------------------------------------------------
+# ------------------ Streamlit setup ------------------
 st.set_page_config(page_title="Insect–Microbe Systems", layout="wide")
 
 if "sessions" not in st.session_state:
     st.session_state.sessions = pd.DataFrame(SAMPLE_ROWS, columns=DEFAULT_COLUMNS)
 
+# ------------------ Sidebar ------------------
 st.sidebar.title("Course Session Network")
+
 with st.sidebar.expander("Data IO", expanded=True):
-    buf = io.StringIO(); st.session_state.sessions.to_csv(buf, index=False)
+    buf = io.StringIO()
+    st.session_state.sessions.to_csv(buf, index=False)
     st.download_button("Download sessions.csv", buf.getvalue(), "sessions.csv","text/csv")
 
     up = st.file_uploader("Upload sessions.csv", type=["csv"])
@@ -53,7 +59,7 @@ with st.sidebar.expander("Network Settings", expanded=True):
 
 tab_data, tab_graph = st.tabs(["Data / Edit", "Graph Explorer"])
 
-# --------------------------- Data tab ---------------------------------
+# ------------------ Data Tab ------------------
 with tab_data:
     st.markdown("## Add / Edit Session")
     with st.form("add_session"):
@@ -69,10 +75,17 @@ with tab_data:
         notes = st.text_area("Notes")
         connect = st.text_input("Connect with (IDs comma-separated)")
         if st.form_submit_button("Add / Update") and sid.strip():
-            r = {"session_id":sid.strip(),"date":date.strip(),"title":title.strip(),
-                 "instructor":instr.strip(),"module":module.strip() or "Unassigned",
-                 "activity":activity.strip(),"keywords":kws.strip(),
-                 "notes":notes.strip(),"connect_with":connect.strip()}
+            r = {
+                "session_id": sid.strip(),
+                "date": date.strip(),
+                "title": title.strip(),
+                "instructor": instr.strip(),
+                "module": module.strip() or "Unassigned",
+                "activity": activity.strip(),
+                "keywords": kws.strip(),
+                "notes": notes.strip(),
+                "connect_with": connect.strip()
+            }
             df = st.session_state.sessions
             if sid in df["session_id"].values:
                 df.loc[df["session_id"]==sid, list(r.keys())] = pd.Series(r)
@@ -86,7 +99,7 @@ with tab_data:
     if not edited.equals(st.session_state.sessions[DEFAULT_COLUMNS]):
         st.session_state.sessions = edited.copy()
 
-# --------------------------- Graph tab ---------------------------------
+# ------------------ Graph Tab ------------------
 with tab_graph:
     df = st.session_state.sessions.copy()
     G = nx.Graph()
@@ -112,17 +125,37 @@ with tab_graph:
              "#7f7f7f","#bcbd22","#17becf"]
     mods=sorted({G.nodes[n]["module"] for n in nodes})
     color_map={m:palette[i%len(palette)] for i,m in enumerate(mods)}
+
     for n in G.nodes():
         d=G.nodes[n]
-        hover=(f"<b>{d['title']}</b><br>{d['date']} | {d['module']}<br>"
-               f"{d['activity']}<br><i>{', '.join(d['keywords'])}</i>")
-        net.add_node(n,label=n,title=hover,color=color_map.get(d["module"],"#999"),size=25)
+        hover=(f"<b>{d['title']}</b><br>"
+               f"{d['date']} | {d['module']}<br>"
+               f"{d['activity']}<br>"
+               f"<i>{', '.join(d['keywords'])}</i>")
+        net.add_node(
+            n,label=n,title=hover,
+            color=color_map.get(d["module"],"#999"),size=25,shape="dot"
+        )
     for u,v in G.edges(): net.add_edge(u,v,color="#ccc")
 
-    # physics runs once to layout, then freezes (no jelly)
+    # ✅ FIX: formatted hover HTML + smooth drag + no sticky nodes
     net.set_options("""
     {
-      "interaction": {"hover": true, "navigationButtons": true},
+      "interaction": {
+        "hover": true,
+        "navigationButtons": true,
+        "tooltipDelay": 50
+      },
+      "nodes": {
+        "borderWidth": 1,
+        "shadow": false,
+        "shape": "dot",
+        "font": {"multi": "html"}
+      },
+      "edges": {
+        "color": {"inherit": true},
+        "smooth": false
+      },
       "physics": {
         "enabled": true,
         "stabilization": {"enabled": true, "iterations": 500, "updateInterval": 50},
@@ -131,10 +164,10 @@ with tab_graph:
     }
     """)
 
-    # Click event updates Streamlit query param *without reloading the iframe*
+    # JS: click → update query param (Streamlit listens via reload)
     js = """
     network.once("stabilizationIterationsDone", function () {
-        network.setOptions({ physics: false });  // stop jelly motion
+        network.setOptions({ physics: false });
     });
     network.on("selectNode", function (p) {
         const id = p.nodes[0];
@@ -150,7 +183,7 @@ with tab_graph:
     html=open("graph.html","r",encoding="utf-8").read().replace("</script>",js+"</script>")
     st.components.v1.html(html,height=750)
 
-    # Capture JS messages → Streamlit rerun
+    # Bridge: reload Streamlit on click
     clicked_id = st.query_params.get("clicked")
 
     st.markdown("---")
