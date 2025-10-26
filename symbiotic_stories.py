@@ -1,116 +1,205 @@
-# app.py — FINAL WORKING: Click node → passport (Plotly, no JS, physics-like)
-import io
+# app.py — Insect–Microbe Systems Course Network (PyVis click-to-details)
+# -----------------------------------------------------------------------
+from __future__ import annotations
+import io, csv
 import pandas as pd
-import plotly.graph_objs as go
 import networkx as nx
+from pyvis.network import Network
 import streamlit as st
 from typing import List
 
-# Utils
-DEFAULT_COLUMNS = ["session_id","date","title","instructor","module","activity","keywords","notes","connect_with"]
-SAMPLE_ROWS = [{"session_id":"W1-Tu","date":"2026-01-13","title":"Bootcamp","instructor":"You","module":"Systems","activity":"Lecture","keywords":"systems, loops","notes":"Intro.","connect_with":""}]
+# ------------------ Utility functions ------------------
+DEFAULT_COLUMNS = [
+    "session_id","date","title","instructor","module",
+    "activity","keywords","notes","connect_with"
+]
+SAMPLE_ROWS=[{
+    "session_id":"W1-Tu","date":"2026-01-13",
+    "title":"Systems Bootcamp – Insects as Systems within Systems",
+    "instructor":"You","module":"Systems Bootcamp",
+    "activity":"Interactive lecture",
+    "keywords":"systems thinking, feedback loops",
+    "notes":"Define balancing and reinforcing loops.",
+    "connect_with":""
+}]
+def _clean_keywords(s:str)->List[str]:
+    if pd.isna(s) or not str(s).strip(): return []
+    toks=[t.strip().lower() for t in str(s).replace(";",",").split(",")]
+    return sorted({t for t in toks if t})
+def _split_multi(s:str)->List[str]:
+    if pd.isna(s) or not str(s).strip(): return []
+    return [t.strip() for t in str(s).replace(";",",").split(",") if t.strip()]
 
-def _clean_keywords(s: str) -> List[str]:
-    if pd.isna(s) or not s: return []
-    return [t.strip().lower() for t in str(s).replace(";", ",").split(",") if t.strip()]
-
-def _split_multi(s: str) -> List[str]:
-    if pd.isna(s) or not s: return []
-    return [t.strip() for t in str(s).replace(";", ",").split(",") if t.strip()]
-
-# Setup
+# ------------------ App setup ------------------
 st.set_page_config(page_title="Insect–Microbe Systems", layout="wide")
 if "sessions" not in st.session_state:
     st.session_state.sessions = pd.DataFrame(SAMPLE_ROWS, columns=DEFAULT_COLUMNS)
 if "selected_node" not in st.session_state:
     st.session_state.selected_node = None
 
-# Sidebar
+# ------------------ Sidebar ------------------
 st.sidebar.title("Course Session Network")
-with st.sidebar.expander("Data IO", True):
-    buf = io.StringIO(); st.session_state.sessions.to_csv(buf, index=False)
-    st.download_button("Download sessions.csv", buf.getvalue(), "sessions.csv")
-    up = st.file_uploader("Upload sessions.csv", type="csv")
-    if up: st.session_state.sessions = pd.read_csv(up, dtype=str).fillna(""); st.success("Loaded")
-    if st.button("Reset to sample"): st.session_state.sessions = pd.DataFrame(SAMPLE_ROWS, columns=DEFAULT_COLUMNS); st.success("Reset")
-with st.sidebar.expander("Network Settings", True):
+with st.sidebar.expander("Data IO", expanded=True):
+    buf = io.StringIO()
+    st.session_state.sessions.to_csv(buf, index=False)
+    st.download_button("Download sessions.csv", buf.getvalue(), "sessions.csv", "text/csv")
+    up = st.file_uploader("Upload sessions.csv", type=["csv"])
+    if up:
+        df = pd.read_csv(up, dtype=str).fillna("")
+        st.session_state.sessions = df
+        st.success("CSV loaded.")
+    if st.button("Reset to sample"):
+        st.session_state.sessions = pd.DataFrame(SAMPLE_ROWS, columns=DEFAULT_COLUMNS)
+        st.success("Reset.")
+with st.sidebar.expander("Network Settings", expanded=True):
     min_shared = st.slider("Min shared keywords", 1, 5, 1)
     include_manual = st.checkbox("Include manual connects", True)
 
+# ------------------ Tabs ------------------
 tab_data, tab_graph = st.tabs(["Data / Edit", "Graph Explorer"])
 
-# Data Tab
+# ------------------ Data Tab ------------------
 with tab_data:
+    st.markdown("## Add / Edit Session")
     with st.form("add_session"):
-        sid = st.text_input("Session ID")
-        title = st.text_input("Title")
-        if st.form_submit_button("Add") and sid:
-            r = {k:"" for k in DEFAULT_COLUMNS}; r["session_id"] = sid; r["title"] = title or "Untitled"
-            st.session_state.sessions = pd.concat([st.session_state.sessions, pd.DataFrame([r])], ignore_index=True)
-    st.data_editor(st.session_state.sessions[DEFAULT_COLUMNS], hide_index=True, num_rows="dynamic", key="edit")
+        c1,c2,c3,c4 = st.columns(4)
+        sid = c1.text_input("Session ID", placeholder="W2-Tu")
+        date = c2.text_input("Date (YYYY-MM-DD)")
+        title = c3.text_input("Title")
+        instr = c4.text_input("Instructor","You")
+        c5,c6,c7 = st.columns(3)
+        module = c5.text_input("Module")
+        activity = c6.text_input("Activity")
+        kws = c7.text_input("Keywords (comma-separated)")
+        notes = st.text_area("Notes")
+        connect = st.text_input("Connect with (IDs comma-separated)")
+        if st.form_submit_button("Add / Update") and sid.strip():
+            r = {
+                "session_id": sid.strip(),
+                "date": date.strip(),
+                "title": title.strip(),
+                "instructor": instr.strip(),
+                "module": module.strip() or "Unassigned",
+                "activity": activity.strip(),
+                "keywords": kws.strip(),
+                "notes": notes.strip(),
+                "connect_with": connect.strip()
+            }
+            df = st.session_state.sessions
+            if sid in df["session_id"].values:
+                idx = df.index[df["session_id"]==sid][0]
+                for k,v in r.items(): df.at[idx,k]=v
+            else:
+                st.session_state.sessions = pd.concat([df,pd.DataFrame([r])],ignore_index=True)
+            st.success(f"Saved {sid}")
+    st.markdown("### Inline Table Edit")
+    edited = st.data_editor(
+        st.session_state.sessions[DEFAULT_COLUMNS],
+        hide_index=True, use_container_width=True, num_rows="dynamic",
+        key="table_edit"
+    )
+    if not edited.equals(st.session_state.sessions[DEFAULT_COLUMNS]):
+        st.session_state.sessions = edited.copy()
 
-# Graph Tab
+# ------------------ Graph Tab ------------------
 with tab_graph:
     df = st.session_state.sessions.copy()
     G = nx.Graph()
-    for _, r in df.iterrows():
-        G.add_node(r["session_id"], **r.to_dict())
+    for _, row in df.iterrows():
+        kws = _clean_keywords(row["keywords"])
+        node_data = row.to_dict()
+        node_data["keywords"] = kws
+        G.add_node(row["session_id"], **node_data)
 
     nodes = list(G.nodes())
     for i in range(len(nodes)):
         for j in range(i+1, len(nodes)):
             a, b = nodes[i], nodes[j]
-            if len(set(_clean_keywords(G.nodes[a]["keywords"])) & set(_clean_keywords(G.nodes[b]["keywords"]))) >= min_shared:
+            shared = len(set(G.nodes[a]["keywords"]) & set(G.nodes[b]["keywords"]))
+            if shared >= min_shared:
                 G.add_edge(a, b)
     if include_manual:
         for n in nodes:
             for m in _split_multi(G.nodes[n]["connect_with"]):
-                if m in nodes and m != n: G.add_edge(n, m)
+                if m in nodes and m != n:
+                    G.add_edge(n, m)
 
-    pos = nx.spring_layout(G, k=2, iterations=50)
+    net = Network(height="700px", width="100%", directed=False, bgcolor="#ffffff", font_color="#222222")
+    net.barnes_hut()
+    palette = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
+    mods = sorted({G.nodes[n]["module"] for n in nodes})
+    color_map = {m: palette[i%len(palette)] for i, m in enumerate(mods)}
 
-    # Edges
-    edge_x, edge_y = [], []
-    for u, v in G.edges():
-        x0, y0 = pos[u]
-        x1, y1 = pos[v]
-        edge_x += [x0, x1, None]
-        edge_y += [y0, y1, None]
-
-    # Nodes
-    node_x, node_y, node_text, node_ids = [], [], [], []
-    for n in nodes:
-        x, y = pos[n]
+    for n in G.nodes():
         d = G.nodes[n]
-        node_x.append(x); node_y.append(y)
-        node_text.append(f"<b>{n}</b><br>{d['title']}<br>{d['date']}<br>{d['module']}")
-        node_ids.append(n)
+        net.add_node(
+            n, label=n, title="", color=color_map.get(d["module"], "#999"), size=25
+        )
+    for u, v in G.edges():
+        net.add_edge(u, v, color="#cccccc")
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=edge_x, y=edge_y, mode='lines', line=dict(color='#ccc'), hoverinfo='none'))
-    fig.add_trace(go.Scatter(x=node_x, y=node_y, mode='markers+text', text=node_ids, textposition="top center",
-                             marker=dict(size=40, color='#1f77b4'), hoverinfo='text', hovertext=node_text,
-                             customdata=node_ids))
-    fig.update_layout(showlegend=False, hovermode='closest', margin=dict(l=0,r=0,t=0,b=0),
-                      xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-                      yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-                      height=700, paper_bgcolor='white', plot_bgcolor='white')
+    net.set_options("""
+    var options = {
+      "nodes": {"borderWidth":1,"shadow":false},
+      "edges": {"color":{"inherit":true},"smooth":false},
+      "physics": {"barnesHut": {"springLength":150},"minVelocity":0.75},
+      "interaction": {"navigationButtons": true}
+    }
+    """)
 
-    # Click → rerun
-    click = st.plotly_chart(fig, use_container_width=True, on_select="rerun", selection_mode=["points"])
+    net.save_graph("network.html")
+    html = open("network.html", "r", encoding="utf-8").read()
 
-    # Get clicked node
-    selected = None
-    if click and click["selection"]["points"]:
-        selected = click["selection"]["points"][0]["customdata"]
-        st.session_state.selected_node = selected
+    js_click = """
+    <script>
+    const network = window.network;
+    network.on("click", function(params) {
+        if (params.nodes.length > 0) {
+            const nodeId = params.nodes[0];
+            window.parent.postMessage({type: 'node_click', node: nodeId}, '*');
+        }
+    });
+    </script>
+    """
+    html = html.replace("</body>", js_click + "</body>")
+    with open("network.html", "w", encoding="utf-8") as f:
+        f.write(html)
 
-    # Show passport
-    sel = st.session_state.selected_node
-    if sel and sel in df["session_id"].values:
-        d = df[df["session_id"] == sel].iloc[0]
+    st.components.v1.html(html, height=750)
+
+    # Handle node selection
+    query_params = st.experimental_get_query_params()
+    if "node" in query_params:
+        node = query_params["node"][0]
+        if node in df["session_id"].values:
+            st.session_state.selected_node = node
+        st.experimental_set_query_params()  # Clear
+
+    selected = st.session_state.selected_node
+    if selected and selected in df["session_id"].values:
+        d = df.loc[df["session_id"] == selected].iloc[0]
         st.markdown("### Session Passport")
         st.markdown(f"#### {d['title']}")
-        st.markdown(f"**Date:** {d['date']}\n**Instructor:** {d['instructor']}\n**Module:** {d['module']}\n**Activity:** {d['activity']}\n**Keywords:** {d['keywords']}\n\n**Notes:**\n{d['notes']}")
+        st.markdown(
+            f"**Date:** {d['date']}  \n"
+            f"**Instructor:** {d['instructor']}  \n"
+            f"**Module:** {d['module']}  \n"
+            f"**Activity:** {d['activity']}  \n"
+            f"**Keywords:** {d['keywords']}  \n\n"
+            f"**Notes:**  \n{d['notes']}"
+        )
     else:
         st.markdown("_Click a node to view its Session Passport._")
+
+    # Listener for postMessage
+    st.write("""
+    <script>
+    window.addEventListener("message", function(event) {
+        if (event.data.type === "node_click") {
+            const url = new URL(window.location);
+            url.searchParams.set("node", event.data.node);
+            window.location = url;
+        }
+    });
+    </script>
+    """, unsafe_allow_html=True)
