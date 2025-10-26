@@ -1,12 +1,5 @@
 # app.py — Insect–Microbe Systems Course Network
 # -------------------------------------------------------------------
-# Features
-# - Robust CSV import / cleanup
-# - Add / edit / delete sessions
-# - Inline editable table
-# - PyVis interactive graph
-# - Click node → show “Session Passport”
-# -------------------------------------------------------------------
 from __future__ import annotations
 import io, csv, pathlib, tempfile
 import pandas as pd
@@ -49,9 +42,9 @@ if "selected_node" not in st.session_state:
 
 # ============================ Sidebar ==============================
 st.sidebar.title("Course Session Network")
-with st.sidebar.expander("📂 Data IO",expanded=True):
+with st.sidebar.expander("Data IO",expanded=True):
     buf=io.StringIO(); st.session_state.sessions.to_csv(buf,index=False)
-    st.download_button("⬇️ Download sessions.csv",buf.getvalue(),"sessions.csv","text/csv")
+    st.download_button("Download sessions.csv",buf.getvalue(),"sessions.csv","text/csv")
     up=st.file_uploader("Upload sessions.csv",type=["csv"])
     if up is not None:
         try:
@@ -64,19 +57,19 @@ with st.sidebar.expander("📂 Data IO",expanded=True):
             missing = set(DEFAULT_COLUMNS) - set(df.columns)
             if missing: raise ValueError(f"Missing columns: {missing}")
             st.session_state.sessions=df[DEFAULT_COLUMNS].fillna("")
-            st.success("✅ CSV loaded and cleaned.")
+            st.success("CSV loaded.")
         except Exception as e:
             st.error(f"Upload failed: {e}")
-    if st.button("Reset to sample dataset"):
+    if st.button("Reset to sample"):
         st.session_state.sessions=pd.DataFrame(SAMPLE_ROWS,columns=DEFAULT_COLUMNS)
-        st.success("Reset complete.")
-with st.sidebar.expander("⚙️ Network Settings",expanded=True):
+        st.success("Reset.")
+with st.sidebar.expander("Network Settings",expanded=True):
     min_shared=st.slider("Min shared keywords",1,5,1)
     include_manual=st.checkbox("Include manual connects",True)
     size_min,size_max=st.slider("Node size range",5,60,(14,38))
 
 # ============================ Tabs ================================
-tab_data,tab_graph=st.tabs(["📋 Data / Edit","🕸️ Graph Explorer"])
+tab_data,tab_graph=st.tabs(["Data / Edit","Graph Explorer"])
 
 # ============================ Data Tab ============================
 with tab_data:
@@ -94,23 +87,17 @@ with tab_data:
         notes=st.text_area("Notes")
         connect=st.text_input("Connect with (IDs comma-separated)")
         if st.form_submit_button("Add / Update") and sid.strip():
-            r={"session_id":sid.strip(),"date":date.strip(),"title":title.strip(),
-               "instructor":instr.strip(),"module":module.strip() or "Unassigned",
-               "activity":activity.strip(),"keywords":kws.strip(),
-               "notes":notes.strip(),"connect_with":connect.strip()}
+            r={k:v.strip() for k,v in locals().items() if k in DEFAULT_COLUMNS}
+            r["module"]=r["module"] or "Unassigned"
             df=st.session_state.sessions
             if sid in df["session_id"].values:
-                idx = df[df["session_id"]==sid].index[0]
-                st.session_state.sessions.loc[idx] = pd.Series(r)
+                idx=df[df["session_id"]==sid].index[0]
+                for k,v in r.items(): df.at[idx,k]=v
             else:
                 st.session_state.sessions=pd.concat([df,pd.DataFrame([r])],ignore_index=True)
             st.success(f"Saved {sid}")
     st.markdown("### Inline Table Edit")
-    edited=st.data_editor(
-        st.session_state.sessions,
-        hide_index=True, use_container_width=True, num_rows="dynamic",
-        key="table_edit"
-    )
+    edited=st.data_editor(st.session_state.sessions,hide_index=True,use_container_width=True,num_rows="dynamic",key="table_edit")
     if not edited.equals(st.session_state.sessions):
         st.session_state.sessions=edited.copy()
 
@@ -119,9 +106,11 @@ with tab_graph:
     st.markdown("## Interactive Course Graph")
     df=st.session_state.sessions.copy()
     G=nx.Graph()
-    for _,r in df.iterrows():
-        kws=_clean_keywords(r["keywords"])
-        G.add_node(r["session_id"],**r.to_dict(),keywords=kws)
+    for _,row in df.iterrows():
+        kws=_clean_keywords(row["keywords"])
+        node_data = row.to_dict()
+        node_data["keywords"] = kws
+        G.add_node(row["session_id"], **node_data)
     nodes=list(G.nodes())
     for i in range(len(nodes)):
         for j in range(i+1,len(nodes)):
@@ -135,8 +124,7 @@ with tab_graph:
                 if m in nodes and m!=n:
                     G.add_edge(n,m)
     mods=sorted({G.nodes[n]["module"] for n in nodes})
-    PALETTE=["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd",
-             "#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
+    PALETTE=["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
     color_map={m:PALETTE[i%len(PALETTE)] for i,m in enumerate(mods)}
     net=Network(height="700px",width="100%",bgcolor="#fff",font_color="#111")
     net.force_atlas_2based(gravity=-50,central_gravity=0.02,spring_length=120)
@@ -148,7 +136,8 @@ with tab_graph:
     for u,v in G.edges():
         net.add_edge(u,v,width=1)
     # ----------- click→Streamlit bridge -----------
-    html_path=pathlib.Path(tempfile.NamedTemporaryFile(delete=False,suffix=".html").name)
+    tmp = tempfile.NamedTemporaryFile(delete=False,suffix=".html")
+    html_path = pathlib.Path(tmp.name)
     net.write_html(html_path.as_posix(),notebook=False,local=True)
     html=open(html_path,"r",encoding="utf-8").read()
     html=html.replace(
@@ -167,25 +156,25 @@ with tab_graph:
     <script>
     window.addEventListener("message",(e)=>{
         if(e.data.clickedNode){
-            const el=document.querySelector('#clicked-input-container input[data-testid="stTextInput"]');
+            const el=document.querySelector('#click-input input[data-testid="stTextInput"]');
             if(el){el.value=e.data.clickedNode; el.dispatchEvent(new Event('input',{bubbles:true}));}
         }
     });
     </script>
     """,unsafe_allow_html=True)
-    st.markdown('<div id="clicked-input-container">', unsafe_allow_html=True)
-    clicked_node=st.text_input("clicked",key="clickedNode",label_visibility="collapsed")
+    st.markdown('<div id="click-input">', unsafe_allow_html=True)
+    clicked=st.text_input("clicked",key="clickedNode",label_visibility="collapsed")
     st.markdown('</div>', unsafe_allow_html=True)
-    if clicked_node:
-        st.session_state.selected_node=clicked_node
+    if clicked:
+        st.session_state.selected_node=clicked
     st.markdown("---")
     node=st.session_state.selected_node
     if node and node in df["session_id"].values:
         r=df[df["session_id"]==node].iloc[0]
         color=color_map.get(r["module"],"#999")
         st.markdown(f"""
-        <div style='border-left:6px solid {color};background:#f9f9f9; border-radius:8px;padding:0.8em 1em;'>
-        <h3>🪲 {r["title"]}</h3>
+        <div style='border-left:6px solid {color};background:#f9f9f9;border-radius:8px;padding:0.8em 1em;'>
+        <h3>{r["title"]}</h3>
         <p><strong>Date:</strong> {r["date"]} | <strong>Module:</strong> {r["module"]} | <strong>Activity:</strong> {r["activity"]}</p>
         <p><strong>Instructor:</strong> {r["instructor"]}</p>
         <p><strong>Keywords:</strong> {r["keywords"]}</p>
