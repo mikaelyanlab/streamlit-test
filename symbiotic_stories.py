@@ -1,7 +1,7 @@
 # app.py — Insect–Microbe Systems Course Network (PyVis click-to-details)
 # -----------------------------------------------------------------------
 from __future__ import annotations
-import io, csv
+import io
 import pandas as pd
 import networkx as nx
 from pyvis.network import Network
@@ -74,17 +74,11 @@ with tab_data:
         notes = st.text_area("Notes")
         connect = st.text_input("Connect with (IDs comma-separated)")
         if st.form_submit_button("Add / Update") and sid.strip():
-            r = {
-                "session_id": sid.strip(),
-                "date": date.strip(),
-                "title": title.strip(),
-                "instructor": instr.strip(),
-                "module": module.strip() or "Unassigned",
-                "activity": activity.strip(),
-                "keywords": kws.strip(),
-                "notes": notes.strip(),
-                "connect_with": connect.strip()
-            }
+            r = {k: v.strip() if isinstance(v,str) else v for k,v in {
+                "session_id": sid, "date": date, "title": title, "instructor": instr,
+                "module": module or "Unassigned", "activity": activity,
+                "keywords": kws, "notes": notes, "connect_with": connect
+            }.items()}
             df = st.session_state.sessions
             if sid in df["session_id"].values:
                 idx = df.index[df["session_id"]==sid][0]
@@ -132,9 +126,7 @@ with tab_graph:
 
     for n in G.nodes():
         d = G.nodes[n]
-        net.add_node(
-            n, label=n, title="", color=color_map.get(d["module"], "#999"), size=25
-        )
+        net.add_node(n, label=n, title="", color=color_map.get(d["module"], "#999"), size=25)
     for u, v in G.edges():
         net.add_edge(u, v, color="#cccccc")
 
@@ -156,7 +148,9 @@ with tab_graph:
     network.on("click", function(params) {
         if (params.nodes.length > 0) {
             const nodeId = params.nodes[0];
-            window.parent.postMessage({type: 'node_click', node: nodeId}, '*');
+            const url = new URL(window.parent.location);
+            url.searchParams.set("node", nodeId);
+            window.parent.location = url;
         }
     });
     </script>
@@ -167,7 +161,7 @@ with tab_graph:
 
     st.components.v1.html(html, height=750)
 
-    # Handle node selection
+    # Handle selection
     query_params = st.experimental_get_query_params()
     if "node" in query_params:
         node = query_params["node"][0]
@@ -190,16 +184,3 @@ with tab_graph:
         )
     else:
         st.markdown("_Click a node to view its Session Passport._")
-
-    # Listener for postMessage
-    st.write("""
-    <script>
-    window.addEventListener("message", function(event) {
-        if (event.data.type === "node_click") {
-            const url = new URL(window.location);
-            url.searchParams.set("node", event.data.node);
-            window.location = url;
-        }
-    });
-    </script>
-    """, unsafe_allow_html=True)
