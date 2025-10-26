@@ -19,3 +19,4 @@ python-dateutil
 pytz
 pyvis==0.3.2
 jinja2>=3.0
+streamlit-plotly-events
