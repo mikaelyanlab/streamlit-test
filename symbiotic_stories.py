@@ -5,9 +5,7 @@ import io, csv, pathlib, tempfile
 import pandas as pd
 import networkx as nx
 import streamlit as st
-import streamlit.components.v1 as components
 from typing import List
-from pyvis.network import Network
 
 # ============================ Utilities ============================
 DEFAULT_COLUMNS = [
@@ -37,8 +35,6 @@ def _split_multi(s:str)->List[str]:
 st.set_page_config(page_title="Insect–Microbe Systems",layout="wide")
 if "sessions" not in st.session_state:
     st.session_state.sessions=pd.DataFrame(SAMPLE_ROWS,columns=DEFAULT_COLUMNS)
-if "selected_node" not in st.session_state:
-    st.session_state.selected_node = ""
 
 # ============================ Sidebar ==============================
 st.sidebar.title("Course Session Network")
@@ -66,7 +62,6 @@ with st.sidebar.expander("Data IO",expanded=True):
 with st.sidebar.expander("Network Settings",expanded=True):
     min_shared=st.slider("Min shared keywords",1,5,1)
     include_manual=st.checkbox("Include manual connects",True)
-    size_min,size_max=st.slider("Node size range",5,60,(14,38))
 
 # ============================ Tabs ================================
 tab_data,tab_graph=st.tabs(["Data / Edit","Graph Explorer"])
@@ -132,68 +127,60 @@ with tab_graph:
     mods=sorted({G.nodes[n]["module"] for n in nodes})
     PALETTE=["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
     color_map={m:PALETTE[i%len(PALETTE)] for i,m in enumerate(mods)}
-    net=Network(height="700px",width="100%",bgcolor="#fff",font_color="#111")
-    net.force_atlas_2based(gravity=-50,central_gravity in_gravity=0.02,spring_length=120)
-    for n in nodes:
-        d=G.nodes[n]
-        net.add_node(n,label=n,color=color_map.get(d["module"],"#777"),
-                     size=(size_min+size_max)/2, title=d["title"])
+
+    # Layout
+    pos = nx.spring_layout(G, k=2, iterations=50)
+    edge_x, edge_y = [], []
     for u,v in G.edges():
-        net.add_edge(u,v,width=1)
-    # ----------- click→Streamlit bridge -----------
-    html_file = tempfile.NamedTemporaryFile(delete=False,suffix=".html",mode="w+",encoding="utf-8")
-    net.write_html(html_file.name)
-    html_file.seek(0)
-    html = html_file.read()
-    html_file.close()
-    html = html.replace(
-        "</body>",
-        """
-        <script>
-        network.on("click", function(params) {
-            if (params.nodes.length > 0) {
-                const nodeId = params.nodes[0];
-                window.parent.postMessage({clickedNode: nodeId}, "*");
-            }
-        });
-        </script>
-        </body>
-        """
-    )
-    components.html(html, height=750, scrolling=False)
-    # Hidden input to capture click
-    st.markdown('<input type="text" id="click-capture" style="display:none;">', unsafe_allow_html=True)
-    st.markdown("""
-    <script>
-    window.addEventListener("message", function(e) {
-        if (e.data.clickedNode) {
-            const input = document.getElementById('click-capture');
-            if (input) {
-                input.value = e.data.clickedNode;
-                input.dispatchEvent(new Event('input', {bubbles: true}));
-            }
-        }
-    });
-    </script>
-    """, unsafe_allow_html=True)
-    clicked = st.text_input("", key="click_capture", label_visibility="collapsed")
+        x0, y0 = pos[u]
+        x1, y1 = pos[v]
+        edge_x.extend([x0, x1, None])
+        edge_y.extend([y0, y1, None])
+    edge_trace = {
+        "type": "scatter", "mode": "lines", "x": edge_x, "y": edge_y,
+        "line": {"width": 1, "color": "#888"}, "hoverinfo": "none"
+    }
+    node_x, node_y = [], []
+    node_text, node_color = [], []
+    for n in nodes:
+        x, y = pos[n]
+        node_x.append(x); node_y.append(y)
+        d = G.nodes[n]
+        node_text.append(d["title"])
+        node_color.append(color_map.get(d["module"], "#777"))
+    node_trace = {
+        "type": "scatter", "mode": "markers+text", "x": node_x, "y": node_y,
+        "text": nodes, "textposition": "top center",
+        "marker": {"size": 30, "color": node_color},
+        "hoverinfo": "text", "hovertext": node_text
+    }
+    fig = {"data": [edge_trace, node_trace], "layout": {
+        "showlegend": False, "hovermode": "closest",
+        "margin": {"b": 20, "l": 5, "r": 5, "t": 40},
+        "xaxis": {"showgrid": False, "zeroline": False, "showticklabels": False},
+        "yaxis": {"showgrid": False, "zeroline": False, "showticklabels": False},
+        "height": 700, "paper_bgcolor": "white", "plot_bgcolor": "white"
+    }}
+    import plotly.graph_objects as go
+    st.plotly_chart(go.Figure(fig), use_container_width=True, config={"displayModeBar": False})
+
+    # Click handler
+    clicked = st.session_state.get("plotly_click")
     if clicked:
-        st.session_state.selected_node = clicked
-        st.rerun()
-    st.markdown("---")
-    node = st.session_state.selected_node
-    if node and node in df["session_id"].values:
-        r = df[df["session_id"] == node].iloc[0]
-        color = color_map.get(r["module"], "#999")
-        with st.expander(f"Session Passport: {r['title']}", expanded=True):
-            st.markdown(f"""
-            <div style='border-left:6px solid {color};background:#f9f9f9;border-radius:8px;padding:1em;'>
-            <h3>🪲 {r['title']}</h3>
-            <p><strong>Date:</strong> {r['date']} | <strong>Module:</strong> {r['module']} | <strong>Activity:</strong> {r['activity']}</p>
-            <p><strong>Instructor:</strong> {r['instructor']}</p>
-            <p><strong>Keywords:</strong> {r['keywords']}</p>
-            <p><strong>Notes:</strong><br>{r['notes'].replace('\n', '<br>')}</p>
-            </div>
-            """, unsafe_allow_html=True)
+        node_id = clicked["points"][0]["text"]
+        if node_id in df["session_id"].values:
+            r = df[df["session_id"] == node_id].iloc[0]
+            color = color_map.get(r["module"], "#999")
+            with st.expander(f"Session Passport: {r['title']}", expanded=True):
+                st.markdown(f"""
+                <div style='border-left:6px solid {color};background:#f9f9f9;border-radius:8px;padding:1em;'>
+                <h3>🪲 {r['title']}</h3>
+                <p><strong>Date:</strong> {r['date']} | <strong>Module:</strong> {r['module']} | <strong>Activity:</strong> {r['activity']}</p>
+                <p><strong>Instructor:</strong> {r['instructor']}</p>
+                <p><strong>Keywords:</strong> {r['keywords']}</p>
+                <p><strong>Notes:</strong><br>{r['notes'].replace('\n', '<br>')}</p>
+                </div>
+                """, unsafe_allow_html=True)
+        st.session_state.plotly_click = None  # Reset
     else:
         st.info("Click a node to view its Session Passport.")
