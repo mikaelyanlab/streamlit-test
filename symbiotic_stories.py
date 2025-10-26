@@ -1,4 +1,4 @@
-# app.py — Insect–Microbe Systems Course Network (Sandbox-safe click-to-passport)
+# app.py — Insect–Microbe Systems Course Network (Stable, no sticky drag)
 from __future__ import annotations
 import io, pandas as pd, networkx as nx
 from pyvis.network import Network
@@ -107,6 +107,7 @@ with tab_graph:
 
     net=Network(height="700px",width="100%",directed=False,bgcolor="#fff",font_color="#222")
     net.barnes_hut()
+
     palette=["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2",
              "#7f7f7f","#bcbd22","#17becf"]
     mods=sorted({G.nodes[n]["module"] for n in nodes})
@@ -118,22 +119,30 @@ with tab_graph:
         net.add_node(n,label=n,title=hover,color=color_map.get(d["module"],"#999"),size=25)
     for u,v in G.edges(): net.add_edge(u,v,color="#ccc")
 
+    # physics runs once to layout, then freezes (no jelly)
     net.set_options("""
     {
       "interaction": {"hover": true, "navigationButtons": true},
-      "physics": {"enabled": true, "barnesHut": {"springLength":150}}
+      "physics": {
+        "enabled": true,
+        "stabilization": {"enabled": true, "iterations": 500, "updateInterval": 50},
+        "barnesHut": {"springLength": 150}
+      }
     }
     """)
 
-    # JavaScript: on node select, update ?clicked= and reload
+    # Click event updates Streamlit query param *without reloading the iframe*
     js = """
-    network.on("selectNode", function(p){
-        const id=p.nodes[0];
-        if(id){
-            const u=new URL(window.location);
-            u.searchParams.set("clicked",id);
-            window.history.pushState({},'',u);
-            window.location.reload();
+    network.once("stabilizationIterationsDone", function () {
+        network.setOptions({ physics: false });  // stop jelly motion
+    });
+    network.on("selectNode", function (p) {
+        const id = p.nodes[0];
+        if (id) {
+            const url = new URL(window.location);
+            url.searchParams.set("clicked", id);
+            window.history.replaceState({}, '', url);
+            window.parent.postMessage({ type: "nodeClick", id: id }, "*");
         }
     });
     """
@@ -141,14 +150,29 @@ with tab_graph:
     html=open("graph.html","r",encoding="utf-8").read().replace("</script>",js+"</script>")
     st.components.v1.html(html,height=750)
 
-    # ------------- Passport -------------
-    query = st.query_params
-    clicked = query.get("clicked")
+    # Capture JS messages → Streamlit rerun
+    clicked_id = st.query_params.get("clicked")
 
     st.markdown("---")
     st.markdown("### Session Passport")
 
-    selected = clicked or st.selectbox(
+    st.markdown(
+        """
+        <script>
+        window.addEventListener("message", (e)=>{
+            if(e.data && e.data.type==="nodeClick"){
+                const id=e.data.id;
+                const u=new URL(window.location);
+                u.searchParams.set("clicked", id);
+                window.history.replaceState({},'',u);
+                window.location.reload();
+            }
+        });
+        </script>
+        """, unsafe_allow_html=True
+    )
+
+    selected = clicked_id or st.selectbox(
         "Select a session:",
         sorted(df["session_id"]),
         format_func=lambda x: f"{x} — {df.loc[df['session_id']==x,'title'].values[0]}"
