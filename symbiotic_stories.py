@@ -1,13 +1,13 @@
-# app.py — Insect–Microbe Systems Course Network (Cytoscape click-to-details)
-# ---------------------------------------------------------------------------
+# app.py — Insect–Microbe Systems Course Network (click-to-display fixed)
+# -------------------------------------------------------------------
 from __future__ import annotations
 import io, csv
-from typing import List, Dict, Any
-
+from typing import List
 import pandas as pd
 import networkx as nx
 import streamlit as st
-from streamlit_cytoscapejs import cytoscape
+from streamlit_plotly_events import plotly_events
+import plotly.graph_objects as go
 
 # ============================ Utilities ============================
 DEFAULT_COLUMNS = [
@@ -33,226 +33,104 @@ def _split_multi(s:str)->List[str]:
     if pd.isna(s) or not str(s).strip(): return []
     return [t.strip() for t in str(s).replace(";",",").split(",") if t.strip()]
 
-# ============================ App setup ============================
+# ============================ Setup ============================
 st.set_page_config(page_title="Insect–Microbe Systems", layout="wide")
 
 if "sessions" not in st.session_state:
     st.session_state.sessions = pd.DataFrame(SAMPLE_ROWS, columns=DEFAULT_COLUMNS)
 
-if "selected_id" not in st.session_state:
-    st.session_state.selected_id = None
-
-# ============================ Sidebar ==============================
+# ============================ Sidebar ============================
 st.sidebar.title("Course Session Network")
 
 with st.sidebar.expander("Data IO", expanded=True):
-    buf = io.StringIO(); st.session_state.sessions.to_csv(buf, index=False)
+    buf = io.StringIO()
+    st.session_state.sessions.to_csv(buf, index=False)
     st.download_button("Download sessions.csv", buf.getvalue(), "sessions.csv", "text/csv")
 
     up = st.file_uploader("Upload sessions.csv", type=["csv"])
-    if up is not None:
-        try:
-            raw = up.read().decode("utf-8", errors="replace")
-            raw = (raw.replace("\r\n","\n").replace("\r","\n")
-                   .replace("“",'"').replace("”",'"')
-                   .replace("‘","'").replace("’","'")
-                   .replace("\u00A0"," "))
-            df = pd.read_csv(io.StringIO(raw), dtype=str, quoting=csv.QUOTE_ALL)
-            missing = set(DEFAULT_COLUMNS) - set(df.columns)
-            if missing:
-                raise ValueError(f"Missing columns: {missing}")
-            st.session_state.sessions = df[DEFAULT_COLUMNS].fillna("")
-            st.success("CSV loaded.")
-        except Exception as e:
-            st.error(f"Upload failed: {e}")
-
-    if st.button("Reset to sample"):
-        st.session_state.sessions = pd.DataFrame(SAMPLE_ROWS, columns=DEFAULT_COLUMNS)
-        st.success("Reset.")
+    if up:
+        df = pd.read_csv(up, dtype=str).fillna("")
+        st.session_state.sessions = df
+        st.success("CSV loaded.")
 
 with st.sidebar.expander("Network Settings", expanded=True):
     min_shared = st.slider("Min shared keywords", 1, 5, 1)
     include_manual = st.checkbox("Include manual connects", True)
-    layout_name = st.selectbox("Layout", ["cose", "cose-bilkent", "cola", "breadthfirst", "concentric", "grid", "circle"], index=0)
 
-# ============================ Tabs ================================
-tab_data, tab_graph = st.tabs(["Data / Edit","Graph Explorer"])
+# ============================ Build Graph ============================
+df = st.session_state.sessions.copy()
+G = nx.Graph()
+for _, row in df.iterrows():
+    kws = _clean_keywords(row["keywords"])
+    node_data = row.to_dict()
+    node_data["keywords"] = kws
+    G.add_node(row["session_id"], **node_data)
 
-# ============================ Data Tab ============================
-with tab_data:
-    st.markdown("## Add / Edit Session")
-    with st.form("add_session"):
-        c1,c2,c3,c4=st.columns(4)
-        sid=c1.text_input("Session ID", placeholder="W2-Tu")
-        date=c2.text_input("Date (YYYY-MM-DD)")
-        title=c3.text_input("Title")
-        instr=c4.text_input("Instructor","You")
-        c5,c6,c7=st.columns(3)
-        module=c5.text_input("Module")
-        activity=c6.text_input("Activity")
-        kws=c7.text_input("Keywords (comma-separated)")
-        notes=st.text_area("Notes")
-        connect=st.text_input("Connect with (IDs comma-separated)")
-        if st.form_submit_button("Add / Update") and sid.strip():
-            r={"session_id":sid.strip(),"date":date.strip(),"title":title.strip(),
-               "instructor":instr.strip(),"module":(module.strip() or "Unassigned"),
-               "activity":activity.strip(),"keywords":kws.strip(),
-               "notes":notes.strip(),"connect_with":connect.strip()}
-            df=st.session_state.sessions
-            if sid in df["session_id"].values:
-                idx=df.index[df["session_id"]==sid][0]
-                for k,v in r.items(): df.at[idx,k]=v
-            else:
-                st.session_state.sessions = pd.concat([df, pd.DataFrame([r])], ignore_index=True)
-            st.success(f"Saved {sid}")
-
-    st.markdown("### Inline Table Edit")
-    edited = st.data_editor(
-        st.session_state.sessions[DEFAULT_COLUMNS],
-        hide_index=True, use_container_width=True, num_rows="dynamic",
-        key="table_edit"
-    )
-    if not edited.equals(st.session_state.sessions[DEFAULT_COLUMNS]):
-        st.session_state.sessions = edited.copy()
-
-# ============================ Graph Tab ===========================
-with tab_graph:
-    st.markdown("## Interactive Course Graph")
-
-    # ---- Build graph ----
-    df = st.session_state.sessions.copy()
-    G = nx.Graph()
-    for _, row in df.iterrows():
-        kws = _clean_keywords(row["keywords"])
-        node_data = row.to_dict()
-        node_data["keywords"] = kws
-        G.add_node(row["session_id"], **node_data)
-
-    nodes = list(G.nodes())
-    for i in range(len(nodes)):
-        for j in range(i+1, len(nodes)):
-            a, b = nodes[i], nodes[j]
-            shared = len(set(G.nodes[a]["keywords"]) & set(G.nodes[b]["keywords"]))
-            if shared >= min_shared:
-                G.add_edge(a, b)
-    if include_manual:
-        for n in nodes:
-            for m in _split_multi(G.nodes[n]["connect_with"]):
-                if m in nodes and m != n:
-                    G.add_edge(n, m)
-
-    # ---- Cytoscape elements ----
-    # Color by module (stable palette)
-    PALETTE = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd",
-               "#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
-    modules = sorted({G.nodes[n].get("module","Unassigned") for n in nodes})
-    color_map = {m: PALETTE[i % len(PALETTE)] for i,m in enumerate(modules)}
-
-    elements: List[Dict[str, Any]] = []
+nodes = list(G.nodes())
+for i in range(len(nodes)):
+    for j in range(i+1, len(nodes)):
+        a, b = nodes[i], nodes[j]
+        shared = len(set(G.nodes[a]["keywords"]) & set(G.nodes[b]["keywords"]))
+        if shared >= min_shared:
+            G.add_edge(a,b)
+if include_manual:
     for n in nodes:
-        d = G.nodes[n]
-        # Build a rich, HTML-safe tooltip
-        tooltip = (
-            f"<b>{d['title']}</b><br>"
-            f"<b>ID:</b> {n}<br>"
-            f"<b>Date:</b> {d['date']}<br>"
-            f"<b>Module:</b> {d['module']}<br>"
-            f"<b>Instructor:</b> {d['instructor']}<br>"
-            f"<b>Activity:</b> {d['activity']}<br>"
-            f"<b>Keywords:</b> {', '.join(d['keywords']) if d['keywords'] else ''}<br>"
-            f"<b>Notes:</b> {d['notes'][:400]}{'…' if len(d['notes'])>400 else ''}"
-        )
-        elements.append({
-            "data": {
-                "id": n,
-                "label": n,
-                "title": tooltip,
-                # Keep full record so we don't have to look back
-                "full": {
-                    "session_id": n,
-                    "date": d["date"],
-                    "title": d["title"],
-                    "instructor": d["instructor"],
-                    "module": d["module"],
-                    "activity": d["activity"],
-                    "keywords": d["keywords"],
-                    "notes": d["notes"],
-                    "connect_with": d["connect_with"],
-                }
-            },
-            "classes": d["module"] if d["module"] else "Unassigned"
-        })
-    for u, v in G.edges():
-        elements.append({"data": {"source": u, "target": v}})
+        for m in _split_multi(G.nodes[n]["connect_with"]):
+            if m in nodes and m != n:
+                G.add_edge(n,m)
 
-    # ---- Stylesheet (module color, nice nodes) ----
-    stylesheet = [
-        {
-            "selector": "node",
-            "style": {
-                "label": "data(label)",
-                "width": 45, "height": 45,
-                "font-size": 10,
-                "font-weight": "600",
-                "text-valign": "bottom",
-                "text-halign": "center",
-                "text-margin-y": -6,
-                "color": "#111",
-                "background-color": "#777",
-                "border-width": 1,
-                "border-color": "#000"
-            }
-        },
-        {
-            "selector": "edge",
-            "style": {"line-color": "#bbb", "width": 1}
-        },
-        {
-            "selector": "node:selected",
-            "style": {"border-width": 3, "border-color": "#222", "background-color": "#ffd166"}
-        },
-        # One class per module for color
-    ]
-    for mod, col in color_map.items():
-        stylesheet.append({
-            "selector": f'node[class = "{mod}"]',
-            "style": {"background-color": col}
-        })
+mods = sorted({G.nodes[n]["module"] for n in nodes})
+PALETTE = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd",
+           "#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
+color_map = {m:PALETTE[i%len(PALETTE)] for i,m in enumerate(mods)}
+pos = nx.spring_layout(G, k=2.5, iterations=50, seed=42)
 
-    # ---- Layout ----
-    layout = {"name": layout_name}
+# edges
+edge_x, edge_y = [], []
+for u,v in G.edges():
+    x0,y0=pos[u]; x1,y1=pos[v]
+    edge_x+=[x0,x1,None]; edge_y+=[y0,y1,None]
+edge_trace = go.Scatter(
+    x=edge_x, y=edge_y, mode="lines",
+    line=dict(width=1,color="#aaa"), hoverinfo="none"
+)
 
-    # ---- Render and capture selection ----
-    selected = cytoscape(
-        elements=elements,
-        layout=layout,
-        stylesheet=stylesheet,
-        height="700px",
-        width="100%",
-        user_zooming_enabled=True,
-        user_panning_enabled=True,
-        selection_type="single",  # single-node selection
-            # Enable tooltips via HTML title on hover (Cytoscape shows them natively)
-        # NOTE: streamlit-cytoscapejs exposes 'title' when hovering, selection returned to Python
-        key="cy"
+# nodes
+node_x,node_y,node_color,text=[],[],[],[]
+for n in nodes:
+    x,y = pos[n]
+    d = G.nodes[n]
+    node_x.append(x); node_y.append(y)
+    node_color.append(color_map.get(d["module"],"#777"))
+    text.append(n)
+
+node_trace = go.Scatter(
+    x=node_x, y=node_y, mode="markers+text",
+    text=text, textposition="top center",
+    marker=dict(size=28, color=node_color, line=dict(width=1,color="black")),
+    hoverinfo="skip"
+)
+
+fig = go.Figure(data=[edge_trace,node_trace],
+    layout=go.Layout(
+        hovermode=False, showlegend=False,
+        margin=dict(b=20,l=20,r=20,t=40),
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        height=700, paper_bgcolor="white", plot_bgcolor="white"
     )
+)
 
-    # `selected` is commonly a dict like {"selected": ["node_id"]} or a list of ids
-    sel_id = None
-    if selected:
-        if isinstance(selected, dict) and "selected" in selected and selected["selected"]:
-            sel_id = selected["selected"][0]
-        elif isinstance(selected, list) and len(selected) > 0:
-            sel_id = selected[0]
-        elif isinstance(selected, str):
-            sel_id = selected
+st.subheader("Interactive Course Graph (Click a node)")
+click = plotly_events(fig, click_event=True, hover_event=False, select_event=False, override_height=700, key="evt")
 
-    if sel_id and sel_id in G.nodes:
-        d = G.nodes[sel_id]
-        st.session_state.selected_id = sel_id
+if click:
+    node_label = click[0].get("text")
+    if node_label in G.nodes:
+        d = G.nodes[node_label]
         st.markdown(f"### {d['title']}")
         st.markdown(
-            f"**Session ID:** {sel_id}  \n"
+            f"**Session ID:** {node_label}  \n"
             f"**Date:** {d['date']}  \n"
             f"**Instructor:** {d['instructor']}  \n"
             f"**Module:** {d['module']}  \n"
@@ -260,18 +138,5 @@ with tab_graph:
             f"**Keywords:** {', '.join(d['keywords']) if d['keywords'] else ''}  \n\n"
             f"**Notes:**  \n{d['notes']}"
         )
-    elif st.session_state.selected_id and st.session_state.selected_id in G.nodes:
-        # Preserve last selection across reruns (e.g., editing data on the left)
-        d = G.nodes[st.session_state.selected_id]
-        st.markdown(f"### {d['title']}")
-        st.markdown(
-            f"**Session ID:** {st.session_state.selected_id}  \n"
-            f"**Date:** {d['date']}  \n"
-            f"**Instructor:** {d['instructor']}  \n"
-            f"**Module:** {d['module']}  \n"
-            f"**Activity:** {d['activity']}  \n"
-            f"**Keywords:** {', '.join(d['keywords']) if d['keywords'] else ''}  \n\n"
-            f"**Notes:**  \n{d['notes']}"
-        )
-    else:
-        st.caption("Click a node to view full, selectable session details below.")
+else:
+    st.info("Click a node to view its Session Passport.")
