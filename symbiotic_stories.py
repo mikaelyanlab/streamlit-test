@@ -1,23 +1,18 @@
-# app.py — Insect–Microbe Systems Course Network (final build)
+# app.py — Insect–Microbe Systems Course Network (works w/ in-component passport)
 # -------------------------------------------------------------------
-# Features
-# - Self-healing CSV import (9 fields enforced)
-# - Add / edit / delete sessions
-# - Inline editable table
-# - PyVis interactive graph
-# - Click node → Session Passport
+# Zero fragile Streamlit↔PyVis bridge. The graph + passport render in one component.
+# - Auto-loads /mnt/data/course_cleaned.csv (9 columns)
+# - Uploads are self-healed to 9 fields, robust to stray commas/quotes
+# - Edges by shared keywords (slider) + manual connect_with IDs
+# - Clicking a node shows a "Session Passport" panel reliably
 # -------------------------------------------------------------------
 
 from __future__ import annotations
-import io, csv, pathlib, tempfile
+import io, csv, json, pathlib
 import pandas as pd
-import networkx as nx
 import streamlit as st
 import streamlit.components.v1 as components
-from pyvis.network import Network
-from typing import List
-
-# ============================ Constants ============================
+from typing import List, Dict, Any
 
 DEFAULT_COLUMNS = [
     "session_id","date","title","instructor","module",
@@ -34,6 +29,8 @@ SAMPLE_ROWS=[{
     "connect_with":""
 }]
 
+DEFAULT_DATA_PATH = "/mnt/data/course_cleaned.csv"
+
 def _clean_keywords(s:str)->List[str]:
     if pd.isna(s) or not str(s).strip(): return []
     toks=[t.strip().lower() for t in str(s).replace(";",",").split(",")]
@@ -43,8 +40,17 @@ def _split_multi(s:str)->List[str]:
     if pd.isna(s) or not str(s).strip(): return []
     return [t.strip() for t in str(s).replace(";",",").split(",") if t.strip()]
 
-def _load_csv_safely(file_obj)->pd.DataFrame:
-    """Read uploaded CSV and enforce 9 columns."""
+def _load_csv_from_disk(path: str) -> pd.DataFrame:
+    df = pd.read_csv(path, header=0)
+    # Ensure columns match expectations (they do for your cleaned file)
+    missing = [c for c in DEFAULT_COLUMNS if c not in df.columns]
+    if missing:
+        # If anything missing, coerce to the expected shape
+        df = df.reindex(columns=DEFAULT_COLUMNS, fill_value="")
+    return df.fillna("")
+
+def _load_csv_uploaded(file_obj) -> pd.DataFrame:
+    """Self-heal to 9 columns. Accepts weird commas/quotes/whitespace."""
     raw=file_obj.read().decode("utf-8",errors="replace")
     raw=(raw.replace("\r\n","\n").replace("\r","\n")
             .replace("“",'"').replace("”",'"')
@@ -57,187 +63,254 @@ def _load_csv_safely(file_obj)->pd.DataFrame:
         if len(r)<9: r+=['']*(9-len(r))
         elif len(r)>9: r=r[:9]
         clean.append(r)
-    # Handle potential missing header
-    if clean and any(h.lower().startswith("session") for h in clean[0]):
+    # Use header if first row looks like it; else inject defaults
+    if clean and set(h.lower() for h in clean[0]) & {"session_id","title","keywords"}:
         header=clean[0]; data=clean[1:]
     else:
         header=DEFAULT_COLUMNS; data=clean
-    return pd.DataFrame(data,columns=header).fillna("")
+    df=pd.DataFrame(data,columns=header).fillna("")
+    # Coerce to expected names/order if needed
+    df = df.rename(columns={
+        "session id":"session_id",
+        "connect":"connect_with"
+    })
+    for col in DEFAULT_COLUMNS:
+        if col not in df.columns:
+            df[col] = ""
+    return df[DEFAULT_COLUMNS]
 
-# ============================ App setup ============================
+def _build_graph_data(df: pd.DataFrame, min_shared: int, include_manual: bool) -> Dict[str, Any]:
+    """Prepare node & edge lists for vis.js, and lookup map for passports."""
+    # Nodes + metadata
+    nodes=[]
+    lookup={}
+    kw_map={}
+    for _, r in df.iterrows():
+        sid = str(r["session_id"]).strip()
+        if not sid:
+            continue
+        node = {
+            "id": sid,
+            "label": sid,
+            "title": f"{r['title']}<br>{r['module']}",
+            # color by module in JS; here we just carry module through
+            "module": r["module"] or "Unassigned",
+        }
+        nodes.append(node)
+        lookup[sid] = {
+            "session_id": sid,
+            "date": r["date"],
+            "title": r["title"],
+            "instructor": r["instructor"],
+            "module": r["module"] or "Unassigned",
+            "activity": r["activity"],
+            "keywords": r["keywords"],
+            "notes": r["notes"],
+        }
+        kw_map[sid] = set(_clean_keywords(r["keywords"]))
 
-st.set_page_config(page_title="Insect–Microbe Systems",layout="wide")
+    # Edges by shared keywords
+    edges=[]
+    sids=[n["id"] for n in nodes]
+    for i in range(len(sids)):
+        for j in range(i+1,len(sids)):
+            a,b=sids[i],sids[j]
+            shared=len(kw_map.get(a,set()) & kw_map.get(b,set()))
+            if shared>=min_shared:
+                edges.append({"from":a,"to":b,"width":1})
+
+    # Manual edges
+    if include_manual:
+        for _, r in df.iterrows():
+            a = str(r["session_id"]).strip()
+            for b in _split_multi(r.get("connect_with","")):
+                if a and b and a!=b and b in lookup:
+                    edges.append({"from":a,"to":b,"width":1})
+
+    # modules for coloring
+    modules = sorted({n["module"] for n in lookup.values()})
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "lookup": lookup,
+        "modules": modules
+    }
+
+# --------------------------- Streamlit UI ---------------------------
+
+st.set_page_config(page_title="Insect–Microbe Systems", layout="wide")
+st.title("Insect–Microbe Systems — Course Network")
+
+# Data state
 if "sessions" not in st.session_state:
-    st.session_state.sessions=pd.DataFrame(SAMPLE_ROWS,columns=DEFAULT_COLUMNS)
-if "selected_node" not in st.session_state:
-    st.session_state.selected_node=""
+    # Try to boot with your cleaned file
+    try:
+        st.session_state.sessions = _load_csv_from_disk(DEFAULT_DATA_PATH)
+        st.caption(f"Loaded default dataset from `{DEFAULT_DATA_PATH}`.")
+    except Exception:
+        st.session_state.sessions = pd.DataFrame(SAMPLE_ROWS, columns=DEFAULT_COLUMNS)
+        st.warning("Default dataset not found; using sample row.")
 
-# ============================ Sidebar ==============================
+with st.sidebar.expander("📂 Data", expanded=True):
+    # Download current sessions
+    buf=io.StringIO()
+    st.session_state.sessions.to_csv(buf, index=False)
+    st.download_button("⬇️ Download sessions.csv", data=buf.getvalue(),
+                       file_name="sessions.csv", mime="text/csv")
 
-st.sidebar.title("Course Session Network")
-
-with st.sidebar.expander("📂 Data IO",expanded=True):
-    buf=io.StringIO(); st.session_state.sessions.to_csv(buf,index=False)
-    st.download_button("⬇️ Download sessions.csv",buf.getvalue(),"sessions.csv","text/csv")
-
-    up=st.file_uploader("Upload sessions.csv",type=["csv"])
+    up=st.file_uploader("Upload sessions.csv", type=["csv"])
     if up is not None:
         try:
-            df=_load_csv_safely(up)
-            st.session_state.sessions=df
+            df=_load_csv_uploaded(up)
+            st.session_state.sessions = df
             st.success(f"✅ CSV loaded ({len(df)} sessions).")
         except Exception as e:
             st.error(f"Upload failed: {e}")
 
-    if st.button("Reset to sample dataset"):
-        st.session_state.sessions=pd.DataFrame(SAMPLE_ROWS,columns=DEFAULT_COLUMNS)
-        st.success("Reset complete.")
+with st.sidebar.expander("⚙️ Network Settings", expanded=True):
+    min_shared = st.slider("Min shared keywords", 1, 5, 1)
+    include_manual = st.checkbox("Include manual connects", True)
 
-with st.sidebar.expander("⚙️ Network Settings",expanded=True):
-    min_shared=st.slider("Min shared keywords",1,5,1)
-    include_manual=st.checkbox("Include manual connects",True)
-    size_min,size_max=st.slider("Node size range",5,60,(14,38))
+# Build graph data
+df = st.session_state.sessions.copy()
+graph = _build_graph_data(df, min_shared=min_shared, include_manual=include_manual)
 
-# ============================ Tabs ================================
+# Color palette (cycled in JS)
+PALETTE = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd",
+           "#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
 
-tab_data,tab_graph=st.tabs(["📋 Data / Edit","🕸️ Graph Explorer"])
+# Render a single component that contains the graph + passport
+html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <script src="https://unpkg.com/vis-network@9.1.6/dist/vis-network.min.js"></script>
+  <link href="https://unpkg.com/vis-network@9.1.6/styles/vis-network.min.css" rel="stylesheet" type="text/css" />
+  <style>
+    body {{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }}
+    .wrap {{
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+      height: 720px;
+      box-sizing: border-box;
+      padding: 8px;
+    }}
+    #network {{
+      width: 100%;
+      height: 100%;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+    }}
+    .passport {{
+      height: 100%;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 12px 14px;
+      overflow:auto;
+      background:#fafafa;
+    }}
+    .muted {{ color:#666; }}
+    .chip {{
+      display:inline-block; padding:2px 8px; margin:2px 4px 0 0; border-radius:999px; background:#eef; font-size:12px;
+    }}
+    h3 {{ margin-top:0; }}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="network"></div>
+    <div class="passport" id="passport">
+      <p class="muted">Click a node to view its Session Passport.</p>
+    </div>
+  </div>
 
-# ============================ Data Tab ============================
+  <script>
+    // ----- data from Python -----
+    const DATA = {json.dumps(graph)};
+    const PALETTE = {json.dumps(PALETTE)};
+    const modules = DATA.modules;
+    const colorMap = {{}};
+    modules.forEach((m,i)=> colorMap[m] = PALETTE[i % PALETTE.length]);
 
-with tab_data:
-    st.markdown("## Add / Edit Session")
-    with st.form("add_session"):
-        c1,c2,c3,c4=st.columns(4)
-        sid=c1.text_input("Session ID",placeholder="W2-Tu")
-        date=c2.text_input("Date (YYYY-MM-DD)")
-        title=c3.text_input("Title")
-        instr=c4.text_input("Instructor","You")
-        c5,c6,c7=st.columns(3)
-        module=c5.text_input("Module")
-        activity=c6.text_input("Activity")
-        kws=c7.text_input("Keywords (comma-separated)")
-        notes=st.text_area("Notes")
-        connect=st.text_input("Connect with (IDs comma-separated)")
-        if st.form_submit_button("Add / Update") and sid.strip():
-            r={"session_id":sid.strip(),"date":date.strip(),"title":title.strip(),
-               "instructor":instr.strip(),"module":module.strip() or "Unassigned",
-               "activity":activity.strip(),"keywords":kws.strip(),
-               "notes":notes.strip(),"connect_with":connect.strip()}
-            df=st.session_state.sessions
-            if sid in df["session_id"].values:
-                st.session_state.sessions.loc[df["session_id"]==sid,:]=r
-            else:
-                st.session_state.sessions=pd.concat([df,pd.DataFrame([r])],ignore_index=True)
-            st.success(f"Saved {sid}")
+    // Build vis nodes/edges with colors
+    const visNodes = DATA.nodes.map(n => {{
+      const mod = DATA.lookup[n.id]?.module || "Unassigned";
+      return {{
+        id: n.id,
+        label: n.label,
+        title: n.title,
+        color: colorMap[mod] || "#777",
+        shape: "dot",
+        size: 18
+      }};
+    }});
+    const visEdges = DATA.edges;
 
-    st.markdown("### Inline Table Edit")
-    edited=st.data_editor(
-        st.session_state.sessions,
-        hide_index=True,
-        use_container_width=True,
-        num_rows="dynamic",
-        key="table_edit"
-    )
-    if not edited.equals(st.session_state.sessions):
-        st.session_state.sessions=edited.copy()
+    // ----- render network -----
+    const container = document.getElementById('network');
+    const network = new vis.Network(container, {{
+      nodes: new vis.DataSet(visNodes),
+      edges: new vis.DataSet(visEdges),
+    }}, {{
+      physics: {{
+        enabled: true,
+        forceAtlas2Based: {{
+          gravitationalConstant: -50,
+          centralGravity: 0.02,
+          springLength: 120,
+          avoidOverlap: 0.3
+        }},
+        solver: 'forceAtlas2Based',
+        stabilization: true
+      }},
+      interaction: {{
+        hover: true,
+        tooltipDelay: 120
+      }},
+      edges: {{
+        width: 1,
+        smooth: {{ type: 'continuous' }}
+      }},
+      nodes: {{
+        font: {{ color: '#111' }}
+      }}
+    }});
 
-# ============================ Graph Tab ===========================
+    // ----- passport panel -----
+    const P = document.getElementById('passport');
+    function renderPassport(id) {{
+      const r = DATA.lookup[id];
+      if(!r) {{
+        P.innerHTML = '<p class="muted">No data found for '+id+'</p>';
+        return;
+      }}
+      const chips = (r.keywords || '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean)
+        .map(k => '<span class="chip">'+k+'</span>')
+        .join(' ');
+      P.innerHTML = `
+        <h3>🪲 ${'{'}r.title{'}'}</h3>
+        <p><strong>Date:</strong> ${'{'}r.date || '-'{'}'} &nbsp;|&nbsp;
+           <strong>Module:</strong> ${'{'}r.module || 'Unassigned'{'}'} &nbsp;|&nbsp;
+           <strong>Activity:</strong> ${'{'}r.activity || '-'{'}'}</p>
+        <p><strong>Instructor:</strong> ${'{'}r.instructor || '-'{'}'}</p>
+        <p><strong>Keywords:</strong><br>${'{'}chips || '<span class="muted">—</span>'{'}'}</p>
+        <p><strong>Notes:</strong><br>${'{'}(r.notes || '').replace(/\\n/g,'<br>') || '<span class="muted">—</span>'{'}'}</p>
+      `;
+    }}
 
-with tab_graph:
-    st.markdown("## Interactive Course Graph")
+    network.on('selectNode', (params) => {{
+      if (params.nodes && params.nodes.length) {{
+        renderPassport(params.nodes[0]);
+      }}
+    }});
+  </script>
+</body>
+</html>
+"""
 
-    df=st.session_state.sessions.copy()
-    G=nx.Graph()
-    for _,r in df.iterrows():
-        kwlist=_clean_keywords(r["keywords"])
-        attrs=r.to_dict(); attrs["kwlist"]=kwlist
-        G.add_node(r["session_id"], **attrs)
-
-    nodes=list(G.nodes())
-    for i in range(len(nodes)):
-        for j in range(i+1,len(nodes)):
-            a,b=nodes[i],nodes[j]
-            shared=len(set(G.nodes[a].get("kwlist",[])) & set(G.nodes[b].get("kwlist",[])))
-            if shared>=min_shared: G.add_edge(a,b)
-
-    if include_manual:
-        for n in nodes:
-            for m in _split_multi(G.nodes[n].get("connect_with","")):
-                if m in nodes and m!=n:
-                    G.add_edge(n,m)
-
-    mods=sorted({G.nodes[n].get("module","Unassigned") for n in nodes})
-    PALETTE=["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd",
-             "#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
-    color_map={m:PALETTE[i%len(PALETTE)] for i,m in enumerate(mods)}
-
-    net=Network(height="700px",width="100%",bgcolor="#fff",font_color="#111")
-    net.force_atlas_2based(gravity=-50,central_gravity=0.02,spring_length=120)
-    for n in nodes:
-        d=G.nodes[n]
-        net.add_node(
-            n,
-            label=n,
-            color=color_map.get(d.get("module","Unassigned"),"#777"),
-            size=(size_min+size_max)/2,
-            title=f"{d.get('title','')}"
-                  f"<br>{d.get('module','Unassigned')}"
-        )
-    for u,v in G.edges(): net.add_edge(u,v,width=1)
-
-    # ----------- click→Streamlit bridge (robust) -----------
-    html_path=pathlib.Path(tempfile.NamedTemporaryFile(delete=False,suffix=".html").name)
-    net.write_html(html_path.as_posix(),notebook=False,local=True)
-    with open(html_path,"r",encoding="utf-8") as f: html=f.read()
-
-    components.html(
-        html + """
-        <script>
-        network.on("selectNode", function(params){
-            if(params.nodes.length > 0){
-                const nodeId = params.nodes[0];
-                window.parent.postMessage({type:'NODE_CLICK', node:nodeId}, '*');
-            }
-        });
-        </script>
-        """,
-        height=750,
-        scrolling=False,
-    )
-
-    st.markdown("""
-    <script>
-    window.addEventListener('message', (event) => {
-      if (event.data.type === 'NODE_CLICK') {
-        const input = window.parent.document.querySelector('input#clickedNode');
-        if (input) {
-          input.value = event.data.node;
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-      }
-    });
-    </script>
-    """, unsafe_allow_html=True)
-
-    clicked = st.text_input("clicked", key="clickedNode", label_visibility="collapsed")
-    if clicked: st.session_state.selected_node = clicked
-
-    st.markdown("---")
-    node = st.session_state.selected_node
-    if node and node in df["session_id"].values:
-        r = df[df["session_id"]==node].iloc[0]
-        color = color_map.get(r["module"], "#999")
-        st.markdown(f"""
-        <div style='border-left:6px solid {color};background:#f9f9f9;
-                    border-radius:8px;padding:0.8em 1em;'>
-        <h3>🪲 {r["title"]}</h3>
-        <p><strong>Date:</strong> {r["date"]} |
-           <strong>Module:</strong> {r["module"]} |
-           <strong>Activity:</strong> {r["activity"]}</p>
-        <p><strong>Instructor:</strong> {r["instructor"]}</p>
-        <p><strong>Keywords:</strong> {r["keywords"]}</p>
-        <p><strong>Notes:</strong><br>{r["notes"]}</p>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.info("Click a node to view its Session Passport.")
+components.html(html, height=740, scrolling=False)
