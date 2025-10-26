@@ -1,7 +1,7 @@
 # app.py — Insect–Microbe Systems Course Network
 # -------------------------------------------------------------------
 from __future__ import annotations
-import io, csv, pathlib, tempfile
+import io, csv
 import pandas as pd
 import networkx as nx
 import streamlit as st
@@ -129,58 +129,67 @@ with tab_graph:
     color_map={m:PALETTE[i%len(PALETTE)] for i,m in enumerate(mods)}
 
     # Layout
-    pos = nx.spring_layout(G, k=2, iterations=50)
+    pos = nx.spring_layout(G, k=3, iterations=50, seed=42)
     edge_x, edge_y = [], []
     for u,v in G.edges():
         x0, y0 = pos[u]
         x1, y1 = pos[v]
-        edge_x.extend([x0, x1, None])
-        edge_y.extend([y0, y1, None])
+        edge_x += [x0, x1, None]
+        edge_y += [y0, y1, None]
     edge_trace = {
-        "type": "scatter", "mode": "lines", "x": edge_x, "y": edge_y,
+        "x": edge_x, "y": edge_y, "mode": "lines",
         "line": {"width": 1, "color": "#888"}, "hoverinfo": "none"
     }
-    node_x, node_y = [], []
-    node_text, node_color = [], []
+    node_x, node_y, node_text, node_color, node_size = [], [], [], [], []
     for n in nodes:
         x, y = pos[n]
         node_x.append(x); node_y.append(y)
         d = G.nodes[n]
-        node_text.append(d["title"])
+        node_text.append(f"<b>{n}</b><br>{d['title']}<br>{d['module']}<br>{d['date']}")
         node_color.append(color_map.get(d["module"], "#777"))
+        node_size.append(25)
     node_trace = {
-        "type": "scatter", "mode": "markers+text", "x": node_x, "y": node_y,
-        "text": nodes, "textposition": "top center",
-        "marker": {"size": 30, "color": node_color},
-        "hoverinfo": "text", "hovertext": node_text
+        "x": node_x, "y": node_y, "mode": "markers+text", "text": [n for n in nodes],
+        "textposition": "top center", "marker": {"size": node_size, "color": node_color},
+        "hovertemplate": "%{text}", "customdata": nodes
     }
-    fig = {"data": [edge_trace, node_trace], "layout": {
-        "showlegend": False, "hovermode": "closest",
-        "margin": {"b": 20, "l": 5, "r": 5, "t": 40},
-        "xaxis": {"showgrid": False, "zeroline": False, "showticklabels": False},
-        "yaxis": {"showgrid": False, "zeroline": False, "showticklabels": False},
-        "height": 700, "paper_bgcolor": "white", "plot_bgcolor": "white"
-    }}
+    fig = {
+        "data": [edge_trace, node_trace],
+        "layout": {
+            "showlegend": False, "hovermode": "closest",
+            "margin": {"b": 20, "l": 5, "r": 5, "t": 40},
+            "xaxis": {"showgrid": False, "zeroline": False, "showticklabels": False},
+            "yaxis": {"showgrid": False, "zeroline": False, "showticklabels": False},
+            "height": 700, "paper_bgcolor": "white", "plot_bgcolor": "white"
+        }
+    }
     import plotly.graph_objects as go
-    st.plotly_chart(go.Figure(fig), use_container_width=True, config={"displayModeBar": False})
+    import json
+    chart = go.Figure(fig)
+    chart.update_layout(clickmode="event+select")
+    clicked_info = st.plotly_chart(
+        chart, use_container_width=True, config={"displayModeBar": False},
+        on_select="rerun", key="graph"
+    )
 
-    # Click handler
-    clicked = st.session_state.get("plotly_click")
-    if clicked:
-        node_id = clicked["points"][0]["text"]
-        if node_id in df["session_id"].values:
-            r = df[df["session_id"] == node_id].iloc[0]
-            color = color_map.get(r["module"], "#999")
-            with st.expander(f"Session Passport: {r['title']}", expanded=True):
-                st.markdown(f"""
-                <div style='border-left:6px solid {color};background:#f9f9f9;border-radius:8px;padding:1em;'>
-                <h3>🪲 {r['title']}</h3>
-                <p><strong>Date:</strong> {r['date']} | <strong>Module:</strong> {r['module']} | <strong>Activity:</strong> {r['activity']}</p>
-                <p><strong>Instructor:</strong> {r['instructor']}</p>
-                <p><strong>Keywords:</strong> {r['keywords']}</p>
-                <p><strong>Notes:</strong><br>{r['notes'].replace('\n', '<br>')}</p>
-                </div>
-                """, unsafe_allow_html=True)
-        st.session_state.plotly_click = None  # Reset
-    else:
-        st.info("Click a node to view its Session Passport.")
+    # Split screen: graph left, passport right
+    col1, col2 = st.columns([3, 2])
+    with col1:
+        pass  # Graph already rendered above
+    with col2:
+        if clicked_info and clicked_info["selection"]["points"]:
+            point = clicked_info["selection"]["points"][0]
+            node_id = point["customdata"]
+            if node_id in df["session_id"].values:
+                r = df[df["session_id"] == node_id].iloc[0]
+                color = color_map.get(r["module"], "#999")
+                st.markdown(f"### 🪲 {r['title']}")
+                st.markdown(f"**Date:** {r['date']} | **Module:** {r['module']} | **Activity:** {r['activity']}")
+                st.markdown(f"**Instructor:** {r['instructor']}")
+                st.markdown(f"**Keywords:** {r['keywords']}")
+                st.markdown("**Notes:**")
+                st.markdown(r['notes'].replace('\n', '\n\n'))
+            else:
+                st.info("No session data.")
+        else:
+            st.info("Click a node to view details.")
