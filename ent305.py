@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
 import plotly.graph_objects as go
+import plotly.express as px
 
 # ---------------------------------------------------------------
 # Streamlit setup
@@ -10,9 +10,6 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="Ammonia–Temperature Decomposition Dashboard", layout="wide")
 st.title("🪰 Comparative Ammonia–Temperature Dashboard")
 
-# ---------------------------------------------------------------
-# File upload
-# ---------------------------------------------------------------
 uploaded_files = st.file_uploader("Upload one or more CSV files", type=["csv"], accept_multiple_files=True)
 
 # Sidebar controls
@@ -23,9 +20,8 @@ with st.sidebar:
     eclosion_day = st.number_input("Fly eclosion", value=14.0, step=0.5)
     show_trendline = st.checkbox("Show LOESS trendline (requires statsmodels)", value=False)
     st.markdown("---")
-    st.markdown("**Thermal range** = difference between max and min sensor temperatures at each time point (°C). "
-                "Small range → stable, heat-buffered system (active larvae); "
-                "Large range → ambient coupling (late decay).")
+    st.markdown("**Thermal range** = Thermal_max – Thermal_min (°C). "
+                "Small range = heat-buffered system; large range = ambient coupling.")
 
 # ---------------------------------------------------------------
 # Data processing
@@ -34,27 +30,24 @@ if uploaded_files:
     dfs = []
     for file in uploaded_files:
         df = pd.read_csv(file)
-
-        # Normalize column names
         df.columns = [c.strip().replace(" ", "_").replace("(", "").replace(")", "").replace("°C", "C")
                       for c in df.columns]
 
         expected = ["Date/Time", "Ammonia_ppm", "Thermal_min_C", "Thermal_mean_C", "Thermal_max_C"]
         if not all(col in df.columns for col in expected):
-            st.warning(f"⚠️ {file.name} missing expected columns.")
-            st.write("Found columns:", list(df.columns))
+            st.warning(f"⚠️ {file.name} missing expected columns. Found: {list(df.columns)}")
             continue
 
-        # Ensure datetime and numeric
+        # Parse datetime and enforce numeric columns
         df["Date/Time"] = pd.to_datetime(df["Date/Time"], errors="coerce")
         for col in ["Thermal_min_C", "Thermal_mean_C", "Thermal_max_C", "Ammonia_ppm"]:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
-        # Compute thermal range and clean outliers
+        # Compute thermal range and remove outliers
         df["Thermal_range"] = df["Thermal_max_C"] - df["Thermal_min_C"]
-        df.loc[df["Thermal_range"] > 15, "Thermal_range"] = np.nan  # drop unrealistic values
+        df.loc[df["Thermal_range"] > 15, "Thermal_range"] = np.nan
 
-        df = df.sort_values("Date/Time")
+        df = df.sort_values("Date/Time").copy()
         df["source"] = file.name
         dfs.append(df)
 
@@ -65,17 +58,20 @@ if uploaded_files:
     all_data = pd.concat(dfs, ignore_index=True)
 
     # -----------------------------------------------------------
-    # Derived metrics: elapsed days, rolling means, slopes
+    # Derived metrics: elapsed days, rolling means/slopes
     # -----------------------------------------------------------
     def add_rolls(g):
         g = g.sort_values("Date/Time").copy()
         t0 = g["Date/Time"].min()
         g["Elapsed_days"] = (g["Date/Time"] - t0).dt.total_seconds() / 86400.0
-        g["NH3_roll12"] = g["Ammonia_ppm"].rolling(12, min_periods=6).mean()
-        g["NH3_slope12"] = g["NH3_roll12"].diff() / 0.5  # per hour (30-min steps)
-        g["Therm_roll12"] = g["Thermal_mean_C"].rolling(12, min_periods=6).mean()
+
+        # compute rolling means correctly (use numeric arrays)
+        window = 12  # ~6 hours for 30 min intervals
+        g["NH3_roll12"] = g["Ammonia_ppm"].rolling(window, min_periods=6).mean()
+        g["NH3_slope12"] = g["NH3_roll12"].diff() / 0.5  # per hour
+        g["Therm_roll12"] = g["Thermal_mean_C"].rolling(window, min_periods=6).mean()
         g["dThermal"] = g["Thermal_max_C"] - g["Thermal_min_C"]
-        g["dThermal_roll12"] = g["dThermal"].rolling(12, min_periods=6).mean()
+        g["dThermal_roll12"] = g["dThermal"].rolling(window, min_periods=6).mean()
         return g
 
     all_data = all_data.groupby("source", group_keys=False).apply(add_rolls)
@@ -116,32 +112,43 @@ if uploaded_files:
     st.dataframe(corr_df.style.background_gradient(cmap="RdYlGn", axis=None))
 
     # -----------------------------------------------------------
-    # Plot 1: Time-series (Ammonia + Thermal Mean)
+    # Plot 1: Dual-axis (Ammonia vs Thermal Mean)
     # -----------------------------------------------------------
-    st.markdown("### 📈 Time Series: Ammonia vs Thermal Mean")
-    fig1 = go.Figure()
+    st.markdown("### 📊 Dual-Axis Time Series: Ammonia (ppm) and Thermal Mean (°C)")
+    fig_dual = go.Figure()
     palette = px.colors.qualitative.Bold
+
     for i, (src, df) in enumerate(all_data.groupby("source")):
         color = palette[i % len(palette)]
-        fig1.add_trace(go.Scatter(
-            x=df["Elapsed_days"], y=df["Ammonia_ppm"],
-            mode="lines", name=f"{src} – Ammonia",
-            line=dict(color=color, width=2)))
-        fig1.add_trace(go.Scatter(
+
+        # Left axis: Thermal Mean
+        fig_dual.add_trace(go.Scatter(
             x=df["Elapsed_days"], y=df["Thermal_mean_C"],
-            mode="lines", name=f"{src} – Thermal mean",
-            line=dict(color=color, width=1, dash="dot")))
+            mode="lines", name=f"{src} – Thermal mean (°C)",
+            line=dict(color=color, dash="dot"), yaxis="y1"))
+
+        # Right axis: Ammonia
+        fig_dual.add_trace(go.Scatter(
+            x=df["Elapsed_days"], y=df["Ammonia_ppm"],
+            mode="lines", name=f"{src} – Ammonia (ppm)",
+            line=dict(color=color, width=2), yaxis="y2"))
 
     for ev in event_lines:
-        fig1.add_vline(x=ev["day"], line_width=1, line_dash="dot",
-                       line_color="black", annotation_text=ev["label"],
-                       annotation_position="top left")
+        fig_dual.add_vline(x=ev["day"], line_width=1, line_dash="dot",
+                           line_color="black", annotation_text=ev["label"],
+                           annotation_position="top left")
 
-    fig1.update_layout(xaxis_title="Elapsed Days", yaxis_title="Value (°C or ppm)", legend_title_text=None)
-    st.plotly_chart(fig1, use_container_width=True)
+    fig_dual.update_layout(
+        xaxis=dict(title="Elapsed Days"),
+        yaxis=dict(title="Thermal Mean (°C)", side="left", range=[20, 30]),
+        yaxis2=dict(title="Ammonia (ppm)", side="right", overlaying="y", range=[0, 10]),
+        legend_title_text=None,
+        template="plotly_white"
+    )
+    st.plotly_chart(fig_dual, use_container_width=True)
 
     # -----------------------------------------------------------
-    # Plot 2: Thermal envelope vs Ammonia
+    # Plot 2: Thermal Envelope vs Ammonia
     # -----------------------------------------------------------
     st.markdown("### 🌡️ Thermal Envelope vs Ammonia Flux")
     fig2 = go.Figure()
@@ -151,11 +158,11 @@ if uploaded_files:
         fig2.add_trace(go.Scatter(
             x=df["Elapsed_days"], y=df["Thermal_range"],
             fill="tozeroy", mode="none",
-            name=f"{src} – Thermal range",
+            name=f"{src} – Thermal range (°C)",
             fillcolor=rgba))
         fig2.add_trace(go.Scatter(
-            x=df["Elapsed_days"], y=df["Ammonia_ppm"] * 10,
-            mode="lines", name=f"{src} – Ammonia (×10)",
+            x=df["Elapsed_days"], y=df["Ammonia_ppm"],
+            mode="lines", name=f"{src} – Ammonia (ppm)",
             line=dict(color=base_color, width=2)))
 
     for ev in event_lines:
@@ -163,8 +170,9 @@ if uploaded_files:
                        line_color="black", annotation_text=ev["label"],
                        annotation_position="top left")
 
-    fig2.update_layout(xaxis_title="Elapsed Days", yaxis_title="Thermal Range (°C)", legend_title_text=None)
-    fig2.update_yaxes(range=[0, 15])  # clamp to realistic range
+    fig2.update_layout(xaxis_title="Elapsed Days", yaxis_title="Thermal Range (°C)",
+                       legend_title_text=None, template="plotly_white")
+    fig2.update_yaxes(range=[0, 15])
     st.plotly_chart(fig2, use_container_width=True)
 
     # -----------------------------------------------------------
@@ -185,13 +193,13 @@ if uploaded_files:
     st.markdown("""
     **Interpretation Guide**
 
-    - **Day 0–1:** microbial ignition — rising thermal mean, narrowing ΔThermal, ammonia begins to climb.  
-    - **Day 1–3:** peak decay activity — ammonia spike + narrow ΔThermal = bloat/active phase.  
-    - **Day 4:** *Dermestids introduced* → compare thermal & ammonia responses between chambers.  
-    - **Day 5–7:** plateau; larval biomass maintains internal heat.  
-    - **Day 7–9:** *Pupation begins* — ammonia and thermal signals fall toward ambient.  
-    - **Day 12:** *Dermestid L2–L3* — secondary scavenging pulse possible.  
-    - **Day 14:** *Fly eclosion* — system stabilized near ambient.
+    - **Day 0–1:** Microbial ignition — heat buildup, ammonia starts rising.  
+    - **Day 1–3:** Active decay — ammonia peak, thermal stability (narrow ΔT).  
+    - **Day 4:** Dermestids introduced — system disturbance point.  
+    - **Day 5–7:** Plateau in larval activity.  
+    - **Day 7–9:** Pupation onset — ammonia and temperature fall.  
+    - **Day 12:** Dermestid larvae appear (L2–L3).  
+    - **Day 14:** Fly eclosion — ambient equilibrium.
     """)
 
 else:
