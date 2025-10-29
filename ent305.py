@@ -12,11 +12,16 @@ st.title("🪰 Comparative Ammonia–Temperature Dashboard")
 
 uploaded_files = st.file_uploader("Upload one or more CSV files", type=["csv"], accept_multiple_files=True)
 
-# Sidebar controls
+# Sidebar controls ------------------------------------------------
 with st.sidebar:
     st.header("Event Markers (Days from Egg Deposition)")
+    eggs_day = st.number_input("Eggs placed", value=0.0, step=0.5)
+    l1_day = st.number_input("L1 hatch", value=1.0, step=0.5)
+    l3_day = st.number_input("L3 feeding peak", value=3.5, step=0.5)
     derm_added_day = st.number_input("Dermestids added", value=4.0, step=0.5)
-    derm_L2_day = st.number_input("Dermestid L2–L3 observed", value=12.0, step=0.5)
+    wandering_day = st.number_input("Wandering stage", value=4.6, step=0.5)
+    pupation_day = st.number_input("Pupation begins", value=8.0, step=0.5)
+    derm_larvae_day = st.number_input("Dermestid L2–L3", value=12.0, step=0.5)
     eclosion_day = st.number_input("Fly eclosion", value=14.0, step=0.5)
     show_trendline = st.checkbox("Show LOESS trendline (requires statsmodels)", value=False)
     st.markdown("---")
@@ -24,8 +29,7 @@ with st.sidebar:
                 "Small range = heat-buffered system; large range = ambient coupling.")
 
 # ---------------------------------------------------------------
-# Data processing
-# ---------------------------------------------------------------
+# Data processing ------------------------------------------------
 if uploaded_files:
     dfs = []
     for file in uploaded_files:
@@ -38,12 +42,10 @@ if uploaded_files:
             st.warning(f"⚠️ {file.name} missing expected columns. Found: {list(df.columns)}")
             continue
 
-        # Parse datetime and enforce numeric columns
         df["Date/Time"] = pd.to_datetime(df["Date/Time"], errors="coerce")
         for col in ["Thermal_min_C", "Thermal_mean_C", "Thermal_max_C", "Ammonia_ppm"]:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
-        # Compute thermal range and remove outliers
         df["Thermal_range"] = df["Thermal_max_C"] - df["Thermal_min_C"]
         df.loc[df["Thermal_range"] > 15, "Thermal_range"] = np.nan
 
@@ -57,15 +59,12 @@ if uploaded_files:
 
     all_data = pd.concat(dfs, ignore_index=True)
 
-    # -----------------------------------------------------------
-    # Derived metrics: elapsed days, rolling means/slopes
-    # -----------------------------------------------------------
+    # Derived metrics --------------------------------------------
     def add_rolls(g):
         g = g.sort_values("Date/Time").copy()
         t0 = g["Date/Time"].min()
         g["Elapsed_days"] = (g["Date/Time"] - t0).dt.total_seconds() / 86400.0
 
-        # compute rolling means correctly (use numeric arrays)
         window = 12  # ~6 hours for 30 min intervals
         g["NH3_roll12"] = g["Ammonia_ppm"].rolling(window, min_periods=6).mean()
         g["NH3_slope12"] = g["NH3_roll12"].diff() / 0.5  # per hour
@@ -76,16 +75,15 @@ if uploaded_files:
 
     all_data = all_data.groupby("source", group_keys=False).apply(add_rolls)
 
-    # -----------------------------------------------------------
-    # Event annotations
-    # -----------------------------------------------------------
+    # Event annotations ------------------------------------------
     event_lines = [
-        {"day": 0.0, "label": "Eggs placed"},
-        {"day": 1.0, "label": "L1 hatch"},
-        {"day": 3.5, "label": "L3 feeding peak"},
+        {"day": eggs_day, "label": "Eggs placed"},
+        {"day": l1_day, "label": "L1 hatch"},
+        {"day": l3_day, "label": "L3 feeding peak"},
         {"day": derm_added_day, "label": "Dermestids added"},
-        {"day": 8.0, "label": "Pupation begins"},
-        {"day": derm_L2_day, "label": "Dermestid L2–L3"},
+        {"day": wandering_day, "label": "Wandering stage"},
+        {"day": pupation_day, "label": "Pupation begins"},
+        {"day": derm_larvae_day, "label": "Dermestid L2–L3"},
         {"day": eclosion_day, "label": "L. cuprina eclosion"},
     ]
 
@@ -120,14 +118,10 @@ if uploaded_files:
 
     for i, (src, df) in enumerate(all_data.groupby("source")):
         color = palette[i % len(palette)]
-
-        # Left axis: Thermal Mean
         fig_dual.add_trace(go.Scatter(
             x=df["Elapsed_days"], y=df["Thermal_mean_C"],
             mode="lines", name=f"{src} – Thermal mean (°C)",
             line=dict(color=color, dash="dot"), yaxis="y1"))
-
-        # Right axis: Ammonia
         fig_dual.add_trace(go.Scatter(
             x=df["Elapsed_days"], y=df["Ammonia_ppm"],
             mode="lines", name=f"{src} – Ammonia (ppm)",
@@ -186,21 +180,6 @@ if uploaded_files:
         color_continuous_scale="Turbo", trendline=trend_arg)
     fig3.update_layout(coloraxis_colorbar_title="Elapsed Days")
     st.plotly_chart(fig3, use_container_width=True)
-
-    # -----------------------------------------------------------
-    # Interpretation
-    # -----------------------------------------------------------
-    st.markdown("""
-    **Interpretation Guide**
-
-    - **Day 0–1:** Microbial ignition — heat buildup, ammonia starts rising.  
-    - **Day 1–3:** Active decay — ammonia peak, thermal stability (narrow ΔT).  
-    - **Day 4:** Dermestids introduced — system disturbance point.  
-    - **Day 5–7:** Plateau in larval activity.  
-    - **Day 7–9:** Pupation onset — ammonia and temperature fall.  
-    - **Day 12:** Dermestid larvae appear (L2–L3).  
-    - **Day 14:** Fly eclosion — ambient equilibrium.
-    """)
 
 else:
     st.info("Upload one or more CSVs containing Date/Time, Ammonia (ppm), and Thermal min/mean/max (°C).")
