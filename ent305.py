@@ -22,6 +22,10 @@ with st.sidebar:
     derm_L2_day = st.number_input("Dermestid L2–L3 observed", value=12.0, step=0.5)
     eclosion_day = st.number_input("Fly eclosion", value=14.0, step=0.5)
     show_trendline = st.checkbox("Show LOESS trendline (requires statsmodels)", value=False)
+    st.markdown("---")
+    st.markdown("**Thermal range** = difference between max and min sensor temperatures at each time point (°C). "
+                "Small range → stable, heat-buffered system (active larvae); "
+                "Large range → ambient coupling (late decay).")
 
 # ---------------------------------------------------------------
 # Data processing
@@ -30,21 +34,28 @@ if uploaded_files:
     dfs = []
     for file in uploaded_files:
         df = pd.read_csv(file)
+
+        # Normalize column names
         df.columns = [c.strip().replace(" ", "_").replace("(", "").replace(")", "").replace("°C", "C")
                       for c in df.columns]
 
         expected = ["Date/Time", "Ammonia_ppm", "Thermal_min_C", "Thermal_mean_C", "Thermal_max_C"]
         if not all(col in df.columns for col in expected):
             st.warning(f"⚠️ {file.name} missing expected columns.")
+            st.write("Found columns:", list(df.columns))
             continue
 
+        # Ensure datetime and numeric
         df["Date/Time"] = pd.to_datetime(df["Date/Time"], errors="coerce")
+        for col in ["Thermal_min_C", "Thermal_mean_C", "Thermal_max_C", "Ammonia_ppm"]:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+        # Compute thermal range and clean outliers
+        df["Thermal_range"] = df["Thermal_max_C"] - df["Thermal_min_C"]
+        df.loc[df["Thermal_range"] > 15, "Thermal_range"] = np.nan  # drop unrealistic values
+
         df = df.sort_values("Date/Time")
         df["source"] = file.name
-        df["Thermal_range"] = (
-            pd.to_numeric(df["Thermal_max_C"], errors="coerce")
-            - pd.to_numeric(df["Thermal_min_C"], errors="coerce")
-        )
         dfs.append(df)
 
     if not dfs:
@@ -61,7 +72,7 @@ if uploaded_files:
         t0 = g["Date/Time"].min()
         g["Elapsed_days"] = (g["Date/Time"] - t0).dt.total_seconds() / 86400.0
         g["NH3_roll12"] = g["Ammonia_ppm"].rolling(12, min_periods=6).mean()
-        g["NH3_slope12"] = g["NH3_roll12"].diff() / 0.5  # per hour (30-min interval)
+        g["NH3_slope12"] = g["NH3_roll12"].diff() / 0.5  # per hour (30-min steps)
         g["Therm_roll12"] = g["Thermal_mean_C"].rolling(12, min_periods=6).mean()
         g["dThermal"] = g["Thermal_max_C"] - g["Thermal_min_C"]
         g["dThermal_roll12"] = g["dThermal"].rolling(12, min_periods=6).mean()
@@ -74,13 +85,12 @@ if uploaded_files:
     # -----------------------------------------------------------
     event_lines = [
         {"day": 0.0, "label": "Eggs placed"},
-        {"day": derm_added_day, "label": "Dermestids added"},
-        {"day": derm_L2_day, "label": "Dermestid L2–L3"},
-        {"day": eclosion_day, "label": "L. cuprina eclosion"},
-        # Lucilia cuprina development
         {"day": 1.0, "label": "L1 hatch"},
         {"day": 3.5, "label": "L3 feeding peak"},
+        {"day": derm_added_day, "label": "Dermestids added"},
         {"day": 8.0, "label": "Pupation begins"},
+        {"day": derm_L2_day, "label": "Dermestid L2–L3"},
+        {"day": eclosion_day, "label": "L. cuprina eclosion"},
     ]
 
     # -----------------------------------------------------------
@@ -127,7 +137,7 @@ if uploaded_files:
                        line_color="black", annotation_text=ev["label"],
                        annotation_position="top left")
 
-    fig1.update_layout(xaxis_title="Elapsed Days", yaxis_title="Value", legend_title_text=None)
+    fig1.update_layout(xaxis_title="Elapsed Days", yaxis_title="Value (°C or ppm)", legend_title_text=None)
     st.plotly_chart(fig1, use_container_width=True)
 
     # -----------------------------------------------------------
@@ -154,6 +164,7 @@ if uploaded_files:
                        annotation_position="top left")
 
     fig2.update_layout(xaxis_title="Elapsed Days", yaxis_title="Thermal Range (°C)", legend_title_text=None)
+    fig2.update_yaxes(range=[0, 15])  # clamp to realistic range
     st.plotly_chart(fig2, use_container_width=True)
 
     # -----------------------------------------------------------
@@ -176,10 +187,10 @@ if uploaded_files:
 
     - **Day 0–1:** microbial ignition — rising thermal mean, narrowing ΔThermal, ammonia begins to climb.  
     - **Day 1–3:** peak decay activity — ammonia spike + narrow ΔThermal = bloat/active phase.  
-    - **Day 4:** *Dermestids introduced* → compare thermal and ammonia responses between chambers.  
-    - **Day 5–7:** plateau; high larval biomass maintains internal heat.  
+    - **Day 4:** *Dermestids introduced* → compare thermal & ammonia responses between chambers.  
+    - **Day 5–7:** plateau; larval biomass maintains internal heat.  
     - **Day 7–9:** *Pupation begins* — ammonia and thermal signals fall toward ambient.  
-    - **Day 12:** *Dermestid L2–L3 larvae observed* — possible secondary flux.  
+    - **Day 12:** *Dermestid L2–L3* — secondary scavenging pulse possible.  
     - **Day 14:** *Fly eclosion* — system stabilized near ambient.
     """)
 
