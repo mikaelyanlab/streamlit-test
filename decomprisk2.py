@@ -270,8 +270,8 @@ with col1:
     seed = st.number_input("Random Seed", value=42, step=1)
 
     st.markdown("**Economics**")
-    $per_fire_unit = st.number_input("$/unit Fire Intensity (per ha)", value=2500, step=100)
-    $per_ton_sed = st.number_input("$/ton Sediment (removal/impact)", value=40, step=5)
+    per_fire_unit = st.number_input("$/unit Fire Intensity (per ha)", value=2500, step=100)
+    per_ton_sed = st.number_input("$/ton Sediment (removal/impact)", value=40, step=5)
     area_ha = st.number_input("Project Area (ha)", value=10000, step=1000)
 
     st.markdown("**Parametric Index (DFI) & Payouts**")
