@@ -359,8 +359,10 @@ def split_ids(s):
 # Streamlit UI
 # ---------------------------------------------------------
 st.set_page_config(layout="wide", page_title="ENT-591/791-006 | Insect–Microbe Systems Explorer")
-st.title("ENT-591/791-006 | Insect–Microbe Systems — Course Explorer")
-st.caption("Spring 2026 • Dr. Aram Mikaelyan • Entomology and Plant Pathology (NCSU)")
+st.title("Insect–Microbe Systems — Course Explorer")
+st.caption("ENT-591/791-006 • Spring 2026 • Tuesdays & Thursdays • 1:30 to 2:45 • 01406  Gardner Hall (Main Campus)")
+st.caption("Dr. Aram Mikaelyan • Entomology and Plant Pathology (NCSU)")
+st.caption("This course examines insects and their microbes as integrated biological systems, moving from individual feedback and flow to holobiont organization, pathogenic disruption, and evolutionary transformation of constraint networks. Students analyze how resource regimes, ecological pressures, and long-term system dynamics shape convergence and divergence across insect–microbe lineages. The capstone synthesizes these ideas into a consistent systems framework that links physiology, evolution, and planetary-scale ecological coherence."_
 
 with st.sidebar:
     st.header("Network Settings")
