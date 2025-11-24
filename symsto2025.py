@@ -358,8 +358,9 @@ def split_ids(s):
 # ---------------------------------------------------------
 # Streamlit UI
 # ---------------------------------------------------------
-st.set_page_config(layout="wide", page_title="Insect–Microbe Systems Explorer")
-st.title("Insect–Microbe Systems — Course Explorer")
+st.set_page_config(layout="wide", page_title="ENT-591/791-006 | Insect–Microbe Systems Explorer")
+st.title("ENT-591/791-006 | Insect–Microbe Systems — Course Explorer")
+st.caption("Spring 2026 • Dr. Aram Mikaelyan • Entomology and Plant Pathology (NCSU)")
 
 with st.sidebar:
     st.header("Network Settings")
