@@ -43,9 +43,14 @@ with st.sidebar.expander("Data IO", expanded=True):
 
     up = st.file_uploader("Upload sessions.csv", type=["csv"])
     if up:
-        df = pd.read_csv(up, dtype=str).fillna("")
-        st.session_state.sessions = df
-        st.success("CSV loaded.")
+    try:
+        df = pd.read_csv(up, dtype=str, encoding="utf-8").fillna("")
+    except UnicodeDecodeError:
+        df = pd.read_csv(up, dtype=str, encoding="latin1").fillna("")
+
+    st.session_state.sessions = df
+    st.success("CSV loaded.")
+
     if st.button("Reset sample"):
         st.session_state.sessions = pd.DataFrame(SAMPLE_ROWS, columns=DEFAULT_COLUMNS)
 
