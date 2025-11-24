@@ -1,197 +1,153 @@
-# symbiotic_stories_public.py
+# app.py — Public-facing Course Explorer
 from __future__ import annotations
-
 import io
-from typing import List
-
-import networkx as nx
 import pandas as pd
-import streamlit as st
+import networkx as nx
 from pyvis.network import Network
+import streamlit as st
 
-# -------------------------------------------------------------------
-# 1. EMBEDDED CSV
-# -------------------------------------------------------------------
-# Replace the line <<< PASTE YOUR CSV HERE >>> with the full contents
-# of course_full_streamlit_theory.csv, including the header row.
-# You can just open the CSV in a text editor and paste it in.
-CSV_TEXT = """session_id,date,title,instructor,module,activity,keywords,notes,connect_with
-<<< PASTE YOUR CSV HERE >>>
+# ---------------------------------------------------------
+# 1. EMBEDDED CSV (FULL CONTENT FROM YOUR UPLOADED FILE)
+# ---------------------------------------------------------
+CSV_TEXT = """
+session_id,date,title,instructor,module,activity,keywords,notes,connect_with
+W1-Tu,1/13/2026,Course Introduction & Systems Bootcamp I,You,The Individual as a System: Feedback and Flow,Lecture,"feedback, dissipative structure, cybernetics, stocks flows", "Course overview; systems framing using insect–microbe interactions.",W1-Th
+W1-Th,1/15/2026,Systems Bootcamp II - Mapping Feedback Flow,You,The Individual as a System: Feedback and Flow,Workshop,"flow, homeostasis, trophallaxis, colony stability","Explore feedback via visual loops and interactive examples.",W2-Tu
+W2-Tu,1/20/2026,Simulation Lab: Termite Gut Flows,You,The Individual as a System: Feedback and Flow,Lab,"simulation, redox, microbial syntrophy, termite","Introduce stocks and flows. Students explore flows in termite gut model.",W2-Th
+W2-Th,1/22/2026,From Feedback to Constraint - Defining Boundaries,You,Transition to M2,Discussion,"feedback, constraint, individuality","Constraint closure and autonomy in the holobiont.",W3-Tu
+W3-Tu,1/27/2026,Constraint Closure and Autonomy,You,The Emergence of the Holobiont: Constraint and Closure,Lecture,"constraint closure, canalization, autonomy, Kauffman","Model gut retention and resource availability with constraint closure.",W3-Th
+W3-Th,1/29/2026,Holobiont Simulation Lab: Constraint Networks,You,The Emergence of the Holobiont: Constraint and Closure,Lab,"autonomy, simulation, boundaries","Students explore constraint dependencies in a gut model.",W4-Tu
+W4-Tu,2/4/2026,Ecological Constraint: Nitrogen & Resource Flow,You,Ecological Interactions and Resource Feedback,Lecture,"nitrogen, resource feedback, syntrophy, nutrient flux","Connect gut ecology to colony nutrient budget.",W4-Th
+W4-Th,2/6/2026,Damage–Response Framework & Dysbiosis,You,Ecological Interactions and Resource Feedback,Discussion,"dysbiosis, damage response, pathogen probes","Map how dysbiosis emerges in termite and cockroach systems.",W5-Tu
+W5-Tu,2/11/2026,Constraint, Robustness & Fragility,You,Constraint, Robustness & Evolutionary Possibility,Lecture,"robustness, fragility, redundancy","Explore robustness–fragility trade-offs via termite and maggot systems.",W5-Th
+W5-Th,2/13/2026,Evolvability & Constraint Networks,You,Constraint, Robustness & Evolutionary Possibility,Discussion,"evolvability, constraint network, canalization","Evolutionary pathways in termite digestion and beetle gut morphology.",W6-Tu
+W6-Tu,2/18/2026,Simulation Lab: Constraint Rewiring,You,Constraint, Robustness & Evolutionary Possibility,Lab,"simulation, innovation, network rewiring","Students experiment with rewiring constraints in simplified insect systems.",W6-Th
+W6-Th,2/20/2026,Midterm Integration Workshop,You,Transition to M4,Workshop,"integration, synthesis","Integrate first-half theories via case comparison.",W7-Tu
+W7-Tu,2/25/2026,Niche Construction & Symbiosis as Co-Search,You,Synthesis: Systems Function Across Scales,Lecture,"niche construction, symbiosis, co-search","Explore insect–microbe co-design of constraint networks.",W7-Th
+W7-Th,2/27/2026,Gaia & Ecosystem Feedback via Insects,You,Synthesis: Systems Function Across Scales,Discussion,"ecosystem energetics, gaia, multilevel feedback","Role of decomposers in regulating planetary flows.",W8-Tu
+W8-Tu,3/4/2026,Hierarchy & Multiscale Constraint Propagation,You,Synthesis: Systems Function Across Scales,Lecture,"hierarchy theory, multiscale, propagation","Students explore cross-scale constraints from gut to ecosystem.",W8-Th
+W8-Th,3/6/2026,Studio I: Capstone Mapping Session,You,Capstone,Workshop,"capstone, system mapping","Students build early maps of their chosen system.",W9-Tu
+W9-Tu,3/18/2026,Nitrogen Flux Modeling Workshop,You,Modeling Systems Across Scales,Lab,"nitrogen, modeling, consumer-resource","Hands-on nitrogen flux simulation.",W9-Th
+W9-Th,3/20/2026,Mutualism Economics in Insect Systems,You,Modeling Systems Across Scales,Lecture,"mutualism, resource exchange, economics","Analyze nutrient economics of obligate symbioses.",W10-Tu
+W10-Tu,3/25/2026,Convergence & Adaptive Peaks in Gut Systems,You,Comparative Systems: Convergence vs. Divergence,Lecture,"convergence, adaptive peaks, constraint grammar","Why wood-feeders converge or diverge.",W10-Th
+W10-Th,3/27/2026,Comparative Gut Architecture,You,Comparative Systems: Convergence vs. Divergence,Discussion,"comparative guts, termites, passalids","Cross-taxon comparison via constraints.",W11-Tu
+W11-Tu,4/1/2026,Historical Contingency & Lineage Constraint,You,Comparative Systems: Convergence vs. Divergence,Discussion,"contingency, lineage specific","Divergence in similar ecological niches.",W11-Th
+W11-Th,4/3/2026,Constraint Grammar Workshop,You,Comparative Systems: Convergence vs. Divergence,Workshop,"constraint grammar, modularity","Students map constraint substitution rules.",W12-Tu
+W12-Tu,4/8/2026,Ecosystem Feedback & Insect Guilds,You,Insects in Ecosystems,Lecture,"ecosystem feedback, guilds","Connect decomposers to biogeochemical stability.",W12-Th
+W12-Th,4/10/2026,Gaia, Closure & Planetary Coherence,You,Insects in Ecosystems,Discussion,"gaia, feedback, closure","Planetary coherence via countless small constraints.",W13-Tu
+W13-Tu,4/15/2026,Studio II: Capstone Development,You,Capstone,Workshop,"capstone, design","Develop and critique capstone proposals.",W13-Th
+W13-Th,4/17/2026,Workshop: Capstone Peer Review,You,Capstone,Workshop,"peer review, capstone","Students evaluate constraint mapping clarity.",W14-Tu
+W14-Tu,4/22/2026,Final Capstone Presentations,You,Capstone,Presentation,"presentation, synthesis","Capstone final session.",W14-Th
+W14-Th,4/24/2026,Constraint Grammar of Life (Course Synthesis),You,Course Synthesis,Lecture,"synthesis, grammar of life","Wrap-up synthesis across the theory stack.",""
 """
 
-DEFAULT_COLUMNS = [
-    "session_id", "date", "title", "instructor", "module",
-    "activity", "keywords", "notes", "connect_with"
-]
+# ---------------------------------------------------------
+# Load embedded CSV
+# ---------------------------------------------------------
+df = pd.read_csv(io.StringIO(CSV_TEXT), dtype=str).fillna("")
 
-# -------------------------------------------------------------------
-# 2. Helpers
-# -------------------------------------------------------------------
-def _clean_keywords(s: str) -> List[str]:
-    if pd.isna(s) or not str(s).strip():
-        return []
-    toks = [t.strip().lower() for t in str(s).replace(";", ",").split(",")]
+# Build keyword lists
+def _clean_keywords(s: str):
+    if not s: return []
+    toks = [t.strip().lower() for t in s.replace(";", ",").split(",")]
     return sorted({t for t in toks if t})
 
+def _split_multi(s: str):
+    if not s: return []
+    return [t.strip() for t in s.replace(";", ",").split(",") if t.strip()]
 
-def _split_multi(s: str) -> List[str]:
-    if pd.isna(s) or not str(s).strip():
-        return []
-    return [t.strip() for t in str(s).replace(";", ",").split(",") if t.strip()]
+# ---------------------------------------------------------
+# Streamlit Layout
+# ---------------------------------------------------------
+st.set_page_config(page_title="Insect–Microbe Systems Explorer", layout="wide")
+st.title("Insect–Microbe Systems — Course Explorer")
 
-
-def load_sessions_from_embedded_csv() -> pd.DataFrame:
-    df = pd.read_csv(io.StringIO(CSV_TEXT), dtype=str).fillna("")
-    # Ensure expected columns exist in the right order
-    for col in DEFAULT_COLUMNS:
-        if col not in df.columns:
-            df[col] = ""
-    return df[DEFAULT_COLUMNS]
-
-
-# -------------------------------------------------------------------
-# 3. Streamlit setup
-# -------------------------------------------------------------------
-st.set_page_config(page_title="Insect–Microbe Systems", layout="wide")
-
-if "sessions" not in st.session_state:
-    st.session_state.sessions = load_sessions_from_embedded_csv()
-
-st.sidebar.title("Course Session Network")
-
-with st.sidebar.expander("Data", expanded=True):
-    # Download current sessions as CSV (for your own reference)
-    buf = io.StringIO()
-    st.session_state.sessions.to_csv(buf, index=False)
-    st.download_button(
-        "Download sessions.csv",
-        buf.getvalue(),
-        "sessions.csv",
-        "text/csv"
-    )
-
-with st.sidebar.expander("Network Settings", expanded=True):
-    min_shared = st.slider("Min shared keywords", 1, 5, 1)
+with st.sidebar:
+    st.header("Network Settings")
+    min_shared = st.slider("Minimum shared keywords", 1, 5, 1)
     include_manual = st.checkbox("Include manual connects", True)
 
-tab_data, tab_graph = st.tabs(["Data / View", "Graph Explorer"])
+tab_data, tab_graph = st.tabs(["Session Table", "Graph Explorer"])
 
-# -------------------------------------------------------------------
-# 4. Data tab
-# -------------------------------------------------------------------
+# ---------------------------------------------------------
+# TABLE TAB
+# ---------------------------------------------------------
 with tab_data:
-    st.markdown("## Session Table (read-only for public viewers)")
-    st.dataframe(
-        st.session_state.sessions[DEFAULT_COLUMNS],
-        hide_index=True,
-        use_container_width=True,
-    )
+    st.markdown("### Full Course Outline")
+    st.dataframe(df, use_container_width=True, hide_index=True)
 
-# -------------------------------------------------------------------
-# 5. Graph tab
-# -------------------------------------------------------------------
+# ---------------------------------------------------------
+# GRAPH TAB
+# ---------------------------------------------------------
 with tab_graph:
-    df = st.session_state.sessions.copy()
-
     G = nx.Graph()
 
     # Add nodes
     for _, row in df.iterrows():
         kws = _clean_keywords(row["keywords"])
-        node_data = row.to_dict()
-        node_data["keywords"] = kws
-        G.add_node(row["session_id"], **node_data)
-
-    nodes = list(G.nodes())
+        data = row.to_dict()
+        data["keywords"] = kws
+        G.add_node(row["session_id"], **data)
 
     # Keyword-based edges
+    nodes = list(G.nodes())
     for i in range(len(nodes)):
-        for j in range(i + 1, len(nodes)):
+        for j in range(i+1, len(nodes)):
             a, b = nodes[i], nodes[j]
             shared = len(set(G.nodes[a]["keywords"]) & set(G.nodes[b]["keywords"]))
             if shared >= min_shared:
                 G.add_edge(a, b)
 
-    # Manual connects
+    # Manual connections
     if include_manual:
         for n in nodes:
             for m in _split_multi(G.nodes[n]["connect_with"]):
                 if m in nodes and m != n:
                     G.add_edge(n, m)
 
-    # Build PyVis graph
-    net = Network(
-        height="700px",
-        width="100%",
-        directed=False,
-        bgcolor="#ffffff",
-        font_color="#222222",
-    )
+    # PyVis network build
+    net = Network(height="700px", width="100%", bgcolor="#ffffff", font_color="#222")
     net.barnes_hut()
 
-    palette = [
-        "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
-        "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
-    ]
-    mods = sorted({G.nodes[n]["module"] for n in nodes})
-    color_map = {m: palette[i % len(palette)] for i, m in enumerate(mods)}
+    # Color by module
+    palette = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+               "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]
+    modules = sorted(df["module"].unique())
+    colors = {m: palette[i % len(palette)] for i, m in enumerate(modules)}
 
-    # Use PyVis's built-in HTML tooltip via the 'title' field
     for n in G.nodes():
         d = G.nodes[n]
         tip = (
             f"<b>{d['title']}</b><br>"
-            f"{d['date']} | {d['module']}<br>"
+            f"{d['date']} ({d['module']})<br>"
             f"{d['activity']}<br>"
             f"<i>{', '.join(d['keywords'])}</i>"
         )
-        net.add_node(
-            n,
-            label=n,
-            title=tip,
-            color=color_map.get(d["module"], "#999999"),
-            size=25,
-            shape="dot",
-        )
+        net.add_node(n, label=n, title=tip, color=colors.get(d['module'], "#999"))
 
     for u, v in G.edges():
         net.add_edge(u, v, color="#cccccc")
 
-    net.set_options("""
-    {
-      "interaction": {"hover": true, "navigationButtons": true},
-      "physics": {
-        "enabled": true,
-        "stabilization": {"enabled": true, "iterations": 500},
-        "barnesHut": {"springLength": 150}
-      }
-    }
-    """)
-
     net.save_graph("graph.html")
-    html = open("graph.html", "r", encoding="utf-8").read()
+    with open("graph.html", "r", encoding="utf-8") as f:
+        html = f.read()
+
     st.components.v1.html(html, height=750)
 
-    # ----------------
-    # Session Passport
-    # ----------------
-    st.markdown("---")
+    # Passport
     st.markdown("### Session Passport")
-
     selected = st.selectbox(
-        "Select a session:",
-        sorted(df["session_id"]),
-        format_func=lambda x: f"{x} — {df.loc[df['session_id'] == x, 'title'].values[0]}",
+        "Choose a session:",
+        df["session_id"].tolist(),
+        format_func=lambda x: f"{x} — {df.loc[df['session_id']==x, 'title'].values[0]}"
     )
 
-    if selected in df["session_id"].values:
-        d = df.loc[df["session_id"] == selected].iloc[0]
-        st.markdown(f"#### {d['title']}")
-        st.markdown(
-            f"**Date:** {d['date']}  \n"
-            f"**Instructor:** {d['instructor']}  \n"
-            f"**Module:** {d['module']}  \n"
-            f"**Activity:** {d['activity']}  \n"
-            f"**Keywords:** {d['keywords']}  \n\n"
-            f"**Notes:**  \n{d['notes']}"
-        )
+    d = df[df["session_id"] == selected].iloc[0]
+    st.markdown(f"#### {d['title']}")
+    st.write(f"**Date:** {d['date']}")
+    st.write(f"**Instructor:** {d['instructor']}")
+    st.write(f"**Module:** {d['module']}")
+    st.write(f"**Activity:** {d['activity']}")
+    st.write(f"**Keywords:** {d['keywords']}")
+    st.write("**Notes:**")
+    st.markdown(d["notes"])
