@@ -1,4 +1,4 @@
-# symbiotic_stories.py — FINAL FULLY PATCHED VERSION
+# symbiotic_stories.py — FINAL FULLY PATCHED, FULLY WORKING VERSION
 
 from __future__ import annotations
 import io
@@ -9,7 +9,7 @@ import streamlit as st
 from typing import List
 
 # ------------------------------------------------------
-# FIX 1: DEFAULT_COLUMNS updated to include "theory"
+# COLUMN MODEL — including theory
 # ------------------------------------------------------
 DEFAULT_COLUMNS = [
     "session_id","date","title","instructor","module",
@@ -28,7 +28,7 @@ SAMPLE_ROWS=[{
 }]
 
 # ------------------------------------------------------
-# FIX 2: Mojibake cleanup table
+# MOJIBAKE CLEANUP
 # ------------------------------------------------------
 def clean_mojibake(s: str) -> str:
     if not isinstance(s, str): 
@@ -47,7 +47,7 @@ def fix_df_unicode(df: pd.DataFrame) -> pd.DataFrame:
     return df.applymap(clean_mojibake)
 
 # ------------------------------------------------------
-# Helpers
+# KEYWORD HELPERS
 # ------------------------------------------------------
 def _clean_keywords(s:str)->List[str]:
     if pd.isna(s) or not str(s).strip(): return []
@@ -59,7 +59,7 @@ def _split_multi(s:str)->List[str]:
     return [t.strip() for t in str(s).replace(";",",").split(",") if t.strip()]
 
 # ------------------------------------------------------
-# Streamlit Setup
+# STREAMLIT SETUP
 # ------------------------------------------------------
 st.set_page_config(page_title="Insect–Microbe Systems", layout="wide")
 
@@ -67,40 +67,52 @@ if "sessions" not in st.session_state:
     st.session_state.sessions = pd.DataFrame(SAMPLE_ROWS, columns=DEFAULT_COLUMNS)
 
 # ------------------------------------------------------
-# Sidebar
+# SIDEBAR
 # ------------------------------------------------------
 st.sidebar.title("Course Session Network")
 
 with st.sidebar.expander("Data IO", expanded=True):
 
-    # Download current CSV
+    # Download existing CSV
     buf = io.StringIO()
     st.session_state.sessions.to_csv(buf, index=False)
     st.download_button("Download sessions.csv", buf.getvalue(), "sessions.csv","text/csv")
 
-    # Upload new csv with robust encoding fallback
+    # Upload new CSV — ***corrected version***
     up = st.file_uploader("Upload sessions.csv", type=["csv"])
     if up:
-        try:
-            df = pd.read_csv(up, dtype=str, encoding="utf-8")
-        except UnicodeDecodeError:
-            df = pd.read_csv(up, dtype=str, encoding="latin1")
+        # --- THE CRITICAL FIX: READ THE BYTES ONCE ---
+        raw = up.read()
 
+        # Attempt UTF-8
+        try:
+            df = pd.read_csv(io.BytesIO(raw), dtype=str, encoding="utf-8")
+        except Exception:
+            # Attempt Latin-1
+            try:
+                df = pd.read_csv(io.BytesIO(raw), dtype=str, encoding="latin1")
+            except Exception:
+                st.error("Unable to read CSV. Check encoding or structure.")
+                st.stop()
+
+        # Fill empty cells
         df = df.fillna("")
+
+        # Clean mojibake
         df = fix_df_unicode(df)
 
-        # Ensure all expected columns exist
+        # Ensure all required columns exist
         for col in DEFAULT_COLUMNS:
             if col not in df.columns:
                 df[col] = ""
 
-        # Keep only expected columns (extra cols ignored)
+        # Strip to expected columns only
         df = df[DEFAULT_COLUMNS]
 
         st.session_state.sessions = df
-        st.success("CSV loaded cleanly.")
+        st.success("CSV loaded successfully.")
 
-    # Reset button
+    # Reset sample data
     if st.button("Reset sample"):
         st.session_state.sessions = pd.DataFrame(SAMPLE_ROWS, columns=DEFAULT_COLUMNS)
 
@@ -109,7 +121,7 @@ with st.sidebar.expander("Network Settings", expanded=True):
     include_manual = st.checkbox("Include manual connects", True)
 
 # ------------------------------------------------------
-# Tabs
+# MAIN UI — Tabs
 # ------------------------------------------------------
 tab_data, tab_graph = st.tabs(["Data / Edit", "Graph Explorer"])
 
@@ -117,6 +129,7 @@ tab_data, tab_graph = st.tabs(["Data / Edit", "Graph Explorer"])
 # DATA TAB
 # ------------------------------------------------------
 with tab_data:
+
     st.markdown("## Add / Edit Session")
 
     with st.form("add_session"):
@@ -133,7 +146,6 @@ with tab_data:
 
         notes = st.text_area("Notes")
         theory = st.text_area("Theory (full sentences)")
-
         connect = st.text_input("Connect with (IDs comma-separated)")
 
         if st.form_submit_button("Add / Update") and sid.strip():
@@ -154,10 +166,13 @@ with tab_data:
             if sid in df["session_id"].values:
                 df.loc[df["session_id"]==sid, list(r.keys())] = pd.Series(r)
             else:
-                st.session_state.sessions = pd.concat([df,pd.DataFrame([r])],ignore_index=True)
-
+                st.session_state.sessions = pd.concat(
+                    [df,pd.DataFrame([r])],
+                    ignore_index=True
+                )
             st.success(f"Saved {sid}")
 
+    # Inline editor
     st.markdown("### Inline Edit")
     edited = st.data_editor(
         st.session_state.sessions[DEFAULT_COLUMNS],
@@ -175,42 +190,51 @@ with tab_data:
 with tab_graph:
     df = st.session_state.sessions.copy()
 
-    # Build graph
     G = nx.Graph()
+
+    # Create nodes
     for _,row in df.iterrows():
-        kws=_clean_keywords(row["keywords"])
-        node_data=row.to_dict()
-        node_data["keywords"]=kws
-        G.add_node(row["session_id"],**node_data)
+        kws = _clean_keywords(row["keywords"])
+        node_data = row.to_dict()
+        node_data["keywords"] = kws
+        G.add_node(row["session_id"], **node_data)
 
-    nodes=list(G.nodes())
+    nodes = list(G.nodes())
 
-    # Keyword-based edges
+    # Keyword-based connections
     for i in range(len(nodes)):
         for j in range(i+1,len(nodes)):
-            a,b=nodes[i],nodes[j]
-            shared=len(set(G.nodes[a]["keywords"])&set(G.nodes[b]["keywords"]))
-            if shared>=min_shared:
+            a,b = nodes[i], nodes[j]
+            shared = len(set(G.nodes[a]["keywords"]) & set(G.nodes[b]["keywords"]))
+            if shared >= min_shared:
                 G.add_edge(a,b)
 
     # Manual connections
     if include_manual:
         for n in nodes:
             for m in _split_multi(G.nodes[n]["connect_with"]):
-                if m in nodes and m!=n:
+                if m in nodes and m != n:
                     G.add_edge(n,m)
 
-    # PyVis network
-    net=Network(height="700px",width="100%",directed=False,bgcolor="#fff",font_color="#222")
+    # PyVis graph
+    net = Network(
+        height="700px",
+        width="100%",
+        directed=False,
+        bgcolor="#fff",
+        font_color="#222"
+    )
     net.barnes_hut()
 
-    palette=["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b",
-             "#e377c2","#7f7f7f","#bcbd22","#17becf"]
-    mods=sorted({G.nodes[n]["module"] for n in nodes})
-    color_map={m:palette[i%len(palette)] for i,m in enumerate(mods)}
+    palette = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd",
+               "#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
 
+    mods = sorted({G.nodes[n]["module"] for n in nodes})
+    color_map = {m: palette[i % len(palette)] for i,m in enumerate(mods)}
+
+    # Add nodes with custom HTML tooltip
     for n in G.nodes():
-        d=G.nodes[n]
+        d = G.nodes[n]
         html_tip = (
             f"<b>{d['title']}</b><br>"
             f"{d['date']} | {d['module']}<br>"
@@ -220,14 +244,20 @@ with tab_graph:
         )
 
         net.add_node(
-            n,label=n,title="",  
-            color=color_map.get(d["module"],"#999"),size=25,shape="dot",
+            n,
+            label=n,
+            title="",  # disable vis.js tooltip
+            color=color_map.get(d["module"],"#999"),
+            size=25,
+            shape="dot",
             custom_html=html_tip
         )
 
-    for u,v in G.edges(): 
+    # Add edges
+    for u,v in G.edges():
         net.add_edge(u,v,color="#ccc")
 
+    # Physics config
     net.set_options("""
     {
       "interaction": {"hover": true, "navigationButtons": true},
@@ -239,9 +269,11 @@ with tab_graph:
     }
     """)
 
-    # Inject custom tooltip JS
+    # Render graph with JS tooltip injection
     net.save_graph("graph.html")
-    html=open("graph.html","r",encoding="utf-8").read()
+    html = open("graph.html","r",encoding="utf-8").read()
+
+    # Inject custom tooltip JS
     html = html.replace("</script>", """
     const tip = document.createElement('div');
     tip.style.position='fixed';
@@ -263,7 +295,9 @@ with tab_graph:
         tip.style.display='block';
       }
     });
+
     network.on("blurNode",()=>tip.style.display='none');
+
     document.addEventListener('mousemove',(e)=>{
       tip.style.left=(e.clientX+12)+'px';
       tip.style.top=(e.clientY+12)+'px';
@@ -280,7 +314,9 @@ with tab_graph:
 
     st.components.v1.html(html,height=750)
 
-    # Passport
+    # ----------------
+    # Session Passport
+    # ----------------
     st.markdown("---")
     st.markdown("### Session Passport")
 
@@ -296,16 +332,15 @@ with tab_graph:
     </script>
     """, unsafe_allow_html=True)
 
+    # Fetch clicked ID
     clicked_id = st.query_params.get("clicked")
     if clicked_id:
         clicked_id = clicked_id[0] if isinstance(clicked_id, list) else clicked_id
-    else:
-        clicked_id = None
 
     selected = clicked_id or st.selectbox(
         "Select a session:",
         sorted(df["session_id"]),
-        format_func=lambda x: f"{x} — {df.loc[df["session_id"]==x,'title'].values[0]}"
+        format_func=lambda x: f"{x} — {df.loc[df['session_id']==x,'title'].values[0]}"
     )
 
     if selected in df["session_id"].values:
