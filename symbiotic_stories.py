@@ -9,7 +9,7 @@ from typing import List
 
 DEFAULT_COLUMNS = [
     "session_id","date","title","instructor","module",
-    "activity","keywords","notes","connect_with"
+    "activity","keywords","notes","connect_with","theory"
 ]
 SAMPLE_ROWS=[{
     "session_id":"W1-Tu","date":"2026-01-13",
