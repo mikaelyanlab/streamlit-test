@@ -19,8 +19,9 @@ DATA_JSON = r"""
     "module": "The Individual as a System: Feedback and Flow",
     "activity": "Lecture",
     "keywords": "feedback, dissipative structure, cybernetics, termite gut",
-    "notes": "Course overview; systems framing using insect–microbe examples. Discuss autonomy, feedback, openness. Introduce course expectations. Begin discussion of systems as defined by Prigogine and Wiener.",
-    "connect_with": "W1-Th"
+    "notes": "Course overview; systems framing using insect-microbe examples. Discuss autonomy, feedback, openness. Introduce course expectations. Begin discussion of systems as defined by Prigogine and Wiener.",
+    "connect_with": "W1-Th",
+    "theory": "We introduce Ashby's cybernetics and Prigogine's dissipative structures to frame an insect as a feedback-controlled, far-from-equilibrium system, using Meadows' stocks and flows to show how physiology is continuous regulation of flux."
   },
   {
     "session_id": "W1-Th",
@@ -31,7 +32,8 @@ DATA_JSON = r"""
     "activity": "Workshop",
     "keywords": "flow, homeostasis, trophallaxis, colony stability",
     "notes": "Explore feedback via visual loops and interactive tools. Introduce cybernetics and feedback via Wiener; students simulate simple positive/negative loops in Streamlit using digestive and behavioral analogies.",
-    "connect_with": "W2-Tu"
+    "connect_with": "W2-Tu",
+    "theory": "We use Schroedinger's neg-entropy and Ashby's law of requisite variety to show that boundaries (cuticle, tracheae, gut) are constraints that reduce environmental possibilities so control becomes energetically affordable."
   },
   {
     "session_id": "W2-Tu",
@@ -42,7 +44,8 @@ DATA_JSON = r"""
     "activity": "Lab",
     "keywords": "simulation, redox, microbial syntrophy, termite",
     "notes": "Introduce stocks and flows. Students explore flow-through insect gut models using Streamlit sandbox. Framing via metabolic networks and resource bottlenecks.",
-    "connect_with": "W2-Th"
+    "connect_with": "W2-Th",
+    "theory": "Meadows' stock-flow formalism and Lotka-Odum energetics are applied to a termite gut model so students can see how feedback and throughput stabilize redox and nutrient gradients in a dissipative structure."
   },
   {
     "session_id": "W2-Th",
@@ -52,8 +55,9 @@ DATA_JSON = r"""
     "module": "Transition to M2",
     "activity": "Discussion",
     "keywords": "feedback, constraint, individuality",
-    "notes": "Constraint closure and autonomy in the holobiont. Streamlit model of host-microbe bottlenecks. Waddington’s landscape introduced for multi-variable constraint interaction.",
-    "connect_with": "W3-Tu"
+    "notes": "Constraint closure and autonomy in the holobiont. Streamlit model of host-microbe bottlenecks. Waddington's landscape introduced for multi-variable constraint interaction.",
+    "connect_with": "W3-Tu",
+    "theory": "Wagner's constraint-closure theory and Kauffman's autocatalytic sets are introduced to formalize how repeated feedback hardens into architecture, with Vermeij's forbidden phenotypes as evidence that past successes canalize future evolutionary options."
   },
   {
     "session_id": "W3-Tu",
@@ -63,8 +67,9 @@ DATA_JSON = r"""
     "module": "The Emergence of the Holobiont: Constraint and Integration",
     "activity": "Lecture",
     "keywords": "constraint closure, canalization, autonomy, Kauffman",
-    "notes": "Model gut retention and resource availability via diet in cockroaches. Students manipulate inputs like pH, fiber content, retention time. Systems framing: input–processing–output chains.",
-    "connect_with": "W3-Th"
+    "notes": "Model gut retention and resource availability via diet in cockroaches. Students manipulate inputs like pH, fiber content, retention time. Systems framing: input-processing-output chains.",
+    "connect_with": "W3-Th",
+    "theory": "We develop holobiont autonomy using Moreno-Mossio style constraint closure and Deacon's idea of coupled constraints, treating the insect-microbe system as a self-maintaining organization rather than a host plus add-ons."
   },
   {
     "session_id": "W3-Th",
@@ -75,7 +80,8 @@ DATA_JSON = r"""
     "activity": "Case Discussion",
     "keywords": "robustness, holobiont, nitrogen cycle, symbiosis",
     "notes": "Instructor check-ins and one-on-one explanations. In-class feedback used for formative grading. Discussion of emergent properties from varying initial constraints.",
-    "connect_with": "W4-Tu"
+    "connect_with": "W4-Tu",
+    "theory": "Rosen's metabolism-repair intuition and Deacon's teleodynamics are used qualitatively to analyze a real holobiont case, highlighting how coupled constraints across host tissues and microbes sustain identity over perturbations."
   },
   {
     "session_id": "W4-Tu",
@@ -86,7 +92,8 @@ DATA_JSON = r"""
     "activity": "Streamlit Lab",
     "keywords": "nitrogen flux, feedback closure, termite",
     "notes": "Termite social digestion and trophallaxis. Streamlit model demonstrates emergent function through group behavior. Scale transitions from individual to collective.",
-    "connect_with": "W4-Th"
+    "connect_with": "W4-Th",
+    "theory": "Lotka-Odum ecosystem energetics and Arditi & Ginzburg's consumer-resource theory frame nitrogen flux as an outer feedback that writes ecological constraint onto termite gut morphology, community composition, and behavior."
   },
   {
     "session_id": "W4-Th",
@@ -97,7 +104,8 @@ DATA_JSON = r"""
     "activity": "Discussion",
     "keywords": "autonomy, fragility, robustness",
     "notes": "Explore effects of group size, redundancy, and task-sharing. Discuss concepts of distributed control and efficiency plateaus using the trophallaxis simulator.",
-    "connect_with": "W5-Tu"
+    "connect_with": "W5-Tu",
+    "theory": "Kitano's robustness-fragility trade-off and Holling's resilience concepts help students interpret integration versus vulnerability, showing how redundancy and modularity in insect-microbe networks buffer shocks but create new failure modes."
   },
   {
     "session_id": "W5-Tu",
@@ -107,8 +115,9 @@ DATA_JSON = r"""
     "module": "Pathogenic Hijack: Robustness and Vulnerability",
     "activity": "Lecture",
     "keywords": "pathogen, robustness, feedback failure, Casadevall",
-    "notes": "Introduce host-pathogen models; immune–microbe tradeoffs. Damage-response framework introduced. Class discussion on ecological context of virulence.",
-    "connect_with": "W5-Th"
+    "notes": "Introduce host-pathogen models; immune-microbe tradeoffs. Damage-response framework introduced. Class discussion on ecological context of virulence.",
+    "connect_with": "W5-Th",
+    "theory": "Casadevall and Pirofski's damage-response framework recasts infection as a systems-level outcome of host-microbe feedback, revealing how the same microbe can be commensal or lethal depending on where constraints and setpoints sit."
   },
   {
     "session_id": "W5-Th",
@@ -119,7 +128,8 @@ DATA_JSON = r"""
     "activity": "Lab",
     "keywords": "Wolbachia, Massospora, immune feedback",
     "notes": "Students manipulate pathogen dose, microbiome composition, and host condition in a Streamlit model to explore survival vs. damage thresholds.",
-    "connect_with": "W6-Tu"
+    "connect_with": "W6-Tu",
+    "theory": "We treat pathogens as experimental probes of system structure, using the damage-response framework plus basic multilevel selection logic to show how fitness can be misaligned between microbe, individual insect, and colony."
   },
   {
     "session_id": "W6-Tu",
@@ -130,7 +140,8 @@ DATA_JSON = r"""
     "activity": "-",
     "keywords": "-",
     "notes": "Mini-presentations: students present behavior of simulation models with varied inputs. Discussion on parameter sensitivity and model structure.",
-    "connect_with": "W6-Th"
+    "connect_with": "W6-Th",
+    "theory": "Wellness day-- no new theoretical content is introduced; students consolidate earlier systems and constraint frameworks."
   },
   {
     "session_id": "W6-Th",
@@ -141,7 +152,8 @@ DATA_JSON = r"""
     "activity": "Lecture",
     "keywords": "evolution, constraint network, Kemp",
     "notes": "Dashboard activity: compare constraint interaction across different simulation models (e.g., diet, social, pathogen). Emphasize modularity and integration.",
-    "connect_with": "W7-Tu"
+    "connect_with": "W7-Tu",
+    "theory": "Wagner's theory of evolvability and Vermeij's evolutionary constraint ideas ground our view of innovation as constraint rewiring, where lineages reorganize developmental and ecological couplings to access previously forbidden phenotypes."
   },
   {
     "session_id": "W7-Tu",
@@ -152,7 +164,8 @@ DATA_JSON = r"""
     "activity": "Reading Discussion",
     "keywords": "major transitions, substitution, social insect",
     "notes": "Species interactions during carrion decomposition. Blowfly and dermestid scenarios explored in simulated environment. Timing and priority effects.",
-    "connect_with": "W7-Th"
+    "connect_with": "W7-Th",
+    "theory": "Szathmáry & Maynard Smith's major transitions theory and multilevel selection are applied to insect-microbe systems, showing how social digestion and symbiosis create new levels of individuality and new arenas for selection."
   },
   {
     "session_id": "W7-Th",
@@ -163,7 +176,8 @@ DATA_JSON = r"""
     "activity": "Streamlit Lab",
     "keywords": "simulation, network stability, rewiring",
     "notes": "Functional redundancy and role switching in communities. Use model to simulate control shifts when dominant decomposers are removed.",
-    "connect_with": "W8-Tu"
+    "connect_with": "W8-Tu",
+    "theory": "We implement simple agent-based and differential models so students can see constraint rewiring generate new attractors, making concrete the idea that evolution explores configuration space under structural limits."
   },
   {
     "session_id": "W8-Tu",
@@ -174,7 +188,8 @@ DATA_JSON = r"""
     "activity": "Discussion",
     "keywords": "constraint, ecology, resource pressure",
     "notes": "Add perturbations (e.g., pathogens, abiotic shifts) to previously stable models. Introduce resilience, stability landscapes, and attractor dynamics.",
-    "connect_with": "W8-Th"
+    "connect_with": "W8-Th",
+    "theory": "This synthesis session explicitly connects all prior theories---cybernetics, constraint closure, robustness, damage-response, evolvability, and major transitions---into one narrative of how insect-microbe systems learn and persist."
   },
   {
     "session_id": "W8-Th",
@@ -185,7 +200,8 @@ DATA_JSON = r"""
     "activity": "Lecture",
     "keywords": "autocatalytic set, niche construction, resource constraint",
     "notes": "Student-led model edits. Each group proposes new configuration, justifies it, and tests the emergent outcomes in the Streamlit framework.",
-    "connect_with": "W10-Tu"
+    "connect_with": "W10-Tu",
+    "theory": "Niche construction theory and Kauffman's autocatalytic sets frame resource scarcity and symbiosis as a coupled search: insects and microbes co-create constraint networks that stabilize metabolism under limiting nutrients."
   },
   {
     "session_id": "W9",
@@ -196,7 +212,8 @@ DATA_JSON = r"""
     "activity": "-",
     "keywords": "-",
     "notes": "No class.",
-    "connect_with": "-"
+    "connect_with": "-",
+    "theory": "Spring Break-- no class meeting and no new theory; students are expected to reflect on how the existing theoretical toolkit applies to their capstone system."
   },
   {
     "session_id": "W10-Tu",
@@ -207,7 +224,8 @@ DATA_JSON = r"""
     "activity": "Streamlit Lab",
     "keywords": "nitrogen limitation, fermentation, termite, cockroach",
     "notes": "Gas flux dashboard: students examine cross-system outputs (NH3, CH4, CO2). Compare diet, group size, species. Emergence across nested systems.",
-    "connect_with": "W10-Th"
+    "connect_with": "W10-Th",
+    "theory": "We extend Lotka-Odum energetics and consumer-resource theory into a hands-on nitrogen flux model, helping students see how constraint at the resource level channels coexistence, competition, and potential convergence."
   },
   {
     "session_id": "W10-Th",
@@ -218,7 +236,8 @@ DATA_JSON = r"""
     "activity": "Mini Lab",
     "keywords": "aphid, ant, sugar metabolism, amino acid",
     "notes": "Interpret patterns. Discussion on flow-through systems as energy/material processors. Students reflect on limits of inference across systems.",
-    "connect_with": "W11-Tu"
+    "connect_with": "W11-Tu",
+    "theory": "Mutualism economics à la Douglas and simple consumer-resource models are used to analyse phloem and sugar symbioses, highlighting how trading partners share and shift constraints on carbon and nitrogen processing."
   },
   {
     "session_id": "W11-Tu",
@@ -229,7 +248,8 @@ DATA_JSON = r"""
     "activity": "Seminar",
     "keywords": "constraint grammar, convergence",
     "notes": "Construct feedback networks linking multiple biological scales. Systems bootstrapping. Simulation of feedback across levels using custom diagrams.",
-    "connect_with": "W11-Th"
+    "connect_with": "W11-Th",
+    "theory": "We introduce convergence as evidence of underlying constraint grammar, using Simpson's adaptive peaks and Wagner's constraint networks to argue that similar pressures plus similar constraints yield similar insect-microbe designs."
   },
   {
     "session_id": "W11-Th",
@@ -240,7 +260,8 @@ DATA_JSON = r"""
     "activity": "Lecture",
     "keywords": "convergence, attractor, evolvability",
     "notes": "Constraint rewiring: loss or change of control mechanisms in systems. Explore repair vs. rewiring in models of microbial succession or pathogenesis.",
-    "connect_with": "W12-Tu"
+    "connect_with": "W12-Tu",
+    "theory": "Comparative gut designs in termites, passalids, and other wood-feeders are read through convergence theory and correlated progression (Kemp), emphasising how repeated modules, not identical genes, explain functional similarity."
   },
   {
     "session_id": "W12-Tu",
@@ -251,7 +272,8 @@ DATA_JSON = r"""
     "activity": "Discussion",
     "keywords": "divergence, stable state, innovation",
     "notes": "Final project sprint I. Students select a system level and design a new simulation-based inquiry. Justify variables, feedbacks, and expected flows.",
-    "connect_with": "W12-Th"
+    "connect_with": "W12-Th",
+    "theory": "Gould's historical contingency and Wagner's lineage-specific constraints explain why similar ecological problems can produce divergent holobiont architectures and alternative stable states in gut communities."
   },
   {
     "session_id": "W12-Th",
@@ -262,7 +284,8 @@ DATA_JSON = r"""
     "activity": "Workshop",
     "keywords": "constraint grammar, comparative evolution",
     "notes": "Final project sprint II. Instructor and peer feedback. Prepare short walkthrough + explanation of logic and simulated outcomes.",
-    "connect_with": "W13-Tu"
+    "connect_with": "W13-Tu",
+    "theory": "We treat 'constraint grammar' explicitly, asking students to map which developmental, ecological, and symbiotic constraints can be substituted, combined, or held fixed to generate the observed space of insect-microbe solutions."
   },
   {
     "session_id": "W13-Tu",
@@ -273,7 +296,8 @@ DATA_JSON = r"""
     "activity": "Lecture",
     "keywords": "scaling, feedback, constraint coupling",
     "notes": "Student presentations (Group A). Focus on systems representation, theory integration, and clarity of simulated design.",
-    "connect_with": "W13-Th"
+    "connect_with": "W13-Th",
+    "theory": "Odum's ecosystem energetics and Lovelock's Gaia hypothesis are reframed through insects, casting decomposer guilds and their microbes as distributed constraint networks that help stabilise planetary carbon and nutrient fluxes."
   },
   {
     "session_id": "W13-Th",
@@ -284,7 +308,8 @@ DATA_JSON = r"""
     "activity": "Lecture + Streamlit Model",
     "keywords": "Gaia, teleodynamics, planetary homeostasis",
     "notes": "Student presentations (Group B). As above. Peer and instructor scoring.",
-    "connect_with": "W14-Tu"
+    "connect_with": "W14-Tu",
+    "theory": "We make Gaia concrete by connecting constraint closure and multilevel feedback to real insect-driven biogeochemical cycles, arguing that biospheric coherence emerges from countless local insect-microbe control systems."
   },
   {
     "session_id": "W14-Tu",
@@ -295,7 +320,8 @@ DATA_JSON = r"""
     "activity": "Workshop",
     "keywords": "integration, scaling, resilience",
     "notes": "Synthesis discussion: What defines a system? How do microbial partners shape boundaries, constraints, and outcomes?",
-    "connect_with": "W14-Th"
+    "connect_with": "W14-Th",
+    "theory": "Students integrate gut-scale, colony-scale, and ecosystem-scale models to see how constraints propagate across levels, making Levin's hierarchy theory tangible in insect-microbe and decomposer-guild examples."
   },
   {
     "session_id": "W14-Th",
@@ -306,7 +332,8 @@ DATA_JSON = r"""
     "activity": "In-Class Project",
     "keywords": "rewiring, stability, innovation",
     "notes": "Guest lecture (tentative): microbial symbiosis in biotech. Open reflection on usefulness and limits of systems thinking.",
-    "connect_with": "W15-Tu"
+    "connect_with": "W15-Tu",
+    "theory": "Capstone Studio I uses all prior theories---constraint closure, robustness, niche construction, convergence/divergence, and evolutionary learning---as a design language for proposing and critiquing model rewiring."
   },
   {
     "session_id": "W15-Tu",
@@ -317,7 +344,8 @@ DATA_JSON = r"""
     "activity": "Poster Session",
     "keywords": "evaluation, synthesis, feedback design",
     "notes": "Conceptual quiz: draw or describe system structure and behavior. In-class one-on-one explanations. Simulation logic check.",
-    "connect_with": "W15-Th"
+    "connect_with": "W15-Th",
+    "theory": "During peer review, students evaluate each other's capstones explicitly on how well they operationalise the course's systems theories and make constraint structures, feedbacks, and evolutionary possibilities legible."
   },
   {
     "session_id": "W15-Th",
@@ -328,7 +356,8 @@ DATA_JSON = r"""
     "activity": "Presentation",
     "keywords": "integration, synthesis, systems grammar",
     "notes": "Final wrap-up. Students write course feedback. Recap on autonomy, feedback, constraint, emergence across all levels.",
-    "connect_with": "W16-Tu"
+    "connect_with": "W16-Tu",
+    "theory": "Final capstone presentations require students to narrate their focal system using the full theoretical stack from the course, effectively demonstrating fluency in constraint-centred systems thinking for insect-microbe interactions."
   },
   {
     "session_id": "W16-Tu",
@@ -339,7 +368,8 @@ DATA_JSON = r"""
     "activity": "Discussion",
     "keywords": "reflection, coherence, feedback grammar",
     "notes": "Integrate concepts from individual to planetary scale; discuss future directions.",
-    "connect_with": "-"
+    "connect_with": "-",
+    "theory": "We close by making explicit how thermodynamic, informational, developmental, ecological, and evolutionary constraints form a coherent grammar of life, and ask students to reflect on how insect-microbe systems instantiate that grammar."
   }
 ]
 """
