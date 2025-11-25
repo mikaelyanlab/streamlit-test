@@ -200,11 +200,11 @@ DATA_JSON = r"""
     "activity": "Lecture",
     "keywords": "autocatalytic set, niche construction, resource constraint",
     "notes": "Student-led model edits. Each group proposes new configuration, justifies it, and tests the emergent outcomes in the Streamlit framework.",
-    "connect_with": "W10-Tu",
+    "connect_with": "W9-Tu",
     "theory": "Niche construction theory and Kauffman's autocatalytic sets frame resource scarcity and symbiosis as a coupled search: insects and microbes co-create constraint networks that stabilize metabolism under limiting nutrients."
   },
   {
-    "session_id": "W9",
+    "session_id": "W9-Tu",
     "date": "3/10/2026",
     "title": "Spring Break",
     "instructor": "Mikaelyan",
@@ -213,6 +213,18 @@ DATA_JSON = r"""
     "keywords": "-",
     "notes": "No class.",
     "connect_with": "-",
+    "theory": "Spring Break-- no class meeting and no new theory; students are expected to reflect on how the existing theoretical toolkit applies to their capstone system."
+  },
+   {
+    "session_id": "W9-Th",
+    "date": "3/10/2026",
+    "title": "Spring Break",
+    "instructor": "Mikaelyan",
+    "module": "-",
+    "activity": "-",
+    "keywords": "-",
+    "notes": "No class.",
+    "connect_with": "W10-Tu",
     "theory": "Spring Break-- no class meeting and no new theory; students are expected to reflect on how the existing theoretical toolkit applies to their capstone system."
   },
   {
