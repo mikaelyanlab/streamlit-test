@@ -454,6 +454,7 @@ def assign_themes(keywords):
 # ---------------------------------------------------------
 st.set_page_config(layout="wide", page_title="ENT-591/791-006 | Insect–Microbe Systems Explorer")
 st.markdown("<h2 style='margin-bottom: 0.5em;'>Symbiotic Stories: Battles, Bonds, and Beyond</h2>", unsafe_allow_html=True)
+st.markdown("<h3 style='margin-bottom: 0.5em;'>A graduate course examining insect–microbe partnerships through the lens of feedback, constraint, and systems theory.</h2>", unsafe_allow_html=True)
 st.caption("Spring 2026 • Dr. Aram Mikaelyan (Entomology and Plant Pathology, NCSU) • Gardner Hall, 1406")
 st.caption("[Check out the Mikaelyan Lab](https://www.mikaelyanlab.com)")
 
