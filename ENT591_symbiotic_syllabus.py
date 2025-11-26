@@ -580,7 +580,7 @@ with tab_graph:
 # Critical line for initial full view:
 net.fit(view="full")   # or simply net.fit()
 
-    for node in G.nodes():
+  for node in G.nodes():
         d = G.nodes[node]
         html_tip = f"""
         <div style='font-family:sans-serif; font-size:14px; line-height:1.25;'>
