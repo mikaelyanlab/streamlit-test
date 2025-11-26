@@ -31,7 +31,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W1-Th",
-    "date": "1/15/2026",
+    "date": "1/15/2026 13:30",
     "title": "Systems Bootcamp II - Mapping Feedback Flow",
     "instructor": "Mikaelyan",
     "module": "The Individual as a System: Feedback and Flow",
@@ -44,7 +44,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W2-Tu",
-    "date": "1/20/2026",
+    "date": "1/20/2026 13:30",
     "title": "Simulation Lab: Termite Gut Flows",
     "instructor": "Mikaelyan",
     "module": "The Individual as a System: Feedback and Flow",
@@ -58,7 +58,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W2-Th",
-    "date": "1/22/2026",
+    "date": "1/22/2026 13:30",
     "title": "From Feedback to Constraint - Defining Boundaries",
     "instructor": "Mikaelyan",
     "module": "Transition to M2",
@@ -71,7 +71,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W3-Tu",
-    "date": "1/27/2026",
+    "date": "1/27/2026 13:30",
     "title": "Constraint Closure and Autonomy",
     "instructor": "Mikaelyan",
     "module": "The Emergence of the Holobiont: Constraint and Integration",
@@ -84,7 +84,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W3-Th",
-    "date": "1/29/2026",
+    "date": "1/29/2026 13:30",
     "title": "Case Study: Holobiont as System",
     "instructor": "Mikaelyan",
     "module": "The Emergence of the Holobiont: Constraint and Integration",
@@ -97,7 +97,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W4-Tu",
-    "date": "2/3/2026",
+    "date": "2/3/2026 13:30",
     "title": "Nitrogen Flux and System Stability",
     "instructor": "Mikaelyan",
     "module": "The Emergence of the Holobiont: Constraint and Integration",
@@ -111,7 +111,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W4-Th",
-    "date": "2/5/2026",
+    "date": "2/5/2026 13:30",
     "title": "Integration vs Vulnerability",
     "instructor": "Mikaelyan",
     "module": "Transition to M3",
@@ -124,7 +124,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W5-Tu",
-    "date": "2/10/2026",
+    "date": "2/10/2026 13:30",
     "title": "Host-Damage Response Framework",
     "instructor": "Mikaelyan",
     "module": "Pathogenic Hijack: Robustness and Vulnerability",
@@ -137,7 +137,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W5-Th",
-    "date": "2/12/2026",
+    "date": "2/12/2026 13:30",
     "title": "Pathogen as Probe of System Structure",
     "instructor": "Mikaelyan",
     "module": "Pathogenic Hijack: Robustness and Vulnerability",
@@ -164,7 +164,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W6-Th",
-    "date": "2/19/2026",
+    "date": "2/19/2026 13:30",
     "title": "Constraint Rewiring and Evolutionary Change",
     "instructor": "Mikaelyan",
     "module": "Evolutionary Transformation: Rewiring Constraint Networks",
@@ -177,7 +177,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W7-Tu",
-    "date": "2/24/2026",
+    "date": "2/24/2026 13:30",
     "title": "Major Transitions and Constraint Substitution",
     "instructor": "Mikaelyan",
     "module": "Evolutionary Transformation: Rewiring Constraint Networks",
@@ -190,7 +190,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W7-Th",
-    "date": "2/26/2026",
+    "date": "2/26/2026 13:30",
     "title": "Constraint Rewiring Simulation Workshop",
     "instructor": "Mikaelyan",
     "module": "Evolutionary Transformation: Rewiring Constraint Networks",
@@ -204,7 +204,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W8-Tu",
-    "date": "3/3/2026",
+    "date": "3/3/2026 13:30",
     "title": "Midterm Synthesis and Bridge to Ecology",
     "instructor": "Mikaelyan",
     "module": "Transition to M5",
@@ -218,7 +218,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W8-Th",
-    "date": "3/5/2026",
+    "date": "3/5/2026 13:30",
     "title": "Resource Scarcity and Symbiosis",
     "instructor": "Mikaelyan",
     "module": "Resource Drives and Ecological Constraint",
@@ -257,7 +257,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W10-Tu",
-    "date": "3/17/2026",
+    "date": "3/17/2026 13:30",
     "title": "Nitrogen Flux Model Workshop",
     "instructor": "Mikaelyan",
     "module": "Resource Drives and Ecological Constraint",
@@ -271,7 +271,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W10-Th",
-    "date": "3/19/2026",
+    "date": "3/19/2026 13:30",
     "title": "Phloem and Sugar Symbioses",
     "instructor": "Mikaelyan",
     "module": "Resource Drives and Ecological Constraint",
@@ -284,7 +284,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W11-Tu",
-    "date": "3/24/2026",
+    "date": "3/24/2026 13:30",
     "title": "From Resource Constraint to Convergence",
     "instructor": "Mikaelyan",
     "module": "Transition to M6",
@@ -297,7 +297,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W11-Th",
-    "date": "3/26/2026",
+    "date": "3/26/2026 13:30",
     "title": "Functional Convergence in Gut Designs",
     "instructor": "Mikaelyan",
     "module": "Convergence and Divergence",
@@ -310,7 +310,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W12-Tu",
-    "date": "3/31/2026",
+    "date": "3/31/2026 13:30",
     "title": "Divergence and Alternative Stable States",
     "instructor": "Mikaelyan",
     "module": "Convergence and Divergence",
@@ -323,7 +323,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W12-Th",
-    "date": "4/2/2026",
+    "date": "4/2/2026 13:30",
     "title": "Cross‑Lineage Constraint Grammar Workshop",
     "instructor": "Mikaelyan",
     "module": "Convergence and Divergence",
@@ -336,7 +336,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W13-Tu",
-    "date": "4/7/2026",
+    "date": "4/7/2026 13:30",
     "title": "From Convergence to Planetary Feedbacks",
     "instructor": "Mikaelyan",
     "module": "Transition to M7",
@@ -349,7 +349,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W13-Th",
-    "date": "4/9/2026",
+    "date": "4/9/2026 13:30",
     "title": "Gaia Theory and Planetary Coherence",
     "instructor": "Mikaelyan",
     "module": "Nested Systems and Planetary Coherence",
@@ -362,7 +362,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W14-Tu",
-    "date": "4/14/2026",
+    "date": "4/14/2026 13:30",
     "title": "Integrating Gut to Globe Feedbacks",
     "instructor": "Mikaelyan",
     "module": "Nested Systems and Planetary Coherence",
@@ -375,7 +375,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W14-Th",
-    "date": "4/16/2026",
+    "date": "4/16/2026 13:30",
     "title": "Capstone Studio I - Model Rewiring",
     "instructor": "Mikaelyan",
     "module": "Capstone Studio",
@@ -388,7 +388,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W15-Tu",
-    "date": "4/21/2026",
+    "date": "4/21/2026 13:30",
     "title": "Capstone Studio II - Peer Review",
     "instructor": "Mikaelyan",
     "module": "Capstone Studio",
@@ -402,7 +402,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W15-Th",
-    "date": "4/23/2026",
+    "date": "4/23/2026 13:30",
     "title": "Final Capstone Presentations",
     "instructor": "Mikaelyan",
     "module": "Capstone Studio",
@@ -416,7 +416,7 @@ DATA_JSON = r"""
   },
   {
     "session_id": "W16-Tu",
-    "date": "4/28/2026",
+    "date": "4/28/2026 13:30",
     "title": "Reflection Colloquium - From Gut to Gaia",
     "instructor": "Mikaelyan",
     "module": "Course Wrap-Up",
