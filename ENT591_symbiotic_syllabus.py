@@ -502,12 +502,14 @@ with tab_syllabus:
     - **Web browser** with JavaScript enabled (Chrome or Firefox recommended)
     - **Google Chat** for group communication with the instructor and class
     - No programming or software installation is required. All simulation work will take place via in-class Streamlit applications provided by the instructor.
-    """, unsafe_allow_html=True)
 
     ### Course Materials
     - **Moodle** will be used to organize and distribute readings, session notes, and supplemental materials.
     - **Communication:** Google Chat will be used for real-time updates, announcements, and informal Q&A. Students are encouraged to use it to share class-relevant insights, follow-up questions, and general logistical concerns.
         **Please use Moodle messaging or email for private or grade-related issues.**
+    """, unsafe_allow_html=True)
+
+    
 
 with tab_data:
     st.dataframe(df, use_container_width=True, hide_index=True)
