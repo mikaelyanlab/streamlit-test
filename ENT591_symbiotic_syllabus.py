@@ -465,7 +465,7 @@ with st.sidebar:
     color_mode = st.selectbox("Color nodes by:", ["Module", "Theme", "Graded"])
     selected_theme = st.multiselect("Filter by conceptual theme(s):", list(THEME_KEYWORDS.keys()))
 
-Determine which tab to open by default
+## Determine which tab to open by default
 default_tab = "Course Map"   # <-- change this if you rename again
 
 if "selected_tab" not in st.session_state:
