@@ -7,10 +7,33 @@ from pyvis.network import Network
 import streamlit as st
 
 # ---------------------------------------------------------
-# 1. FULL EMBEDDED DATA (converted from your CSV)
+# FULL EMBEDDED DATA (course info + sessions)
 # ---------------------------------------------------------
-DATA_JSON = r"""
-[
+DATA = {
+    "course_info": {
+        "title": "ENT‑591/791‑006: Insect–Microbe Systems",
+        "credits": 3,
+        "schedule": "Tuesdays & Thursdays 1:30–2:45, Gardner Hall 01406",
+        "instructor": "Dr. Aram Mikaelyan",
+        "overview": "This three-credit class examines insects and their microbes as integrated biological systems, moving from individual feedback and flow to holobiont organization, pathogenic disruption, and evolutionary transformation of constraint networks. Students analyze how resource regimes, ecological pressures, and long-term system dynamics shape convergence and divergence across insect–microbe lineages. The capstone synthesizes these ideas into a consistent systems framework that links physiology, evolution, and planetary-scale ecological coherence.",
+        "format": "Live, in‑class sessions with labs, discussions, and simulation-based activities; remote access via Moodle Panopto is available for absences.",
+        "learning_objectives": [
+            "Understand feedback and constraint theory in biological systems",
+            "Model insect–microbe symbioses using stock‑flow and constraint grammar",
+            "Interpret microbial feedback, metabolic flows, and emergent phenomena",
+            "Connect individual-level physiology to colony- and ecosystem-level dynamics",
+            "Apply resilience, robustness, evolvability, and major transitions theory to symbiotic systems"
+        ],
+        "grading": "All in‑class and lab work; no traditional exams. Graded components include labs, synthesis exercises, peer‑reviewed capstone, and final capstone presentation.",
+        "policies": {
+            "fairness_statement": "NC State University provides equality of opportunity ... (full statement goes here)",
+            "late_work": "Late assignments lose 10% per day for five days, then up to 50% credit accepted until end of classes. Extensions may be granted prior to due date under legitimate reasons.",
+            "academic_integrity": "Violations (plagiarism, cheating, unpermitted collaboration) will result in an F for the course. We use Turnitin via Moodle. See full policy for details.",
+            "disability_accommodation": "Reasonable accommodations will be made for students with documented disabilities. Students should register with the Disability Services Office at NC State.",
+            "health_and_wellbeing": "If you feel unwell, email the instructor as soon as possible to discuss accommodations or extensions."
+        }
+    },
+    "sessions": [
   {
     "session_id": "W1-Tu",
     "date": "1/13/2026",
@@ -118,19 +141,6 @@ DATA_JSON = r"""
     "graded": false
   },
   {
-    "session_id": "W5-Tu",
-    "date": "2/10/2026",
-    "title": "Host-Damage Response Framework",
-    "instructor": "Mikaelyan",
-    "module": "Pathogenic Hijack: Robustness and Vulnerability",
-    "activity": "Lecture",
-    "keywords": "pathogen, robustness, feedback failure, Casadevall",
-    "notes": "Introduce host‑pathogen models; immune‑microbe tradeoffs. Damage‑response framework introduced. Class discussion on ecological context of virulence.",
-    "connect_with": "W5-Th",
-    "theory": "Casadevall and Pirofski's damage‑response framework recasts infection as a systems‑level outcome of host‑microbe feedback, revealing how the same microbe can be commensal or lethal depending on where constraints and setpoints sit.",
-    "graded": false
-  },
-  {
     "session_id": "W5-Th",
     "date": "2/12/2026",
     "title": "Pathogen as Probe of System Structure",
@@ -144,6 +154,21 @@ DATA_JSON = r"""
     "graded": true,
     "assessment_type": "lab"
   },
+  {
+    "session_id": "W5-Tu",
+    "date": "2/10/2026",
+    "title": "Host-Damage Response Framework",
+    "instructor": "Mikaelyan",
+    "module": "Pathogenic Hijack: Robustness and Vulnerability",
+    "activity": "Lecture",
+    "keywords": "pathogen, robustness, feedback failure, Casadevall",
+    "notes": "Introduce host‑pathogen models; immune‑microbe tradeoffs. Damage‑response framework introduced. Class discussion on ecological context of virulence.",
+    "connect_with": "W5-Th",
+    "theory": "Casadevall and Pirofski's damage‑response framework recasts infection as a systems‑level outcome of host‑microbe feedback, revealing how the same microbe can be commensal or lethal depending on where constraints and setpoints sit.",
+    "graded": false
+  }
+]
+[
   {
     "session_id": "W6-Tu",
     "date": "2/17/2026",
@@ -276,7 +301,9 @@ DATA_JSON = r"""
     "connect_with": "W11-Tu",
     "theory": "Mutualism economics à la Douglas and simple consumer‑resource models are used to analyse phloem and sugar symbioses, highlighting how trading partners share and shift constraints on carbon and nitrogen processing.",
     "graded": false
-  },
+  }
+]
+[
   {
     "session_id": "W11-Tu",
     "date": "3/24/2026",
@@ -367,7 +394,9 @@ DATA_JSON = r"""
     "connect_with": "W14-Th",
     "theory": "Students integrate gut‑scale, colony‑scale, and ecosystem‑scale models to see how constraints propagate across levels, making Levin's hierarchy theory tangible in insect‑microbe and decomposer‑guild examples.",
     "graded": false
-  },
+  }
+]
+[
   {
     "session_id": "W14-Th",
     "date": "4/16/2026",
@@ -423,44 +452,36 @@ DATA_JSON = r"""
     "graded": false
   }
 ]
-"""
 
-# ---------------------------------------------------------
-# Load data
-# ---------------------------------------------------------
-df = pd.read_json(io.StringIO(DATA_JSON), dtype=str).fillna("")
+}
 
-def clean_kw(s):
-    return [k.strip().lower() for k in s.replace(";",",").split(",") if k.strip()]
+# prepare dataframe
+df = pd.DataFrame(DATA["sessions"], dtype=str).fillna("")
 
-def split_ids(s):
+def clean_kw(s: str):
+    return [k.strip().lower() for k in s.replace(";", ",").split(",") if k.strip()]
+
+def split_ids(s: str):
     return [x.strip() for x in s.split(",") if x.strip()]
 
-# ---------------------------------------------------------
+# --------------------
 # Streamlit UI
-# ---------------------------------------------------------
-st.set_page_config(layout="wide", page_title="ENT-591/791-006 | Insect–Microbe Systems Explorer")
-st.title("Insect–Microbe Systems — Course Explorer")
-st.caption("ENT-591/791-006 • Spring 2026 • Tuesdays & Thursdays • 1:30 to 2:45 • 01406  Gardner Hall (Main Campus)")
-st.caption("Dr. Aram Mikaelyan • Entomology and Plant Pathology (NCSU)")
-st.caption("This course examines insects and their microbes as integrated biological systems, moving from individual feedback and flow to holobiont organization, pathogenic disruption, and evolutionary transformation of constraint networks. Students analyze how resource regimes, ecological pressures, and long-term system dynamics shape convergence and divergence across insect–microbe lineages. The capstone synthesizes these ideas into a consistent systems framework that links physiology, evolution, and planetary-scale ecological coherence.")
+# --------------------
+st.set_page_config(layout="wide", page_title=DATA["course_info"]["title"])
+st.title(DATA["course_info"]["title"])
+st.caption(f"{DATA['course_info']['credits']} credit(s) • {DATA['course_info']['schedule']}")
+st.caption(f"Instructor: {DATA['course_info']['instructor']}")
 
-with st.sidebar:
-    st.header("Network Settings")
-    min_shared = st.slider("Min shared keywords", 1, 5, 1)
-    include_manual = st.checkbox("Include manual connects", True)
+tab_sessions, tab_graph, tab_info = st.tabs(["Session Table", "Graph Explorer", "Syllabus Info"])
 
-tab_data, tab_graph = st.tabs(["Session Table", "Graph Explorer"])
-
-with tab_data:
+# --- Session Table Tab ---
+with tab_sessions:
+    st.subheader("Course Sessions")
     st.dataframe(df, use_container_width=True, hide_index=True)
 
-# ---------------------------------------------------------
-# Graph
-# ---------------------------------------------------------
+# --- Graph Explorer Tab ---
 with tab_graph:
     G = nx.Graph()
-
     for _, row in df.iterrows():
         kws = clean_kw(row["keywords"])
         d = row.to_dict()
@@ -468,24 +489,23 @@ with tab_graph:
         G.add_node(row["session_id"], **d)
 
     nodes = list(G.nodes())
-
     for i in range(len(nodes)):
-        for j in range(i+1, len(nodes)):
+        for j in range(i + 1, len(nodes)):
             a, b = nodes[i], nodes[j]
             shared = len(set(G.nodes[a]["keywords"]) & set(G.nodes[b]["keywords"]))
-            if shared >= min_shared:
-                G.add_edge(a,b)
+            if shared >= 1:  # or some threshold slider
+                G.add_edge(a, b)
 
-    if include_manual:
-        for n in nodes:
-            for m in split_ids(G.nodes[n]["connect_with"]):
-                if m in nodes and m != n:
-                    G.add_edge(n,m)
+    # also add manual connects
+    for _, row in df.iterrows():
+        for m in split_ids(row.get("connect_with", "")):
+            if m in nodes and m != row["session_id"]:
+                G.add_edge(row["session_id"], m)
 
     modules = sorted(df["module"].unique())
     palette = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b",
                "#e377c2","#7f7f7f","#bcbd22","#17becf"]
-    cmap = {m: palette[i % len(palette)] for i,m in enumerate(modules)}
+    cmap = {m: palette[i % len(palette)] for i, m in enumerate(modules)}
 
     net = Network(height="700px", width="100%", bgcolor="#ffffff", font_color="#222")
     net.barnes_hut()
@@ -494,27 +514,29 @@ with tab_graph:
         d = G.nodes[node]
         html_tip = f"""
         <div style='font-family:sans-serif; font-size:14px; line-height:1.25;'>
-          <b>{d['title']}</b><br>
-          {d['date']} | {d['module']}<br>
-          {d['activity']}<br>
-          <i>{', '.join(d['keywords'])}</i>
+          <b>{d.get('title')}</b><br>
+          {d.get('date')} | {d.get('module')}<br>
+          {d.get('activity')}<br>
+          <i>{', '.join(d.get('keywords', []))}</i>
           <hr style='margin:6px 0;'>
-          {d['notes']}
+          {d.get('notes')}<br>
+          <!-- include assessment info if present -->
+          {'<b>Graded:</b> ' + str(d.get('graded')) + '<br>' if d.get('graded') else ''}
+          {'<b>Assessment type:</b> ' + d.get('assessment_type', '') + '<br>' if d.get('assessment_type', '') else ''}
         </div>
         """
-
         net.add_node(
             node,
             label=node,
-            title="",        # disable default tooltip
+            title="",
             shape="dot",
             size=25,
-            color=cmap.get(d["module"], "#999"),
+            color=cmap.get(d.get("module", ""), "#999"),
             custom_html=html_tip
         )
 
-    for u,v in G.edges():
-        net.add_edge(u,v,color="#ccc")
+    for u, v in G.edges():
+        net.add_edge(u, v, color="#ccc")
 
     net.set_options("""
     { "interaction": { "hover": true, "navigationButtons": true },
@@ -524,7 +546,7 @@ with tab_graph:
     """)
 
     net.save_graph("graph.html")
-    html = open("graph.html","r",encoding="utf8").read()
+    html = open("graph.html", "r", encoding="utf8").read()
 
     js = """
     const tip = document.createElement('div');
@@ -542,14 +564,14 @@ with tab_graph:
 
     network.on("hoverNode", (params)=> {
       const node = network.body.data.nodes.get(params.node);
-      if(node && node.custom_html){
+      if (node && node.custom_html) {
         tip.innerHTML = node.custom_html;
         tip.style.display = "block";
       }
     });
 
     network.on("blurNode", ()=> tip.style.display = "none");
-    document.addEventListener("mousemove", (e)=>{
+    document.addEventListener("mousemove", (e)=> {
       tip.style.left = (e.clientX + 12) + "px";
       tip.style.top = (e.clientY + 12) + "px";
     });
@@ -564,8 +586,7 @@ with tab_graph:
         df["session_id"],
         format_func=lambda x: f"{x} — {df[df['session_id']==x]['title'].values[0]}"
     )
-
-    d = df[df["session_id"]==sel].iloc[0]
+    d = df[df["session_id"] == sel].iloc[0]
     st.subheader(d["title"])
     st.write(f"**Date:** {d['date']}")
     st.write(f"**Instructor:** {d['instructor']}")
@@ -573,3 +594,42 @@ with tab_graph:
     st.write(f"**Activity:** {d['activity']}")
     st.write(f"**Keywords:** {d['keywords']}")
     st.write(f"**Notes:** {d['notes']}")
+    if d.get("graded"):
+        st.write(f"**Graded:** {d.get('graded')}")
+    if d.get("assessment_type"):
+        st.write(f"**Assessment type:** {d.get('assessment_type')}")
+
+# --- Syllabus Info Tab ---
+with tab_info:
+    ci = DATA["course_info"]
+    st.header("Course Overview")
+    st.markdown(f"**Credits:** {ci.get('credits')}  \n"
+                f"**Schedule:** {ci.get('schedule')}  \n"
+                f"**Instructor:** {ci.get('instructor')}  \n")
+    st.markdown("### Course Description")
+    st.write(ci.get("overview"))
+
+    st.markdown("### Course Format")
+    st.write(ci.get("format"))
+
+    st.markdown("### Learning Objectives")
+    for obj in ci.get("learning_objectives", []):
+        st.write(f"- {obj}")
+
+    st.markdown("### Grading Scheme")
+    st.write(ci.get("grading"))
+
+    st.markdown("### Policies & Student Resources")
+    st.write("#### Fairness & Non‑Discrimination Statement")
+    st.write(ci["policies"].get("fairness_statement"))
+    st.write("#### Late Work Policy")
+    st.write(ci["policies"].get("late_work"))
+    st.write("#### Academic Integrity & Conduct")
+    st.write(ci["policies"].get("academic_integrity"))
+    st.write("#### Disability Accommodations")
+    st.write(ci["policies"].get("disability_accommodation"))
+    st.write("#### Health & Well‑Being")
+    st.write(ci["policies"].get("health_and_wellbeing"))
+
+    st.markdown("---\n*If you need additional support — academic, health, or personal — please reach out to the instructor or the appropriate campus resources.*")
+
