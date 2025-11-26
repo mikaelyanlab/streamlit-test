@@ -566,6 +566,19 @@ with tab_graph:
     # ---------------------------------------------------------
     net = Network(height="700px", width="100%", bgcolor="#ffffff", font_color="#222")
     net.barnes_hut()
+    net.set_options("""
+    {
+    "interaction": { "hover": true, "navigationButtons": true, "zoomView": true, "dragView": true },
+    "physics": {
+    "enabled": true,
+    "stabilization": { "enabled": true, "iterations": 1000 },
+    "barnesHut": { "springLength": 150, "gravitationalConstant": -8000 }
+              }
+    }
+""")
+
+# Critical line for initial full view:
+net.fit(view="full")   # or simply net.fit()
 
     for node in G.nodes():
         d = G.nodes[node]
@@ -598,7 +611,7 @@ with tab_graph:
       }
     }
     """)
-
+    net.fit()   # ensures the network starts zoomed out to show all nodes
     net.save_graph("graph.html")
     html = open("graph.html", "r", encoding="utf8").read()
 
