@@ -465,8 +465,7 @@ with st.sidebar:
     color_mode = st.selectbox("Color nodes by:", ["Module", "Theme", "Graded"])
     selected_theme = st.multiselect("Filter by conceptual theme(s):", list(THEME_KEYWORDS.keys()))
 
-tab_data, tab_graph, tab_syllabus = st.tabs(["Course Map", "Session Table", "Syllabus & Grading"])
-st.query_params["tab"] = "Course Map"
+tab_data, tab_graph, tab_syllabus = st.tabs(["Session Table", "Course Map", "Syllabus & Grading"], index=1)
 
 with tab_syllabus:
     st.markdown("""
