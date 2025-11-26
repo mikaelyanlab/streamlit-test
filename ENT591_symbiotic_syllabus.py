@@ -465,22 +465,8 @@ with st.sidebar:
     color_mode = st.selectbox("Color nodes by:", ["Module", "Theme", "Graded"])
     selected_theme = st.multiselect("Filter by conceptual theme(s):", list(THEME_KEYWORDS.keys()))
 
-## Determine which tab to open by default
-default_tab = "Course Map"   # <-- change this if you rename again
-
-if "selected_tab" not in st.session_state:
-    st.session_state.selected_tab = default_tab
-
 tab_data, tab_graph, tab_syllabus = st.tabs(["Session Table", "Course Map", "Syllabus & Grading"])
 
-# Force the correct tab to be active
-if st.session_state.selected_tab == "Course Map":
-    tab_graph.select()
-elif st.session_state.selected_tab == "Syllabus & Grading":
-    tab_syllabus.select()
-else:
-    tab_data.select()
-  
 with tab_syllabus:
     st.markdown("""
     ## ENT-591/791-006: Insect–Microbe Systems  
