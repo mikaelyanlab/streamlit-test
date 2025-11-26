@@ -18,7 +18,7 @@ DATA_JSON = r"""
 [
   {
     "session_id": "W1-Tu",
-    "date": "1/13/2026",
+    "date": "1/13/2026 13:30",
     "title": "Course Introduction & Systems Bootcamp I",
     "instructor": "Mikaelyan",
     "module": "The Individual as a System: Feedback and Flow",
