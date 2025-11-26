@@ -425,12 +425,13 @@ DATA_JSON = r"""
 ]
 """
 
-df = pd.read_json(io.StringIO(DATA_JSON)).fillna("")
+# Load data
+df = pd.read_json(io.StringIO(DATA_JSON))
+df = df.fillna("")
 
-def clean_kw(s):
+def clean_kw(s): 
     return [k.strip().lower() for k in str(s).replace(";", ",").split(",") if k.strip()]
-
-def split_ids(s):
+def split_ids(s): 
     return [x.strip() for x in str(s).split(",") if x.strip()]
 
 # ---------------------------------------------------------
@@ -444,13 +445,12 @@ THEME_KEYWORDS = {
     "Robustness": {"robustness","fragility","resilience","vulnerability","failure","redundancy","buffering"},
     "Resource Flux": {"nitrogen","carbon","resource","amino acid","fermentation","redox","gas flux"}
 }
-
 def assign_themes(keywords):
     ks = set(keywords)
     return sorted({theme for theme, kws in THEME_KEYWORDS.items() if ks & kws})
 
 # ---------------------------------------------------------
-# UI
+# Streamlit UI
 # ---------------------------------------------------------
 st.set_page_config(layout="wide", page_title="ENT-591/791-006 | Insect–Microbe Systems Explorer")
 st.title("Insect–Microbe Systems — Course Explorer")
@@ -465,9 +465,6 @@ with st.sidebar:
 
 tab_data, tab_graph, tab_syllabus = st.tabs(["Session Table", "Graph Explorer", "Syllabus & Grading"])
 
-# ---------------------------------------------------------
-# Syllabus tab
-# ---------------------------------------------------------
 with tab_syllabus:
     st.markdown("""
     ## ENT-591/791-006: Insect–Microbe Systems  
@@ -475,31 +472,44 @@ with tab_syllabus:
     Tuesdays & Thursdays • 1:30–2:45 PM • 01406 Gardner Hall  
 
     ### Course Description
-    This course explores insects and their microbial partners as integrated, multi-level systems — from individual physiology to planetary biogeochemistry — using a **constraint-centered systems framework**.
+    This course explores insects and their microbial partners as integrated, multi-level systems — from individual physiology to planetary biogeochemistry — using a **constraint-centered systems framework**. We move from feedback and flow within individuals, through holobiont emergence and pathogenic disruption, to evolutionary rewiring of constraint networks and convergence/divergence across lineages.
+
+    ### Learning Objectives
+    By the end of the course, students will be able to:
+    - Model insect–microbe interactions using stocks, flows, feedback loops, and constraint closure
+    - Interpret symbiosis, pathogenesis, and social digestion as outcomes of system-level dynamics
+    - Explain robustness/fragility trade-offs and evolutionary innovation via constraint rewiring
+    - Connect gut-to-Gaia processes through nested feedback and constraint propagation
 
     ### Graded Components
     | Component                     | Weight | Description |
-    |-------------------------------|--------|-------------|
-    | Lab Reports & Simulations     | 40%    | 6 labs + midterm synthesis |
-    | Capstone Project              | 40%    | Peer review + final presentation |
-    | Participation & Reflection    | 20%    | Discussions, mini-presentations |
+    |-------------------------------|--------|-----------|
+    | **Lab Reports & Simulations** | 40%    | 6 graded Streamlit labs (W2-Tu, W4-Tu, W5-Th, W7-Th, W10-Tu) + midterm synthesis (W8-Tu) |
+    | **Capstone Project**          | 40%    | Multi-week simulation-based inquiry: design, peer review (W15-Tu), final presentation (W15-Th) |
+    | **Participation & Reflection**| 20%    | In-class contributions, discussions, mini-presentations, final colloquium |
 
-    **Graded sessions are red** when “Color nodes by: Graded” is selected.
+    **Graded sessions are highlighted in red** in the Graph Explorer when "Color nodes by: Graded" is selected.
+
+    ### Policies
+    - All labs and capstone deliverables submitted via Streamlit sharing links
+    - Late policy: 10% per day, max 3 days
+    - Academic integrity: All simulation code and writing must be your own (collaboration encouraged on ideas, not code)
+    - Accommodations: Contact instructor and ODA early
+
+    ### Required Tools
+    - Laptop with Python/Streamlit capability
+    - Free accounts: GitHub, Streamlit Community Cloud
+
     """, unsafe_allow_html=True)
 
-# ---------------------------------------------------------
-# Table tab
-# ---------------------------------------------------------
 with tab_data:
     st.dataframe(df, use_container_width=True, hide_index=True)
 
 # ---------------------------------------------------------
-# Graph tab
+# Graph Construction
 # ---------------------------------------------------------
 with tab_graph:
     G = nx.Graph()
-
-    # Add nodes
     for _, row in df.iterrows():
         kws = clean_kw(row["keywords"])
         d = row.to_dict()
@@ -514,7 +524,7 @@ with tab_graph:
     else:
         nodes = list(G.nodes())
 
-    # Keyword edges
+    # Edges from shared keywords
     for i in range(len(nodes)):
         for j in range(i+1, len(nodes)):
             a, b = nodes[i], nodes[j]
@@ -522,110 +532,121 @@ with tab_graph:
             if shared >= min_shared:
                 G.add_edge(a, b)
 
-    # Manual connections
+    # Manual connects
     if include_manual:
         for n in nodes:
             for m in split_ids(G.nodes[n]["connect_with"]):
                 if m in nodes and m != n:
                     G.add_edge(n, m)
 
+    # ---------------------------------------------------------
     # Coloring
+    # ---------------------------------------------------------
     modules = sorted(df["module"].unique())
     palette = ["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"]
     mod_cmap = {m: palette[i % len(palette)] for i, m in enumerate(modules)}
-    theme_palette = {"Feedback":"#1f77b4","Constraint":"#ff7f0e","Evolution":"#2ca02c",
-                     "Symbiosis":"#d62728","Robustness":"#9467bd","Resource Flux":"#8c564b"}
+
+    theme_palette = {
+        "Feedback": "#1f77b4","Constraint": "#ff7f0e","Evolution": "#2ca02c",
+        "Symbiosis": "#d62728","Robustness": "#9467bd","Resource Flux": "#8c564b"
+    }
 
     def node_color(d):
         if color_mode == "Module":
             return mod_cmap.get(d["module"], "#999")
-        if color_mode == "Theme":
+        elif color_mode == "Theme":
             return theme_palette.get(d["themes"][0] if d["themes"] else None, "#999")
-        # Graded mode
-        if d.get("module") == "-" or "break" in d["title"].lower():
-            return "#a3c9f7"
-        return "#e74c3c" if d.get("graded") else "#95a5a6"
+        else:  # Graded
+            if d.get("module") == "-" or "break" in d["title"].lower():
+                return "#a3c9f7"      # light blue – no class
+            return "#e74c3c" if d.get("graded") else "#95a5a6"   # red / gray
 
-    # PyVis network
-    net = Network(height="750px", width="100%", bgcolor="#ffffff", font_color="#222", directed=False)
-    net.force_atlas_2based()                     # better initial layout
-    net.set_options("""
-    {
-      "physics": {
-        "enabled": true,
-        "stabilization": {"iterations": 1000},
-        "forceAtlas2Based": {
-          "gravitationalConstant": -50,
-          "centralGravity": 0.01,
-          "springLength": 200,
-          "springConstant": 0.08
-        }
-      },
-      "interaction": {"hover": true, "navigationButtons": true}
-    }
-    """)
+    # ---------------------------------------------------------
+    # PyVis Network
+    # ---------------------------------------------------------
+    net = Network(height="700px", width="100%", bgcolor="#ffffff", font_color="#222")
+    net.barnes_hut()
 
-    # Add nodes
     for node in G.nodes():
         d = G.nodes[node]
-        tip = f"""
-        <div style='font-family:sans-serif; font-size:14px; line-height:1.3;'>
+        html_tip = f"""
+        <div style='font-family:sans-serif; font-size:14px; line-height:1.25;'>
           <b>{d['title']}</b><br>
-          {d['date']} • {d['module']}<br>
+          {d['date']} | {d['module']}<br>
           {d['activity']}<br>
           <i>{', '.join(d['keywords'])}</i>
-          {"<br><b>Graded: " + (d.get('assessment_type') or 'Yes') + "</b>" if d.get('graded') else ""}
+          {"<br><b>Graded: Yes (" + (d.get('assessment_type') or '') + ")</b>" if d.get('graded') else ""}
           <hr style='margin:6px 0;'>
           {d['notes']}
         </div>
         """
-        net.add_node(node, label=node, title="", shape="dot", size=25,
-                     color=node_color(d), custom_html=tip)
+        net.add_node(
+            node, label=node, title="", shape="dot", size=25,
+            color=node_color(d), custom_html=html_tip
+        )
 
-    # Add edges
     for u, v in G.edges():
-        net.add_edge(u, v, color="#cccccc", width=1)
+        net.add_edge(u, v, color="#ccc")
 
-    # FIT TO VIEW ON LOAD
-    net.show_buttons(filter_=["physics"])   # optional UI
-    net.fit()                                # this line makes it start fully zoomed out
+    net.set_options("""
+    {
+      "interaction": { "hover": true, "navigationButtons": true },
+      "physics": {
+        "enabled": true,
+        "stabilization": {"enabled": true, "iterations": 500},
+        "barnesHut": {"springLength": 150}
+      }
+    }
+    """)
 
-    # Save & inject custom tooltip
     net.save_graph("graph.html")
     html = open("graph.html", "r", encoding="utf8").read()
 
-    js_tooltip = """
-    <script>
+    # Custom tooltip JS
+    js = """
     const tip = document.createElement('div');
-    tip.style.cssText = 'position:fixed;background:#ffffe6;border:1px solid #aaa;padding:10px;border-radius:4px;box-shadow:2px 2px 8px rgba(0,0,0,0.2);pointer-events:none;max-width:420px;z-index:9999;display:none;font-family:sans-serif;font-size:14px;line-height:1.3;';
+    tip.style.position = 'fixed';
+    tip.style.background = '#ffffe6';
+    tip.style.border = '1px solid #aaa';
+    tip.style.padding = '8px 12px';
+    tip.style.borderRadius = '4px';
+    tip.style.boxShadow = '2px 2px 4px rgba(0,0,0,0.2)';
+    tip.style.display = 'none';
+    tip.style.pointerEvents = 'none';
+    tip.style.maxWidth = '420px';
+    tip.style.zIndex = 9999;
     document.body.appendChild(tip);
-    network.on("hoverNode", p => {
-      const n = network.body.data.nodes.get(p.node);
-      if (n && n.custom_html) {
-        tip.innerHTML = n.custom_html;
+    network.on("hoverNode", (params)=> {
+      const node = network.body.data.nodes.get(params.node);
+      if(node && node.custom_html){
+        tip.innerHTML = node.custom_html;
         tip.style.display = "block";
       }
     });
-    network.on("blurNode", () => tip.style.display = "none");
-    document.addEventListener("mousemove", e => {
+    network.on("blurNode", ()=> tip.style.display = "none");
+    document.addEventListener("mousemove", (e)=>{
       tip.style.left = (e.clientX + 12) + "px";
-      tip.style.top  = (e.clientY + 12) + "px";
+      tip.style.top = (e.clientY + 12) + "px";
     });
-    </script>
     """
-    html = html.replace("</body>", js_tooltip + "</body>")
-    st.components.v1.html(html, height=800)
+    html = html.replace("</script>", js + "</script>")
+    st.components.v1.html(html, height=750)
 
+    # ---------------------------------------------------------
     # Session Passport
+    # ---------------------------------------------------------
     st.markdown("### Session Passport")
-    sel = st.selectbox("Choose session:", df["session_id"],
-                       format_func=lambda x: f"{x} — {df.loc[df['session_id']==x, 'title'].values[0]}")
-    row = df[df["session_id"] == sel].iloc[0]
-    st.subheader(row["title"])
-    st.write(f"**Date:** {row['date']}")
-    st.write(f"**Module:** {row['module']}")
-    st.write(f"**Activity:** {row['activity']}")
-    if row.get("graded"):
-        st.write(f"**Assessment:** {row.get('assessment_type','')}")
-    st.write(f"**Keywords:** {row['keywords']}")
-    st.write(f"**Notes:** {row['notes']}")
+    sel = st.selectbox(
+        "Choose session:",
+        df["session_id"],
+        format_func=lambda x: f"{x} — {df[df['session_id']==x]['title'].values[0]}"
+    )
+    d = df[df["session_id"] == sel].iloc[0]
+    st.subheader(d["title"])
+    st.write(f"**Date:** {d['date']}")
+    st.write(f"**Module:** {d['module']}")
+    st.write(f"**Activity:** {d['activity']}")
+    if d.get("graded"):
+        st.write(f"**Assessment:** {d.get('assessment_type','')}")
+    st.write(f"**Keywords:** {d['keywords']}")
+    st.write(f"**Notes:** {d['notes']}")
