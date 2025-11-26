@@ -1,3 +1,8 @@
+# Syllabus module for Symbiotic Stories: Battles, Bonds and Beyond | A graduate course examining insect–microbe partnerships through the lens of feedback, constraint, and systems theory.
+# Dr. Aram Mikaelyan, Entomology and Plant Pathology, North Carolina State University
+# Last updated: Nov 26, 2025
+# for questions about the app or the course, email amikael@ncsu.edu
+# 
 from __future__ import annotations
 import io
 import json
@@ -7,7 +12,7 @@ from pyvis.network import Network
 import streamlit as st
 
 # ---------------------------------------------------------
-# 1. DATA – updated with graded flag
+# 1. JSON block from original CSV
 # ---------------------------------------------------------
 DATA_JSON = r"""
 [
@@ -517,7 +522,7 @@ with tab_data:
     st.dataframe(df, use_container_width=True, hide_index=True)
 
 # ---------------------------------------------------------
-# Graph Construction
+# Bubbles!
 # ---------------------------------------------------------
 with tab_graph:
     G = nx.Graph()
