@@ -491,15 +491,17 @@ with tab_syllabus:
     **Graded sessions are highlighted in red** in the Graph Explorer when "Color nodes by: Graded" is selected.
 
     ### Policies
-    - All labs and capstone deliverables submitted via Streamlit sharing links
-    - Late policy: 10% per day, max 3 days
-    - Academic integrity: All simulation code and writing must be your own (collaboration encouraged on ideas, not code)
-    - Accommodations: Contact instructor and ODA early
+    - **Academic Integrity:** Students are expected to engage honestly and thoughtfully in all in-class activities, discussions, and simulation exercises. Representing others' ideas or results as your own during model walkthroughs or group discussions is a violation of course expectations. Collaboration is encouraged where appropriate, but each student must be able to explain and defend the design and logic of any models or feedback systems they present.
+    - **Attendance & Participation:** Consistent, active participation is required. Because assessments are embedded in class sessions, absences may directly impact your grade. If you must miss class for a documented reason, contact the instructor as early as possible to arrange a plan.
+    - **Use of AI Tools:** Generative AI tools (e.g., ChatGPT, NotebookLM) may be used for brainstorming or model design outside class if they help clarify systems thinking. However, students are expected to demonstrate personal understanding of all concepts presented in class. Overreliance on AI output without comprehension may be treated as academic dishonesty.
+    - **Accommodations:** Contact instructor and ODA early
+    - **Professional Conduct:** This course thrives on mutual respect and curiosity. Disruptive or dismissive behavior, especially during peer walkthroughs or group critique, undermines the collaborative learning environment and may impact your participation grade.
 
     ### Required Tools
-    - Laptop with Python/Streamlit capability
-    - Free accounts: GitHub, Streamlit Community Cloud
-
+    - **Laptop** (required for all class sessions)
+    - **Web browser** with JavaScript enabled (Chrome or Firefox recommended)
+    - **Google Drive or similar** (for accessing shared materials and reference models)
+    - No programming or software installation is required. All simulation work will take place via in-class Streamlit applications provided by the instructor.
     """, unsafe_allow_html=True)
 
 with tab_data:
