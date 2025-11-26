@@ -465,7 +465,8 @@ with st.sidebar:
     color_mode = st.selectbox("Color nodes by:", ["Module", "Theme", "Graded"])
     selected_theme = st.multiselect("Filter by conceptual theme(s):", list(THEME_KEYWORDS.keys()))
 
-tab_data, tab_graph, tab_syllabus = st.tabs(["Session Table", "Graph Explorer", "Syllabus & Grading"])
+tab_data, tab_graph, tab_syllabus = st.tabs(["Session Table", "Course Map", "Syllabus & Grading"])
+st.query_params["tab"] = "Course Map"
 
 with tab_syllabus:
     st.markdown("""
@@ -490,7 +491,7 @@ with tab_syllabus:
     | **Capstone Project**          | 40%    | Multi-week simulation-based inquiry: design, peer review (W15-Tu), final presentation (W15-Th) |
     | **Participation & Reflection**| 20%    | In-class contributions, discussions, mini-presentations, final colloquium |
 
-    **Graded sessions are highlighted in red** in the Graph Explorer when "Color nodes by: Graded" is selected.
+    **Graded sessions are highlighted in red** in the Course Map when "Color nodes by: Graded" is selected.
 
     ### Policies
     - **Academic Integrity:** Students are expected to engage honestly and thoughtfully in all in-class activities, discussions, and simulation exercises. Representing others' ideas or results as your own during model walkthroughs or group discussions is a violation of course expectations. Collaboration is encouraged where appropriate, but each student must be able to explain and defend the design and logic of any models or feedback systems they present.
