@@ -455,7 +455,7 @@ def assign_themes(keywords):
 st.set_page_config(layout="wide", page_title="ENT-591/791-006 | Insect–Microbe Systems Explorer")
 st.title("Insect–Microbe Systems — Course Explorer")
 st.caption("Spring 2026 • Dr. Aram Mikaelyan (Entomology and Plant Pathology, NCSU) • Gardner Hall, 1406")
-st.caption("[mikaelyanlab.com](https://www.mikaelyanlab.com)")
+st.caption("[Check out the Mikaelyan Lab](https://www.mikaelyanlab.com)")
 
 with st.sidebar:
     st.header("Network Settings")
