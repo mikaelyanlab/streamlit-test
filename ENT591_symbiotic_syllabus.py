@@ -453,7 +453,7 @@ def assign_themes(keywords):
 # Streamlit UI
 # ---------------------------------------------------------
 st.set_page_config(layout="wide", page_title="ENT-591/791-006 | Insect–Microbe Systems Explorer")
-st.title("Insect–Microbe Systems — Course Explorer")
+st.markdown("<h2 style='margin-bottom: 0.5em;'>Symbiotic Stories: Battles, Bonds, and Beyond</h2>", unsafe_allow_html=True)
 st.caption("Spring 2026 • Dr. Aram Mikaelyan (Entomology and Plant Pathology, NCSU) • Gardner Hall, 1406")
 st.caption("[Check out the Mikaelyan Lab](https://www.mikaelyanlab.com)")
 
