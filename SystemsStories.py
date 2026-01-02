@@ -25,6 +25,12 @@ LEVELS = {
 }
 PAGES = ["Home", "About / Theory Ladder", "Grading & Rubric", "Instructor Console"] + list(LEVELS.values())
 PASSWORD_HASH = hashlib.sha256(b"password123").hexdigest()  # Change this in production
+RUBRIC = [
+    "Model execution & correctness (0–5)",
+    "Systems reasoning (feedback/flow/constraint logic) (0–5)",
+    "Theory integration (use the named theories appropriately) (0–5)",
+    "Clarity & evidence (plots/tables + interpretation) (0–5)"
+]
 
 # Load or initialize unlock state
 if os.path.exists(UNLOCK_FILE):
@@ -75,6 +81,7 @@ def simulate_gut_flows(params):
     S[0] = params['initial_S']
     M[0] = params['initial_M']
     P[0] = params['initial_P']
+    inflow_S = params['inflow_S']
     k_dep = params['k_dep']
     k_ferm = params['k_ferm']
     k_abs = params['k_abs']
@@ -92,7 +99,7 @@ def simulate_gut_flows(params):
         noise_M = np.random.normal(0, noise_amp)
         noise_P = np.random.normal(0, noise_amp)
         
-        S[t] = max(0, S[t-1] + dt * (-dep + noise_S))
+        S[t] = max(0, S[t-1] + dt * (inflow_S - dep + noise_S))
         M[t] = max(0, M[t-1] + dt * (dep - ferm - wash_M + noise_M))
         P[t] = max(0, P[t-1] + dt * (ferm - abs_ - wash_P + noise_P))
     
@@ -113,6 +120,7 @@ def simulate_nitrogen(params):
     M[0] = params['initial_M']
     P[0] = params['initial_P']
     N[0] = params['initial_N']
+    inflow_S = params['inflow_S']
     k_dep = params['k_dep']
     k_ferm = params['k_ferm']
     k_abs = params['k_abs']
@@ -137,7 +145,7 @@ def simulate_nitrogen(params):
         noise_P = np.random.normal(0, noise_amp)
         noise_N = np.random.normal(0, noise_amp)
         
-        S[t] = max(0, S[t-1] + dt * (-dep + noise_S))
+        S[t] = max(0, S[t-1] + dt * (inflow_S - dep + noise_S))
         M[t] = max(0, M[t-1] + dt * (dep - ferm - wash_M + noise_M))
         P[t] = max(0, P[t-1] + dt * (ferm - abs_ - wash_P + noise_P))
         N[t] = max(0, N[t-1] + dt * (fixation_rate + recycle_N - N_loss * N[t-1] + noise_N))
@@ -148,10 +156,10 @@ def simulate_nitrogen(params):
     limiting = 'N-limited' if np.mean(N[int(steps*0.8):]) < N_threshold else 'C-limited'
     canal_var = []  # For canalization: run multiple with noise
     for _ in range(5):
-        params['noise_amp'] = noise_amp * 2  # Temp increase for test
-        _, _, _, metrics = simulate_gut_flows(params)  # Reuse base sim for simplicity
-        canal_var.append(metrics['yield'])
-        params['noise_amp'] = noise_amp
+        temp_params = params.copy()
+        temp_params['noise_amp'] = noise_amp * 2  # Temp increase for test
+        _, _, _, temp_metrics = simulate_gut_flows(temp_params)
+        canal_var.append(temp_metrics['yield'])
     canalization = np.var(canal_var)
     return S, M, P, N, {'yield': yield_, 'stability': stability, 'throughput': throughput, 'limiting': limiting, 'canalization': canalization}
 
@@ -170,6 +178,7 @@ def simulate_pathogen(params):
     P[0] = params['initial_P']
     N[0] = params['initial_N']
     Path[0] = params['initial_Path']
+    inflow_S = params['inflow_S']
     k_dep = params['k_dep']
     k_ferm = params['k_ferm']
     k_abs = params['k_abs']
@@ -183,10 +192,15 @@ def simulate_pathogen(params):
     path_growth = params['path_growth']
     immune_intensity = params['immune_intensity']
     path_effect = params['path_effect']  # Steal M, reduce ferm
+    cross_feed = params.get('cross_feed', 0)
+    if 'pert_val' in params:
+        if params['perturbation'] == 'oxygen':
+            k_abs /= (1 + params['pert_val'])
+        # Add others if needed
     
     for t in range(1, steps):
         path_load = Path[t-1] * (1 - immune_intensity * 0.5)  # Immune reduces path
-        dep = k_dep * S[t-1]
+        dep = k_dep * S[t-1] + cross_feed * P[t-1] * 0.01
         f_N = min(1, N[t-1] / N_threshold)
         ferm_red = max(0, 1 - path_load * path_effect)
         ferm = k_ferm * M[t-1] * f_N * ferm_red / (1 + P[t-1] / inhibition_P)
@@ -201,7 +215,7 @@ def simulate_pathogen(params):
         noise_N = np.random.normal(0, noise_amp)
         noise_Path = np.random.normal(0, noise_amp * 0.5)
         
-        S[t] = max(0, S[t-1] + dt * (-dep + noise_S))
+        S[t] = max(0, S[t-1] + dt * (inflow_S - dep + noise_S))
         M[t] = max(0, M[t-1] + dt * (dep - ferm - wash_M - steal_M + noise_M))
         P[t] = max(0, P[t-1] + dt * (ferm - abs_ - wash_P + noise_P))
         N[t] = max(0, N[t-1] + dt * (fixation_rate + recycle_N - N_loss * N[t-1] + noise_N))
@@ -223,11 +237,13 @@ def simulate_pathogen(params):
 
 def simulate_rewiring(params):
     # Extend pathogen sim with rewiring options
-    cross_feed = params['cross_feed'] if params['cross_feed_on'] else 0
+    cross_feed_on = params['cross_feed_on']
+    params['cross_feed'] = params['cross_feed'] if cross_feed_on else 0
     redundancy = 2 if params['redundancy'] else 1
     guild_type = params['guild_type']  # 'high_fragile' or 'low_robust'
     host_control_str = params['host_control_str']
-    cost = host_control_str * 0.1 + (1 if params['redundancy'] else 0) * 0.05
+    cost = host_control_str * 0.1 + (redundancy - 1) * 0.05
+    params['k_dep'] *= redundancy
     if guild_type == 'high_fragile':
         params['k_ferm'] *= 1.2
         params['noise_amp'] *= 1.5
@@ -241,15 +257,7 @@ def simulate_rewiring(params):
     params['k_wash'] /= (1 + host_control_str * 0.5)
     
     S, M, P, N, Path, metrics = simulate_pathogen(params)
-    # Add cross-feed: P feeds back to dep
-    for t in range(1, len(S)):
-        dep_bonus = cross_feed * P[t-1] * 0.01
-        params['k_dep'] += dep_bonus  # Temp, but simulate fully would need re-sim
-    
-    # Re-sim with adjustments
-    S, M, P, N, Path, metrics = simulate_pathogen(params)  # Approximate
-    
-    closure_score = sum([params['cross_feed_on'], params['recycling'], params['redundancy'], host_control_str > 0.5])
+    closure_score = sum([cross_feed_on, params['recycling'], params['redundancy'], host_control_str > 0.5])
     metrics['cost'] = cost
     metrics['closure'] = closure_score
     return S, M, P, N, Path, metrics
@@ -264,29 +272,39 @@ def simulate_convergence(params, skin):
     # Multi-start
     yields = []
     for _ in range(10):
-        params['initial_S'] += np.random.uniform(-0.5, 0.5) * params['initial_S']
-        params['initial_M'] += np.random.uniform(-0.5, 0.5) * params['initial_M']
-        S, M, P, N, Path, metrics = simulate_rewiring(params)  # Use full model
+        temp_params = params.copy()
+        temp_params['initial_S'] += np.random.uniform(-0.5, 0.5) * params['initial_S']
+        temp_params['initial_M'] += np.random.uniform(-0.5, 0.5) * params['initial_M']
+        _, _, _, _, _, metrics = simulate_rewiring(temp_params)  # Use full model
         yields.append(metrics['yield'])
     attractors = len(set([round(y, 1) for y in yields]))  # Cluster proxy
     return yields, {'attractors': attractors}
 
 def midterm_gate_sim(params, perturbation):
-    if perturbation == 'scarcity':
-        params['inflow_S'] /= 2
-    elif perturbation == 'toxin':
-        params['k_ferm'] /= 2
-    elif perturbation == 'oxygen':
-        params['k_abs'] /= 1.5
-    # Hysteresis: sweep up and down
     sweeps = []
     for val in np.linspace(0, 1, 10):
-        params['pert_val'] = val
-        _, _, P, _, _, metrics = simulate_pathogen(params)
+        temp_params = params.copy()
+        temp_params['pert_val'] = val
+        temp_params['perturbation'] = perturbation
+        if perturbation == 'scarcity':
+            temp_params['inflow_S'] *= (1 - val)
+        elif perturbation == 'toxin':
+            temp_params['k_ferm'] *= (1 - val)
+        elif perturbation == 'oxygen':
+            temp_params['k_abs'] *= (1 - val)
+        _, _, P, _, _, metrics = simulate_pathogen(temp_params)
         sweeps.append(metrics['yield'])
     for val in np.linspace(1, 0, 10):
-        params['pert_val'] = val
-        _, _, P, _, _, metrics = simulate_pathogen(params)
+        temp_params = params.copy()
+        temp_params['pert_val'] = val
+        temp_params['perturbation'] = perturbation
+        if perturbation == 'scarcity':
+            temp_params['inflow_S'] *= (1 - val)
+        elif perturbation == 'toxin':
+            temp_params['k_ferm'] *= (1 - val)
+        elif perturbation == 'oxygen':
+            temp_params['k_abs'] *= (1 - val)
+        _, _, P, _, _, metrics = simulate_pathogen(temp_params)
         sweeps.append(metrics['yield'])
     return sweeps
 
@@ -313,9 +331,19 @@ st.title(APP_TITLE)
 st.markdown(f"**Course:** {COURSE_NAME}  \n**Theme:** {THEME}  \n**Instructor:** {INSTRUCTOR}")
 
 # Sidebar navigation
-unlocked_pages = ["Home", "About / Theory Ladder", "Grading & Rubric"] + [LEVELS[i] for i in range(max_level_unlocked + 1)] + ["Instructor Console"]
+unlocked_pages = ["Home", "About / Theory Ladder", "Grading & Rubric"] + [LEVELS[i] for i in range(max_level_unlocked + 1)]
+if max_level_unlocked >= 4:
+    unlocked_pages.append("Midterm Gate")
+unlocked_pages.append("Instructor Console")
+
 locked_pages = [LEVELS[i] for i in range(max_level_unlocked + 1, len(LEVELS))]
-page = st.sidebar.radio("Navigation", unlocked_pages + locked_pages, disabled=lambda p: p in locked_pages)
+if max_level_unlocked < 4:
+    locked_pages.append("Midterm Gate")
+
+page = st.sidebar.radio("Navigation", unlocked_pages)
+
+for p in locked_pages:
+    st.sidebar.markdown(f"- {p} (Locked)")
 
 st.sidebar.markdown(f"**Unlocked through Level {max_level_unlocked}/{len(LEVELS)-1}**")
 
@@ -334,10 +362,7 @@ milestones = [
 for m in milestones:
     st.sidebar.markdown(f"- {m}")
 
-if page in locked_pages:
-    st.markdown(f"### {page} is Locked")
-    st.markdown("This level will unlock theories like [next theory preview]. Contact instructor for unlock.")
-elif page == "Home":
+if page == "Home":
     st.markdown("Welcome to the Symbiotic Systems Lab app. Use the sidebar to navigate levels as they unlock.")
     st.markdown("**Goal:** Unlock levels across the semester, each building interactive modeling tools for systems theory in symbioses.")
 elif page == "About / Theory Ladder":
@@ -376,13 +401,7 @@ elif page == "Grading & Rubric":
     st.markdown("### Course Scoring")
     st.markdown("Final Grade (%) = 0.40(Labs & Simulations) + 0.40(Capstone Project) + 0.20(Participation & Reflection)")
     st.markdown("### Labs & Simulations Rubric (20 points each)")
-    rubric = [
-        "Model execution & correctness (0–5)",
-        "Systems reasoning (feedback/flow/constraint logic) (0–5)",
-        "Theory integration (use the named theories appropriately) (0–5)",
-        "Clarity & evidence (plots/tables + interpretation) (0–5)"
-    ]
-    for item in rubric:
+    for item in RUBRIC:
         st.markdown(f"- {item}")
 elif page == "Instructor Console":
     st.markdown("### Instructor Console")
@@ -422,9 +441,9 @@ elif page == LEVELS[0]:
             gain = -2.0
             delay = 10
             noise_amp = 0.2
-            st.experimental_rerun()
+            st.rerun()
         if st.button("Reset to defaults"):
-            pass  # Streamlit rerun resets
+            st.rerun()
 
     params = {
         'dt': dt, 'total_time': total_time, 'initial_X': initial_X, 'inflow': inflow,
@@ -455,8 +474,8 @@ elif page == LEVELS[1]:
     st.markdown("#### What to Submit")
     st.markdown("- Download run package with interpretation.")
     st.markdown("#### Rubric")
-    rubric_text = "\n".join(["- " + r for r in rubric])
-    st.markdown(rubric_text)
+    for item in RUBRIC:
+        st.markdown(f"- {item}")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -467,6 +486,7 @@ elif page == LEVELS[1]:
         initial_S = st.number_input("Initial S", 0.0, 100.0, prev_params.get('initial_S', 50.0))
         initial_M = st.number_input("Initial M", 0.0, 100.0, prev_params.get('initial_M', 10.0))
         initial_P = st.number_input("Initial P", 0.0, 100.0, prev_params.get('initial_P', 0.0))
+        inflow_S = st.number_input("Inflow S", 0.0, 10.0, prev_params.get('inflow_S', 1.0))
         k_dep = st.number_input("k_dep", 0.0, 1.0, prev_params.get('k_dep', 0.1))
         k_ferm = st.number_input("k_ferm", 0.0, 1.0, prev_params.get('k_ferm', 0.2))
         k_abs = st.number_input("k_abs", 0.0, 1.0, prev_params.get('k_abs', 0.15))
@@ -474,11 +494,11 @@ elif page == LEVELS[1]:
         inhibition_P = st.number_input("Inhibition P", 1.0, 100.0, prev_params.get('inhibition_P', 20.0))
         noise_amp = st.number_input("Noise amplitude", 0.0, 1.0, prev_params.get('noise_amp', 0.05))
         if st.button("Reset to defaults"):
-            pass
+            st.rerun()
 
     params = {
         'dt': dt, 'total_time': total_time, 'initial_S': initial_S, 'initial_M': initial_M, 'initial_P': initial_P,
-        'k_dep': k_dep, 'k_ferm': k_ferm, 'k_abs': k_abs, 'retention_time': retention_time,
+        'inflow_S': inflow_S, 'k_dep': k_dep, 'k_ferm': k_ferm, 'k_abs': k_abs, 'retention_time': retention_time,
         'inhibition_P': inhibition_P, 'noise_amp': noise_amp
     }
 
@@ -508,7 +528,8 @@ elif page == LEVELS[2]:
     st.markdown("#### What to Submit")
     st.markdown("- Download run package with interpretation.")
     st.markdown("#### Rubric")
-    st.markdown(rubric_text)
+    for item in RUBRIC:
+        st.markdown(f"- {item}")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -551,7 +572,8 @@ elif page == LEVELS[3]:
     st.markdown("#### What to Submit")
     st.markdown("- Download run package with interpretation.")
     st.markdown("#### Rubric")
-    st.markdown(rubric_text)
+    for item in RUBRIC:
+        st.markdown(f"- {item}")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -593,7 +615,8 @@ elif page == LEVELS[4]:
     st.markdown("#### What to Submit")
     st.markdown("- Download run package with defense text.")
     st.markdown("#### Rubric")
-    st.markdown(rubric_text)
+    for item in RUBRIC:
+        st.markdown(f"- {item}")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -657,33 +680,30 @@ elif page == LEVELS[5]:
     if st.button("Download run package"):
         json_str = export_run_package(5, LEVELS[5], params, metrics, interpretation, {'yields': np.array(yields)})
         st.download_button("Download JSON", json_str, file_name=f"level5_{datetime.datetime.now().isoformat()}.json")
-elif page == "Midterm Gate":  # Note: Not in levels, but assume unlocked after 4
-    if max_level_unlocked < 4:
-        st.error("Locked until after Level 4")
-    else:
-        st.markdown("### Midterm Gate: Bridge to Ecology")
-        st.markdown("#### Learning Objectives")
-        st.markdown("- Predict before test.\n- Explore hysteresis and stable states.\n- Scale thinking.")
-        st.markdown("#### Theories Calcified Here")
-        st.markdown("- Alternative stable states & hysteresis.\n- Scale thinking.")
-        st.markdown("#### What to Submit")
-        st.markdown("- Download run package with prediction.")
+elif page == "Midterm Gate":
+    st.markdown("### Midterm Gate: Bridge to Ecology")
+    st.markdown("#### Learning Objectives")
+    st.markdown("- Predict before test.\n- Explore hysteresis and stable states.\n- Scale thinking.")
+    st.markdown("#### Theories Calcified Here")
+    st.markdown("- Alternative stable states & hysteresis.\n- Scale thinking.")
+    st.markdown("#### What to Submit")
+    st.markdown("- Download run package with prediction.")
 
-        col1, col2 = st.columns(2)
-        with col1:
-            uploaded = st.file_uploader("Upload previous run package (optional)")
-            prev_params = load_run_package(uploaded) or {}
-            params = prev_params.copy()
-            perturbation = st.selectbox("Perturbation", ['scarcity', 'toxin', 'oxygen'])
-            prediction = st.text_area("Prediction (required)")
+    col1, col2 = st.columns(2)
+    with col1:
+        uploaded = st.file_uploader("Upload previous run package (optional)")
+        prev_params = load_run_package(uploaded) or {}
+        params = prev_params.copy()
+        perturbation = st.selectbox("Perturbation", ['scarcity', 'toxin', 'oxygen'])
+        prediction = st.text_area("Prediction (required)")
 
-        if st.button("Run simulation"):
-            sweeps = midterm_gate_sim(params, perturbation)
-            with col2:
-                fig, ax = plt.subplots()
-                ax.plot(sweeps)
-                ax.set_title("Hysteresis sweep")
-                st.pyplot(fig)
+    if st.button("Run simulation"):
+        sweeps = midterm_gate_sim(params, perturbation)
+        with col2:
+            fig, ax = plt.subplots()
+            ax.plot(sweeps)
+            ax.set_title("Hysteresis sweep")
+            st.pyplot(fig)
 
         if st.button("Download run package"):
             metrics = {'sweeps': sweeps}
@@ -706,7 +726,7 @@ elif page == LEVELS[6]:
         recycling = st.checkbox("Recycling")
         fixation = st.checkbox("Fixation")
         redundancy = st.checkbox("Redundancy")
-        cross_feed = st.checkbox("Cross-feeding")
+        cross_feed_on = st.checkbox("Cross-feeding")
         metrics_to_score = st.multiselect("Scoring metrics", ['yield', 'stability', 'resilience', 'closure', 'cost'])
 
     params = {  # Build params from inputs
@@ -716,13 +736,14 @@ elif page == LEVELS[6]:
         'recycling': recycling,
         'fixation': fixation,
         'redundancy': redundancy,
-        'cross_feed': cross_feed,
+        'cross_feed_on': cross_feed_on,
         # Add defaults for simulation
         'dt': 0.1, 'total_time': 100, 'initial_S': 50, 'initial_M': 10, 'initial_P': 0, 'initial_N': 20 / cn_ratio, 'initial_Path': 0,
+        'inflow_S': 1.0 if resource_regime == 'steady' else 0.0,
         'k_dep': 0.1, 'k_ferm': 0.2, 'k_abs': 0.15, 'retention_time': 10, 'inhibition_P': 20, 'noise_amp': 0.05,
         'N_threshold': 10, 'recycling_frac': 0.2 if recycling else 0, 'fixation_rate': 0.05 if fixation else 0, 'N_loss': 0.01,
         'path_growth': 0, 'path_effect': 0, 'immune_intensity': 0, 'setpoint_P': 10,
-        'cross_feed_on': cross_feed, 'cross_feed': 0.1 if cross_feed else 0, 'guild_type': 'low_robust', 'host_control_str': 0.5
+        'cross_feed': 0.1 if cross_feed_on else 0, 'guild_type': 'low_robust', 'host_control_str': 0.5
     }
 
     S, M, P, N, Path, sim_metrics = simulate_rewiring(params)
