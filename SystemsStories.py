@@ -117,7 +117,7 @@ def simulate_gut_flows(params):
     stability = np.var(P[int(steps*0.8):])
     return S, M, P, {'P_final': P_final, 'cum_ferm': cum_ferm, 'cum_abs': cum_abs, 'stability': stability}
 
-def simulate_nitrogen(params):
+def simulate_nitrogen_core(params):
     dt = params['dt']
     total_time = params['total_time']
     steps = int(total_time / dt)
@@ -171,14 +171,18 @@ def simulate_nitrogen(params):
     cum_abs = np.sum(abs_ts) * dt
     stability = np.var(P[int(steps*0.8):])
     limiting = 'N-limited' if np.mean(N[int(steps*0.8):]) < N_threshold else 'C-limited'
-    canal_var = []  # For canalization: run multiple with noise
+    return S, M, P, N, {'P_final': P_final, 'cum_ferm': cum_ferm, 'cum_abs': cum_abs, 'stability': stability, 'limiting': limiting}
+
+def simulate_nitrogen(params):
+    S, M, P, N, metrics = simulate_nitrogen_core(params)
+    canal_var = []
     for _ in range(5):
         temp_params = params.copy()
-        temp_params['noise_amp'] = noise_amp * 2  # Temp increase for test
-        _, _, _, _, temp_metrics = simulate_nitrogen(temp_params)
+        temp_params['noise_amp'] = params['noise_amp'] * 2
+        _, _, _, _, temp_metrics = simulate_nitrogen_core(temp_params)
         canal_var.append(temp_metrics['cum_abs'])
-    canalization = np.var(canal_var)
-    return S, M, P, N, {'P_final': P_final, 'cum_ferm': cum_ferm, 'cum_abs': cum_abs, 'stability': stability, 'limiting': limiting, 'canalization': canalization}
+    metrics['canalization'] = np.var(canal_var)
+    return S, M, P, N, metrics
 
 def simulate_pathogen(params):
     # Extend nitrogen sim with pathogen
@@ -327,9 +331,28 @@ def midterm_gate_sim(params, perturbation):
         sweeps.append(metrics['cum_abs'])
     return sweeps
 
-def load_run_package(uploaded_file):
+def load_settings_csv(uploaded_file):
     if uploaded_file:
-        return json.load(uploaded_file)
+        df = pd.read_csv(uploaded_file)
+        prev_params = {}
+        for _, row in df.iterrows():
+            val = row['Value']
+            if isinstance(val, str):
+                low = val.lower()
+                if low == 'true':
+                    val = True
+                elif low == 'false':
+                    val = False
+                else:
+                    try:
+                        val = int(val)
+                    except ValueError:
+                        try:
+                            val = float(val)
+                        except ValueError:
+                            pass
+            prev_params[row['Parameter']] = val
+        return prev_params
     return None
 
 # Streamlit app
@@ -361,7 +384,7 @@ milestones = [
     "2026-02-03: Nitrogen Flux & System Stability (Level 2)",
     "2026-02-12: Pathogen as Probe of System Structure (Level 3)",
     "2026-02-26: Constraint Rewiring Workshop (Level 4)",
-    "2026-03-03: Midterm synthesis gate: Bridge to Ecology + prediction-before-test",
+    "2026-03-03: Midterm synthesis gate: Bridge to Ecology",
     "2026-03-17/2026-03-19: Resource scarcity & convergence skins (Level 5)",
     "Late semester: Capstone Builder Mode"
 ]
@@ -412,6 +435,8 @@ elif page == "Grading & Rubric":
 elif page == "Instructor Console":
     st.markdown("### Instructor Console")
     password = st.text_input("Enter password", type="password")
+    if password and hashlib.sha256(password.encode()).hexdigest() != PASSWORD_HASH:
+        st.error("Incorrect password")
     if hashlib.sha256(password.encode()).hexdigest() == PASSWORD_HASH:
         new_level = st.slider("Set max unlocked level", 0, len(LEVELS)-1, max_level_unlocked)
         if st.button("Update Unlock"):
@@ -419,8 +444,6 @@ elif page == "Instructor Console":
             save_unlock_state(new_level)
             st.success("Updated!")
         st.markdown(f"Current: Level {max_level_unlocked}")
-    else:
-        st.error("Incorrect password")
 elif page == LEVELS[0]:
     st.markdown("### Level 0: Systems Grammar Playground (Ungraded Bootcamp)")
     st.markdown("#### Learning Objectives")
@@ -488,8 +511,8 @@ elif page == LEVELS[1]:
 
     col1, col2 = st.columns(2)
     with col1:
-        uploaded = st.file_uploader("Upload previous run package (optional)")
-        prev_params = load_run_package(uploaded) or {}
+        uploaded = st.file_uploader("Upload settings CSV (optional)")
+        prev_params = load_settings_csv(uploaded) or {}
         dt = st.number_input("dt", 0.01, 1.0, prev_params.get('dt', 0.1), key='L1_dt')
         total_time = st.number_input("Total time", 10, 500, prev_params.get('total_time', 100), key='L1_total_time')
         initial_S = st.number_input("Initial S", 0.0, 100.0, prev_params.get('initial_S', 50.0), key='L1_initial_S')
@@ -547,8 +570,8 @@ elif page == LEVELS[2]:
 
     col1, col2 = st.columns(2)
     with col1:
-        uploaded = st.file_uploader("Upload previous run package (optional)")
-        prev_params = load_run_package(uploaded) or {}
+        uploaded = st.file_uploader("Upload settings CSV (optional)")
+        prev_params = load_settings_csv(uploaded) or {}
         params = prev_params.copy()
         # Set defaults if not present
         params.setdefault('dt', 0.1)
@@ -606,8 +629,8 @@ elif page == LEVELS[3]:
 
     col1, col2 = st.columns(2)
     with col1:
-        uploaded = st.file_uploader("Upload previous run package (optional)")
-        prev_params = load_run_package(uploaded) or {}
+        uploaded = st.file_uploader("Upload settings CSV (optional)")
+        prev_params = load_settings_csv(uploaded) or {}
         params = prev_params.copy()
         # Set defaults if not present
         params.setdefault('dt', 0.1)
@@ -671,8 +694,8 @@ elif page == LEVELS[4]:
 
     col1, col2 = st.columns(2)
     with col1:
-        uploaded = st.file_uploader("Upload previous run package (optional)")
-        prev_params = load_run_package(uploaded) or {}
+        uploaded = st.file_uploader("Upload settings CSV (optional)")
+        prev_params = load_settings_csv(uploaded) or {}
         params = prev_params.copy()
         # Set defaults if not present
         params.setdefault('dt', 0.1)
@@ -737,8 +760,8 @@ elif page == LEVELS[5]:
 
     col1, col2 = st.columns(2)
     with col1:
-        uploaded = st.file_uploader("Upload previous run package (optional)")
-        prev_params = load_run_package(uploaded) or {}
+        uploaded = st.file_uploader("Upload settings CSV (optional)")
+        prev_params = load_settings_csv(uploaded) or {}
         params = prev_params.copy()
         # Set defaults if not present
         params.setdefault('dt', 0.1)
@@ -793,14 +816,14 @@ elif page == LEVELS[5]:
 elif page == "Midterm Gate":
     st.markdown("### Midterm Gate: Bridge to Ecology")
     st.markdown("#### Learning Objectives")
-    st.markdown("- Predict before test.\n- Explore hysteresis and stable states.\n- Scale thinking.")
+    st.markdown("- Explore hysteresis and stable states.\n- Scale thinking.")
     st.markdown("#### Theories Calcified Here")
     st.markdown("- Alternative stable states & hysteresis.\n- Scale thinking.")
 
     col1, col2 = st.columns(2)
     with col1:
-        uploaded = st.file_uploader("Upload previous run package (optional)")
-        prev_params = load_run_package(uploaded) or {}
+        uploaded = st.file_uploader("Upload settings CSV (optional)")
+        prev_params = load_settings_csv(uploaded) or {}
         params = prev_params.copy()
         # Set defaults if not present
         params.setdefault('dt', 0.1)
