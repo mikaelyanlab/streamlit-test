@@ -85,8 +85,8 @@ def simulate_gut_flows(params):
     inflow_S = params['inflow_S']
     k_dep = params['k_dep']
     k_ferm = params['k_ferm']
-    k_abs = params['k_abs']
-    k_wash = 1 / params['retention_time']
+    k_abs = params.get('k_abs', 0.15)
+    k_wash = params.get('k_wash', 1 / params.get('retention_time', 10.0))
     inhibition_P = params['inhibition_P']
     noise_amp = params['noise_amp']
     
@@ -124,8 +124,8 @@ def simulate_nitrogen(params):
     inflow_S = params['inflow_S']
     k_dep = params['k_dep']
     k_ferm = params['k_ferm']
-    k_abs = params['k_abs']
-    k_wash = 1 / params['retention_time']
+    k_abs = params.get('k_abs', 0.15)
+    k_wash = params.get('k_wash', 1 / params.get('retention_time', 10.0))
     inhibition_P = params['inhibition_P']
     noise_amp = params['noise_amp']
     N_threshold = params['N_threshold']
@@ -182,8 +182,8 @@ def simulate_pathogen(params):
     inflow_S = params['inflow_S']
     k_dep = params['k_dep']
     k_ferm = params['k_ferm']
-    k_abs = params['k_abs']
-    k_wash = 1 / params['retention_time']
+    k_abs = params.get('k_abs', 0.15)
+    k_wash = params.get('k_wash', 1 / params.get('retention_time', 10.0))
     inhibition_P = params['inhibition_P']
     noise_amp = params['noise_amp']
     N_threshold = params['N_threshold']
@@ -254,7 +254,9 @@ def simulate_rewiring(params):
         params['noise_amp'] /= 1.5
         params['inhibition_P'] *= 1.5
     
+    params['k_abs'] = params.get('k_abs', 0.15)
     params['k_abs'] *= (1 + host_control_str * 0.5)
+    params['k_wash'] = params.get('k_wash', 1 / params.get('retention_time', 10.0))
     params['k_wash'] /= (1 + host_control_str * 0.5)
     
     S, M, P, N, Path, metrics = simulate_pathogen(params)
