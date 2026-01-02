@@ -6,6 +6,7 @@ import json
 import os
 import datetime
 import hashlib
+import io
 
 # Constants
 APP_TITLE = "Symbiotic Systems Lab: Unlocking Levels"
@@ -308,19 +309,6 @@ def midterm_gate_sim(params, perturbation):
         sweeps.append(metrics['yield'])
     return sweeps
 
-def export_run_package(level_id, level_name, params, metrics, interpretation, time_series=None):
-    data = {
-        'level_id': level_id,
-        'level_name': level_name,
-        'timestamp': datetime.datetime.now().isoformat(),
-        'parameters': params,
-        'model_outputs': metrics,
-        'interpretation': interpretation
-    }
-    if time_series:
-        data['time_series'] = {k: v.tolist() for k, v in time_series.items()}
-    return json.dumps(data, indent=4)
-
 def load_run_package(uploaded_file):
     if uploaded_file:
         return json.load(uploaded_file)
@@ -421,8 +409,6 @@ elif page == LEVELS[0]:
     st.markdown("- Understand basic feedback loops.\n- Explore stocks and flows.\n- Observe stable, oscillatory, runaway regimes.")
     st.markdown("#### Theories Calcified Here")
     st.markdown("- Cybernetics & feedback loops.\n- Stocks & flows.")
-    st.markdown("#### What to Submit")
-    st.markdown("- Optional: Download run package.")
     st.markdown("#### Rubric")
     st.markdown("Not graded.")
 
@@ -461,18 +447,20 @@ elif page == LEVELS[0]:
 
         st.markdown(f"Metrics: {metrics}")
 
-    interpretation = st.text_area("Interpretation")
-    if st.button("Download run package"):
-        json_str = export_run_package(0, LEVELS[0], params, metrics, interpretation, {'X': X})
-        st.download_button("Download JSON", json_str, file_name=f"level0_{datetime.datetime.now().isoformat()}.json")
+    params_df = pd.DataFrame(list(params.items()), columns=['Parameter', 'Value'])
+    csv = params_df.to_csv(index=False)
+    st.download_button("Export Settings CSV", csv, "settings.csv", "text/csv")
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png")
+    buf.seek(0)
+    st.download_button("Download Figure", buf, "figure.png", "image/png")
 elif page == LEVELS[1]:
     st.markdown("### Level 1: Termite Gut Flows (Graded Lab)")
     st.markdown("#### Learning Objectives")
     st.markdown("- Model gut fermentation as stocks/flows.\n- Explore dissipative structures in symbiosis.\n- Adjust host controls for yield/stability.")
     st.markdown("#### Theories Calcified Here")
     st.markdown("- Stocks & flows.\n- Dissipative structures.\n- Distributed homeostasis.")
-    st.markdown("#### What to Submit")
-    st.markdown("- Download run package with interpretation.")
     st.markdown("#### Rubric")
     for item in RUBRIC:
         st.markdown(f"- {item}")
@@ -515,18 +503,20 @@ elif page == LEVELS[1]:
 
         st.markdown(f"Metrics: {metrics}")
 
-    interpretation = st.text_area("Interpretation (required for submission)")
-    if st.button("Download run package"):
-        json_str = export_run_package(1, LEVELS[1], params, metrics, interpretation, {'S': S, 'M': M, 'P': P})
-        st.download_button("Download JSON", json_str, file_name=f"level1_{datetime.datetime.now().isoformat()}.json")
+    params_df = pd.DataFrame(list(params.items()), columns=['Parameter', 'Value'])
+    csv = params_df.to_csv(index=False)
+    st.download_button("Export Settings CSV", csv, "settings.csv", "text/csv")
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png")
+    buf.seek(0)
+    st.download_button("Download Figure", buf, "figure.png", "image/png")
 elif page == LEVELS[2]:
     st.markdown("### Level 2: Nitrogen Flux & Bottlenecks (Graded Lab)")
     st.markdown("#### Learning Objectives")
     st.markdown("- Add nitrogen constraint to gut model.\n- Identify bottlenecks.\n- Test canalization with perturbations.")
     st.markdown("#### Theories Calcified Here")
     st.markdown("- Constraint-based thinking.\n- Canalization.\n- Safe operating space.")
-    st.markdown("#### What to Submit")
-    st.markdown("- Download run package with interpretation.")
     st.markdown("#### Rubric")
     for item in RUBRIC:
         st.markdown(f"- {item}")
@@ -559,18 +549,20 @@ elif page == LEVELS[2]:
 
         st.markdown(f"Metrics: {metrics}")
 
-    interpretation = st.text_area("Interpretation")
-    if st.button("Download run package"):
-        json_str = export_run_package(2, LEVELS[2], params, metrics, interpretation, {'S': S, 'M': M, 'P': P, 'N': N})
-        st.download_button("Download JSON", json_str, file_name=f"level2_{datetime.datetime.now().isoformat()}.json")
+    params_df = pd.DataFrame(list(params.items()), columns=['Parameter', 'Value'])
+    csv = params_df.to_csv(index=False)
+    st.download_button("Export Settings CSV", csv, "settings.csv", "text/csv")
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png")
+    buf.seek(0)
+    st.download_button("Download Figure", buf, "figure.png", "image/png")
 elif page == LEVELS[3]:
     st.markdown("### Level 3: Pathogen as Probe (Graded Lab)")
     st.markdown("#### Learning Objectives")
     st.markdown("- Perturb model with pathogen.\n- Compute damage via HDR.\n- Classify failure modes.")
     st.markdown("#### Theories Calcified Here")
     st.markdown("- Host–Damage Response (HDR).\n- Robustness vs fragility.\n- Perturbation reveals structure.")
-    st.markdown("#### What to Submit")
-    st.markdown("- Download run package with interpretation.")
     st.markdown("#### Rubric")
     for item in RUBRIC:
         st.markdown(f"- {item}")
@@ -602,18 +594,20 @@ elif page == LEVELS[3]:
 
         st.markdown(f"Metrics: {metrics}")
 
-    interpretation = st.text_area("Interpretation")
-    if st.button("Download run package"):
-        json_str = export_run_package(3, LEVELS[3], params, metrics, interpretation, {'S': S, 'M': M, 'P': P, 'N': N, 'Path': Path})
-        st.download_button("Download JSON", json_str, file_name=f"level3_{datetime.datetime.now().isoformat()}.json")
+    params_df = pd.DataFrame(list(params.items()), columns=['Parameter', 'Value'])
+    csv = params_df.to_csv(index=False)
+    st.download_button("Export Settings CSV", csv, "settings.csv", "text/csv")
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png")
+    buf.seek(0)
+    st.download_button("Download Figure", buf, "figure.png", "image/png")
 elif page == LEVELS[4]:
     st.markdown("### Level 4: Constraint Rewiring Studio (Graded Lab)")
     st.markdown("#### Learning Objectives")
     st.markdown("- Rewire model constraints.\n- Measure closure and tradeoffs.\n- Defend rewiring choices.")
     st.markdown("#### Theories Calcified Here")
     st.markdown("- Constraint rewiring.\n- Robustness–evolvability.\n- Major transitions.\n- Constraint closure.")
-    st.markdown("#### What to Submit")
-    st.markdown("- Download run package with defense text.")
     st.markdown("#### Rubric")
     for item in RUBRIC:
         st.markdown(f"- {item}")
@@ -644,18 +638,20 @@ elif page == LEVELS[4]:
 
         st.markdown(f"Metrics: {metrics}")
 
-    interpretation = st.text_area("Defense text (required)")
-    if st.button("Download run package"):
-        json_str = export_run_package(4, LEVELS[4], params, metrics, interpretation, {'S': S, 'M': M, 'P': P, 'N': N, 'Path': Path})
-        st.download_button("Download JSON", json_str, file_name=f"level4_{datetime.datetime.now().isoformat()}.json")
+    params_df = pd.DataFrame(list(params.items()), columns=['Parameter', 'Value'])
+    csv = params_df.to_csv(index=False)
+    st.download_button("Export Settings CSV", csv, "settings.csv", "text/csv")
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png")
+    buf.seek(0)
+    st.download_button("Download Figure", buf, "figure.png", "image/png")
 elif page == LEVELS[5]:
     st.markdown("### Level 5: Convergence Skins (Completion-based)")
     st.markdown("#### Learning Objectives")
     st.markdown("- Apply skins to model different symbioses.\n- Observe convergence to attractors.\n- Explore niche construction.")
     st.markdown("#### Theories Calcified Here")
     st.markdown("- Niche construction.\n- Autocatalytic sets.\n- Convergence as attractors.")
-    st.markdown("#### What to Submit")
-    st.markdown("- Download run package.")
     st.markdown("#### Rubric")
     st.markdown("Completion-based.")
 
@@ -676,18 +672,20 @@ elif page == LEVELS[5]:
 
         st.markdown(f"Metrics: {metrics}")
 
-    interpretation = st.text_area("Interpretation")
-    if st.button("Download run package"):
-        json_str = export_run_package(5, LEVELS[5], params, metrics, interpretation, {'yields': np.array(yields)})
-        st.download_button("Download JSON", json_str, file_name=f"level5_{datetime.datetime.now().isoformat()}.json")
+    params_df = pd.DataFrame(list(params.items()), columns=['Parameter', 'Value'])
+    csv = params_df.to_csv(index=False)
+    st.download_button("Export Settings CSV", csv, "settings.csv", "text/csv")
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png")
+    buf.seek(0)
+    st.download_button("Download Figure", buf, "figure.png", "image/png")
 elif page == "Midterm Gate":
     st.markdown("### Midterm Gate: Bridge to Ecology")
     st.markdown("#### Learning Objectives")
     st.markdown("- Predict before test.\n- Explore hysteresis and stable states.\n- Scale thinking.")
     st.markdown("#### Theories Calcified Here")
     st.markdown("- Alternative stable states & hysteresis.\n- Scale thinking.")
-    st.markdown("#### What to Submit")
-    st.markdown("- Download run package with prediction.")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -695,7 +693,6 @@ elif page == "Midterm Gate":
         prev_params = load_run_package(uploaded) or {}
         params = prev_params.copy()
         perturbation = st.selectbox("Perturbation", ['scarcity', 'toxin', 'oxygen'])
-        prediction = st.text_area("Prediction (required)")
 
     if st.button("Run simulation"):
         sweeps = midterm_gate_sim(params, perturbation)
@@ -705,18 +702,20 @@ elif page == "Midterm Gate":
             ax.set_title("Hysteresis sweep")
             st.pyplot(fig)
 
-        if st.button("Download run package"):
-            metrics = {'sweeps': sweeps}
-            json_str = export_run_package('midterm', "Midterm Gate", params, metrics, prediction, {'sweeps': np.array(sweeps)})
-            st.download_button("Download JSON", json_str, file_name=f"midterm_{datetime.datetime.now().isoformat()}.json")
+        params_df = pd.DataFrame(list(params.items()), columns=['Parameter', 'Value'])
+        csv = params_df.to_csv(index=False)
+        st.download_button("Export Settings CSV", csv, "settings.csv", "text/csv")
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png")
+        buf.seek(0)
+        st.download_button("Download Figure", buf, "figure.png", "image/png")
 elif page == LEVELS[6]:
     st.markdown("### Capstone Builder Mode")
     st.markdown("#### Learning Objectives")
     st.markdown("- Build custom system model.\n- Define boundaries, resources, constraints.\n- Compute scoring metrics.")
     st.markdown("#### Theories Calcified Here")
     st.markdown("- All prior + scale thinking, major transitions.")
-    st.markdown("#### What to Submit")
-    st.markdown("- Download System Model Card JSON.")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -752,7 +751,6 @@ elif page == LEVELS[6]:
     with col2:
         st.markdown(f"Scored Metrics: {scored}")
 
-    interpretation = st.text_area("Capstone notes")
-    if st.button("Download System Model Card"):
-        json_str = export_run_package(6, LEVELS[6], params, scored, interpretation)
-        st.download_button("Download JSON", json_str, file_name=f"capstone_{datetime.datetime.now().isoformat()}.json")
+    params_df = pd.DataFrame(list(params.items()), columns=['Parameter', 'Value'])
+    csv = params_df.to_csv(index=False)
+    st.download_button("Export Settings CSV", csv, "settings.csv", "text/csv")
