@@ -79,6 +79,8 @@ def simulate_gut_flows(params):
     S = np.zeros(steps)
     M = np.zeros(steps)
     P = np.zeros(steps)
+    ferm_ts = np.zeros(steps)  # To track cumulative
+    abs_ts = np.zeros(steps)
     S[0] = params['initial_S']
     M[0] = params['initial_M']
     P[0] = params['initial_P']
@@ -89,9 +91,12 @@ def simulate_gut_flows(params):
     k_wash = params.get('k_wash', 1 / params.get('retention_time', 10.0))
     inhibition_P = params['inhibition_P']
     noise_amp = params['noise_amp']
+    cross_feed = params.get('cross_feed', 0)
+    K_cf = 1.0
     
     for t in range(1, steps):
-        dep = k_dep * S[t-1]
+        dep_bonus = cross_feed * P[t-1] / (P[t-1] + K_cf) if cross_feed > 0 else 0
+        dep = k_dep * S[t-1] * (1 + dep_bonus)
         ferm = k_ferm * M[t-1] / (1 + P[t-1] / inhibition_P)
         abs_ = k_abs * P[t-1]
         wash_M = k_wash * M[t-1]
@@ -103,11 +108,14 @@ def simulate_gut_flows(params):
         S[t] = max(0, S[t-1] + dt * (inflow_S - dep + noise_S))
         M[t] = max(0, M[t-1] + dt * (dep - ferm - wash_M + noise_M))
         P[t] = max(0, P[t-1] + dt * (ferm - abs_ - wash_P + noise_P))
+        ferm_ts[t] = ferm
+        abs_ts[t] = abs_
     
-    yield_ = np.sum(P) * dt
+    P_final = P[-1]
+    cum_ferm = np.sum(ferm_ts) * dt
+    cum_abs = np.sum(abs_ts) * dt
     stability = np.var(P[int(steps*0.8):])
-    throughput = np.sum(ferm) * dt
-    return S, M, P, {'yield': yield_, 'stability': stability, 'throughput': throughput}
+    return S, M, P, {'P_final': P_final, 'cum_ferm': cum_ferm, 'cum_abs': cum_abs, 'stability': stability}
 
 def simulate_nitrogen(params):
     dt = params['dt']
@@ -117,6 +125,8 @@ def simulate_nitrogen(params):
     M = np.zeros(steps)
     P = np.zeros(steps)
     N = np.zeros(steps)
+    ferm_ts = np.zeros(steps)
+    abs_ts = np.zeros(steps)
     S[0] = params['initial_S']
     M[0] = params['initial_M']
     P[0] = params['initial_P']
@@ -132,9 +142,12 @@ def simulate_nitrogen(params):
     recycling_frac = params['recycling_frac'] if params['recycling'] else 0
     fixation_rate = params['fixation_rate'] if params['fixation'] else 0
     N_loss = params['N_loss']
+    cross_feed = params.get('cross_feed', 0)
+    K_cf = 1.0
     
     for t in range(1, steps):
-        dep = k_dep * S[t-1]
+        dep_bonus = cross_feed * P[t-1] / (P[t-1] + K_cf) if cross_feed > 0 else 0
+        dep = k_dep * S[t-1] * (1 + dep_bonus)
         f_N = min(1, N[t-1] / N_threshold)
         ferm = k_ferm * M[t-1] * f_N / (1 + P[t-1] / inhibition_P)
         abs_ = k_abs * P[t-1]
@@ -150,19 +163,22 @@ def simulate_nitrogen(params):
         M[t] = max(0, M[t-1] + dt * (dep - ferm - wash_M + noise_M))
         P[t] = max(0, P[t-1] + dt * (ferm - abs_ - wash_P + noise_P))
         N[t] = max(0, N[t-1] + dt * (fixation_rate + recycle_N - N_loss * N[t-1] + noise_N))
+        ferm_ts[t] = ferm
+        abs_ts[t] = abs_
     
-    yield_ = np.sum(P) * dt
+    P_final = P[-1]
+    cum_ferm = np.sum(ferm_ts) * dt
+    cum_abs = np.sum(abs_ts) * dt
     stability = np.var(P[int(steps*0.8):])
-    throughput = np.sum(ferm) * dt
     limiting = 'N-limited' if np.mean(N[int(steps*0.8):]) < N_threshold else 'C-limited'
     canal_var = []  # For canalization: run multiple with noise
     for _ in range(5):
         temp_params = params.copy()
         temp_params['noise_amp'] = noise_amp * 2  # Temp increase for test
-        _, _, _, temp_metrics = simulate_gut_flows(temp_params)
-        canal_var.append(temp_metrics['yield'])
+        _, _, _, _, temp_metrics = simulate_nitrogen(temp_params)
+        canal_var.append(temp_metrics['cum_abs'])
     canalization = np.var(canal_var)
-    return S, M, P, N, {'yield': yield_, 'stability': stability, 'throughput': throughput, 'limiting': limiting, 'canalization': canalization}
+    return S, M, P, N, {'P_final': P_final, 'cum_ferm': cum_ferm, 'cum_abs': cum_abs, 'stability': stability, 'limiting': limiting, 'canalization': canalization}
 
 def simulate_pathogen(params):
     # Extend nitrogen sim with pathogen
@@ -174,6 +190,8 @@ def simulate_pathogen(params):
     P = np.zeros(steps)
     N = np.zeros(steps)
     Path = np.zeros(steps)  # Pathogen load
+    ferm_ts = np.zeros(steps)
+    abs_ts = np.zeros(steps)
     S[0] = params['initial_S']
     M[0] = params['initial_M']
     P[0] = params['initial_P']
@@ -194,14 +212,19 @@ def simulate_pathogen(params):
     immune_intensity = params['immune_intensity']
     path_effect = params['path_effect']  # Steal M, reduce ferm
     cross_feed = params.get('cross_feed', 0)
+    K_cf = 1.0
     if 'pert_val' in params:
         if params['perturbation'] == 'oxygen':
-            k_abs /= (1 + params['pert_val'])
-        # Add others if needed
+            k_ferm *= (1 - params['pert_val'])
+        elif params['perturbation'] == 'toxin':
+            k_ferm *= (1 - params['pert_val'])
+        elif params['perturbation'] == 'scarcity':
+            inflow_S *= (1 - params['pert_val'])
     
     for t in range(1, steps):
         path_load = Path[t-1] * (1 - immune_intensity * 0.5)  # Immune reduces path
-        dep = k_dep * S[t-1] + cross_feed * P[t-1] * 0.01
+        dep_bonus = cross_feed * P[t-1] / (P[t-1] + K_cf) if cross_feed > 0 else 0
+        dep = k_dep * S[t-1] * (1 + dep_bonus)
         f_N = min(1, N[t-1] / N_threshold)
         ferm_red = max(0, 1 - path_load * path_effect)
         ferm = k_ferm * M[t-1] * f_N * ferm_red / (1 + P[t-1] / inhibition_P)
@@ -221,9 +244,13 @@ def simulate_pathogen(params):
         P[t] = max(0, P[t-1] + dt * (ferm - abs_ - wash_P + noise_P))
         N[t] = max(0, N[t-1] + dt * (fixation_rate + recycle_N - N_loss * N[t-1] + noise_N))
         Path[t] = max(0, Path[t-1] + dt * (path_growth * Path[t-1] * (1 - immune_intensity)) + noise_Path)
+        ferm_ts[t] = ferm
+        abs_ts[t] = abs_
     
     damage = 0.1 * np.mean(Path) + 0.05 * (immune_intensity ** 2) + 0.2 * (1 - np.mean(P)/params['setpoint_P'])
-    yield_ = np.sum(P) * dt
+    P_final = P[-1]
+    cum_ferm = np.sum(ferm_ts) * dt
+    cum_abs = np.sum(abs_ts) * dt
     stability = np.var(P[int(steps*0.8):])
     var = np.var(P)
     sign_changes = np.sum(np.diff(np.sign(np.diff(P))) != 0)
@@ -234,52 +261,53 @@ def simulate_pathogen(params):
         failure = 'Oscillatory'
     else:
         failure = 'Stable'
-    return S, M, P, N, Path, {'yield': yield_, 'stability': stability, 'damage': damage, 'failure': failure}
+    return S, M, P, N, Path, {'P_final': P_final, 'cum_ferm': cum_ferm, 'cum_abs': cum_abs, 'stability': stability, 'damage': damage, 'failure': failure}
 
 def simulate_rewiring(params):
-    # Extend pathogen sim with rewiring options
-    cross_feed_on = params['cross_feed_on']
-    params['cross_feed'] = params['cross_feed'] if cross_feed_on else 0
-    redundancy = 2 if params['redundancy'] else 1
-    guild_type = params['guild_type']  # 'high_fragile' or 'low_robust'
-    host_control_str = params['host_control_str']
+    p = params.copy()  # Avoid in-place mutation
+    cross_feed_on = p['cross_feed_on']
+    p['cross_feed'] = p['cross_feed'] if cross_feed_on else 0
+    redundancy = 2 if p['redundancy'] else 1
+    guild_type = p['guild_type']  # 'high_fragile' or 'low_robust'
+    host_control_str = p['host_control_str']
     cost = host_control_str * 0.1 + (redundancy - 1) * 0.05
-    params['k_dep'] *= redundancy
+    p['k_dep'] *= redundancy
     if guild_type == 'high_fragile':
-        params['k_ferm'] *= 1.2
-        params['noise_amp'] *= 1.5
-        params['inhibition_P'] /= 1.5
+        p['k_ferm'] *= 1.2
+        p['noise_amp'] *= 1.5
+        p['inhibition_P'] /= 1.5
     else:
-        params['k_ferm'] *= 0.8
-        params['noise_amp'] /= 1.5
-        params['inhibition_P'] *= 1.5
+        p['k_ferm'] *= 0.8
+        p['noise_amp'] /= 1.5
+        p['inhibition_P'] *= 1.5
     
-    params['k_abs'] = params.get('k_abs', 0.15)
-    params['k_abs'] *= (1 + host_control_str * 0.5)
-    params['k_wash'] = params.get('k_wash', 1 / params.get('retention_time', 10.0))
-    params['k_wash'] /= (1 + host_control_str * 0.5)
+    p['k_abs'] = p.get('k_abs', 0.15)
+    p['k_abs'] *= (1 + host_control_str * 0.5)
+    p['k_wash'] = p.get('k_wash', 1 / p.get('retention_time', 10.0))
+    p['k_wash'] /= (1 + host_control_str * 0.5)
     
-    S, M, P, N, Path, metrics = simulate_pathogen(params)
-    closure_score = sum([cross_feed_on, params['recycling'], params['redundancy'], host_control_str > 0.5])
+    S, M, P, N, Path, metrics = simulate_pathogen(p)
+    closure_score = sum([cross_feed_on, p['recycling'], p['redundancy'], host_control_str > 0.5])
     metrics['cost'] = cost
     metrics['closure'] = closure_score
     return S, M, P, N, Path, metrics
 
 def simulate_convergence(params, skin):
+    p = params.copy()
     if skin == 'phloem':
-        params['initial_N'] /= 2  # N-poor
-        params['k_ferm'] *= 0.8
+        p['initial_N'] /= 2  # N-poor
+        p['k_ferm'] *= 0.8
     elif skin == 'carcass':
-        params['initial_S'] *= 2  # Pulse
-        params['inflow_S'] = 0  # No steady input
+        p['initial_S'] *= 2  # Pulse
+        p['inflow_S'] = 0  # No steady input
     # Multi-start
     yields = []
     for _ in range(10):
-        temp_params = params.copy()
-        temp_params['initial_S'] += np.random.uniform(-0.5, 0.5) * params['initial_S']
-        temp_params['initial_M'] += np.random.uniform(-0.5, 0.5) * params['initial_M']
+        temp_params = p.copy()
+        temp_params['initial_S'] += np.random.uniform(-0.5, 0.5) * p['initial_S']
+        temp_params['initial_M'] += np.random.uniform(-0.5, 0.5) * p['initial_M']
         _, _, _, _, _, metrics = simulate_rewiring(temp_params)  # Use full model
-        yields.append(metrics['yield'])
+        yields.append(metrics['cum_abs'])
     attractors = len(set([round(y, 1) for y in yields]))  # Cluster proxy
     return yields, {'attractors': attractors}
 
@@ -289,26 +317,14 @@ def midterm_gate_sim(params, perturbation):
         temp_params = params.copy()
         temp_params['pert_val'] = val
         temp_params['perturbation'] = perturbation
-        if perturbation == 'scarcity':
-            temp_params['inflow_S'] *= (1 - val)
-        elif perturbation == 'toxin':
-            temp_params['k_ferm'] *= (1 - val)
-        elif perturbation == 'oxygen':
-            temp_params['k_abs'] *= (1 - val)
         _, _, P, _, _, metrics = simulate_pathogen(temp_params)
-        sweeps.append(metrics['yield'])
+        sweeps.append(metrics['cum_abs'])
     for val in np.linspace(1, 0, 10):
         temp_params = params.copy()
         temp_params['pert_val'] = val
         temp_params['perturbation'] = perturbation
-        if perturbation == 'scarcity':
-            temp_params['inflow_S'] *= (1 - val)
-        elif perturbation == 'toxin':
-            temp_params['k_ferm'] *= (1 - val)
-        elif perturbation == 'oxygen':
-            temp_params['k_abs'] *= (1 - val)
         _, _, P, _, _, metrics = simulate_pathogen(temp_params)
-        sweeps.append(metrics['yield'])
+        sweeps.append(metrics['cum_abs'])
     return sweeps
 
 def load_run_package(uploaded_file):
@@ -416,21 +432,24 @@ elif page == LEVELS[0]:
 
     col1, col2 = st.columns(2)
     with col1:
-        dt = st.number_input("dt", 0.01, 1.0, 0.1)
-        total_time = st.number_input("Total time", 10, 500, 100)
-        initial_X = st.number_input("Initial X", 0.0, 100.0, 10.0)
-        inflow = st.number_input("Inflow", 0.0, 10.0, 1.0)
-        outflow = st.number_input("Outflow base", 0.0, 10.0, 1.0)
-        setpoint = st.number_input("Setpoint", 0.0, 100.0, 20.0)
-        gain = st.number_input("Gain", -10.0, 10.0, -1.0)
-        delay = st.number_input("Delay (steps)", 0, 50, 5)
-        noise_amp = st.number_input("Noise amplitude", 0.0, 1.0, 0.1)
+        dt = st.number_input("dt", 0.01, 1.0, 0.1, key='L0_dt')
+        total_time = st.number_input("Total time", 10, 500, 100, key='L0_total_time')
+        initial_X = st.number_input("Initial X", 0.0, 100.0, 10.0, key='L0_initial_X')
+        inflow = st.number_input("Inflow", 0.0, 10.0, 1.0, key='L0_inflow')
+        outflow = st.number_input("Outflow base", 0.0, 10.0, 1.0, key='L0_outflow')
+        setpoint = st.number_input("Setpoint", 0.0, 100.0, 20.0, key='L0_setpoint')
+        gain = st.number_input("Gain", -10.0, 10.0, -1.0, key='L0_gain')
+        delay = st.number_input("Delay (steps)", 0, 50, 5, key='L0_delay')
+        noise_amp = st.number_input("Noise amplitude", 0.0, 1.0, 0.1, key='L0_noise_amp')
         if st.button("Show example settings"):
-            gain = -2.0
-            delay = 10
-            noise_amp = 0.2
+            st.session_state['L0_gain'] = -2.0
+            st.session_state['L0_delay'] = 10
+            st.session_state['L0_noise_amp'] = 0.2
             st.rerun()
         if st.button("Reset to defaults"):
+            for key in list(st.session_state.keys()):
+                if key.startswith('L0_'):
+                    del st.session_state[key]
             st.rerun()
 
     params = {
@@ -471,19 +490,22 @@ elif page == LEVELS[1]:
     with col1:
         uploaded = st.file_uploader("Upload previous run package (optional)")
         prev_params = load_run_package(uploaded) or {}
-        dt = st.number_input("dt", 0.01, 1.0, prev_params.get('dt', 0.1))
-        total_time = st.number_input("Total time", 10, 500, prev_params.get('total_time', 100))
-        initial_S = st.number_input("Initial S", 0.0, 100.0, prev_params.get('initial_S', 50.0))
-        initial_M = st.number_input("Initial M", 0.0, 100.0, prev_params.get('initial_M', 10.0))
-        initial_P = st.number_input("Initial P", 0.0, 100.0, prev_params.get('initial_P', 0.0))
-        inflow_S = st.number_input("Inflow S", 0.0, 10.0, prev_params.get('inflow_S', 1.0))
-        k_dep = st.number_input("k_dep", 0.0, 1.0, prev_params.get('k_dep', 0.1))
-        k_ferm = st.number_input("k_ferm", 0.0, 1.0, prev_params.get('k_ferm', 0.2))
-        k_abs = st.number_input("k_abs", 0.0, 1.0, prev_params.get('k_abs', 0.15))
-        retention_time = st.number_input("Retention time", 1.0, 100.0, prev_params.get('retention_time', 10.0))
-        inhibition_P = st.number_input("Inhibition P", 1.0, 100.0, prev_params.get('inhibition_P', 20.0))
-        noise_amp = st.number_input("Noise amplitude", 0.0, 1.0, prev_params.get('noise_amp', 0.05))
+        dt = st.number_input("dt", 0.01, 1.0, prev_params.get('dt', 0.1), key='L1_dt')
+        total_time = st.number_input("Total time", 10, 500, prev_params.get('total_time', 100), key='L1_total_time')
+        initial_S = st.number_input("Initial S", 0.0, 100.0, prev_params.get('initial_S', 50.0), key='L1_initial_S')
+        initial_M = st.number_input("Initial M", 0.0, 100.0, prev_params.get('initial_M', 10.0), key='L1_initial_M')
+        initial_P = st.number_input("Initial P", 0.0, 100.0, prev_params.get('initial_P', 0.0), key='L1_initial_P')
+        inflow_S = st.number_input("Inflow S", 0.0, 10.0, prev_params.get('inflow_S', 1.0), key='L1_inflow_S')
+        k_dep = st.number_input("k_dep", 0.0, 1.0, prev_params.get('k_dep', 0.1), key='L1_k_dep')
+        k_ferm = st.number_input("k_ferm", 0.0, 1.0, prev_params.get('k_ferm', 0.2), key='L1_k_ferm')
+        k_abs = st.number_input("k_abs", 0.0, 1.0, prev_params.get('k_abs', 0.15), key='L1_k_abs')
+        retention_time = st.number_input("Retention time", 1.0, 100.0, prev_params.get('retention_time', 10.0), key='L1_retention_time')
+        inhibition_P = st.number_input("Inhibition P", 1.0, 100.0, prev_params.get('inhibition_P', 20.0), key='L1_inhibition_P')
+        noise_amp = st.number_input("Noise amplitude", 0.0, 1.0, prev_params.get('noise_amp', 0.05), key='L1_noise_amp')
         if st.button("Reset to defaults"):
+            for key in list(st.session_state.keys()):
+                if key.startswith('L1_'):
+                    del st.session_state[key]
             st.rerun()
 
     params = {
@@ -541,13 +563,13 @@ elif page == LEVELS[2]:
         params.setdefault('retention_time', 10.0)
         params.setdefault('inhibition_P', 20.0)
         params.setdefault('noise_amp', 0.05)
-        initial_N = st.number_input("Initial N", 0.0, 100.0, params.get('initial_N', 20.0))
-        N_threshold = st.number_input("N threshold", 1.0, 50.0, params.get('N_threshold', 10.0))
-        recycling = st.checkbox("Recycling loop", params.get('recycling', False))
-        recycling_frac = st.number_input("Recycling frac", 0.0, 1.0, params.get('recycling_frac', 0.2)) if recycling else 0
-        fixation = st.checkbox("Fixation loop", params.get('fixation', False))
-        fixation_rate = st.number_input("Fixation rate", 0.0, 1.0, params.get('fixation_rate', 0.05)) if fixation else 0
-        N_loss = st.number_input("N loss rate", 0.0, 0.5, params.get('N_loss', 0.01))
+        initial_N = st.number_input("Initial N", 0.0, 100.0, params.get('initial_N', 20.0), key='L2_initial_N')
+        N_threshold = st.number_input("N threshold", 1.0, 50.0, params.get('N_threshold', 10.0), key='L2_N_threshold')
+        recycling = st.checkbox("Recycling loop", params.get('recycling', False), key='L2_recycling')
+        recycling_frac = st.number_input("Recycling frac", 0.0, 1.0, params.get('recycling_frac', 0.2), key='L2_recycling_frac') if recycling else 0
+        fixation = st.checkbox("Fixation loop", params.get('fixation', False), key='L2_fixation')
+        fixation_rate = st.number_input("Fixation rate", 0.0, 1.0, params.get('fixation_rate', 0.05), key='L2_fixation_rate') if fixation else 0
+        N_loss = st.number_input("N loss rate", 0.0, 0.5, params.get('N_loss', 0.01), key='L2_N_loss')
         params.update({'initial_N': initial_N, 'N_threshold': N_threshold, 'recycling': recycling, 'recycling_frac': recycling_frac,
                        'fixation': fixation, 'fixation_rate': fixation_rate, 'N_loss': N_loss})
 
@@ -607,11 +629,11 @@ elif page == LEVELS[3]:
         params.setdefault('fixation', False)
         params.setdefault('fixation_rate', 0.05)
         params.setdefault('N_loss', 0.01)
-        initial_Path = st.number_input("Initial Pathogen", 0.0, 10.0, params.get('initial_Path', 1.0))
-        path_growth = st.number_input("Pathogen growth", 0.0, 1.0, params.get('path_growth', 0.1))
-        path_effect = st.number_input("Pathogen effect", 0.0, 1.0, params.get('path_effect', 0.2))
-        immune_intensity = st.number_input("Immune intensity", 0.0, 1.0, params.get('immune_intensity', 0.5))
-        setpoint_P = st.number_input("Setpoint P", 1.0, 100.0, params.get('setpoint_P', 10.0))
+        initial_Path = st.number_input("Initial Pathogen", 0.0, 10.0, params.get('initial_Path', 1.0), key='L3_initial_Path')
+        path_growth = st.number_input("Pathogen growth", 0.0, 1.0, params.get('path_growth', 0.1), key='L3_path_growth')
+        path_effect = st.number_input("Pathogen effect", 0.0, 1.0, params.get('path_effect', 0.2), key='L3_path_effect')
+        immune_intensity = st.number_input("Immune intensity", 0.0, 1.0, params.get('immune_intensity', 0.5), key='L3_immune_intensity')
+        setpoint_P = st.number_input("Setpoint P", 1.0, 100.0, params.get('setpoint_P', 10.0), key='L3_setpoint_P')
         params.update({'initial_Path': initial_Path, 'path_growth': path_growth, 'path_effect': path_effect,
                        'immune_intensity': immune_intensity, 'setpoint_P': setpoint_P})
 
@@ -677,11 +699,11 @@ elif page == LEVELS[4]:
         params.setdefault('path_effect', 0.2)
         params.setdefault('immune_intensity', 0.5)
         params.setdefault('setpoint_P', 10.0)
-        cross_feed_on = st.checkbox("Add cross-feeding", params.get('cross_feed_on', False))
-        cross_feed = st.number_input("Cross-feed frac", 0.0, 1.0, params.get('cross_feed', 0.1)) if cross_feed_on else 0
-        redundancy = st.checkbox("Add redundancy", params.get('redundancy', False))
-        guild_type = st.selectbox("Guild type", ['high_fragile', 'low_robust'], index=0 if params.get('guild_type', 'high_fragile') == 'high_fragile' else 1)
-        host_control_str = st.number_input("Host control strength", 0.0, 1.0, params.get('host_control_str', 0.5))
+        cross_feed_on = st.checkbox("Add cross-feeding", params.get('cross_feed_on', False), key='L4_cross_feed_on')
+        cross_feed = st.number_input("Cross-feed frac", 0.0, 1.0, params.get('cross_feed', 0.1), key='L4_cross_feed') if cross_feed_on else 0
+        redundancy = st.checkbox("Add redundancy", params.get('redundancy', False), key='L4_redundancy')
+        guild_type = st.selectbox("Guild type", ['high_fragile', 'low_robust'], index=0 if params.get('guild_type', 'high_fragile') == 'high_fragile' else 1, key='L4_guild_type')
+        host_control_str = st.number_input("Host control strength", 0.0, 1.0, params.get('host_control_str', 0.5), key='L4_host_control_str')
         params.update({'cross_feed_on': cross_feed_on, 'cross_feed': cross_feed, 'redundancy': redundancy,
                        'guild_type': guild_type, 'host_control_str': host_control_str})
 
@@ -690,13 +712,11 @@ elif page == LEVELS[4]:
     with col2:
         fig, ax = plt.subplots()
         ax.plot(P, label='P (yield proxy)')
-        ax.plot([metrics['stability']] * len(P), label='Stability')
-        ax.plot([metrics['cost']] * len(P), label='Cost')
-        ax.plot([metrics['closure']] * len(P), label='Closure')
         ax.legend()
         st.pyplot(fig)
 
-        st.markdown(f"Metrics: {metrics}")
+        st.markdown("**Scalar Metrics:**")
+        st.write({'stability': metrics['stability'], 'cost': metrics['cost'], 'closure': metrics['closure']})
 
     params_df = pd.DataFrame(list(params.items()), columns=['Parameter', 'Value'])
     csv = params_df.to_csv(index=False)
@@ -750,7 +770,7 @@ elif page == LEVELS[5]:
         params.setdefault('redundancy', False)
         params.setdefault('guild_type', 'high_fragile')
         params.setdefault('host_control_str', 0.5)
-        skin = st.selectbox("Skin", ['termite', 'phloem', 'carcass'])
+        skin = st.selectbox("Skin", ['termite', 'phloem', 'carcass'], key='L5_skin')
 
     yields, metrics = simulate_convergence(params, skin)
 
@@ -814,7 +834,7 @@ elif page == "Midterm Gate":
         with col2:
             fig, ax = plt.subplots()
             ax.plot(sweeps)
-            ax.set_title("Hysteresis sweep")
+            ax.set_title("Sensitivity Sweep (Forward/Backward)")
             st.pyplot(fig)
 
         params_df = pd.DataFrame(list(params.items()), columns=['Parameter', 'Value'])
@@ -861,7 +881,9 @@ elif page == LEVELS[6]:
     }
 
     S, M, P, N, Path, sim_metrics = simulate_rewiring(params)
-    scored = {m: sim_metrics.get(m, 0) for m in metrics_to_score}
+    scored = {m: sim_metrics.get(m, 0) for m in metrics_to_score if m != 'yield'}
+    if 'yield' in metrics_to_score:
+        scored['yield'] = sim_metrics['cum_abs']
 
     with col2:
         st.markdown(f"Scored Metrics: {scored}")
